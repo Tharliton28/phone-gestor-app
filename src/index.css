@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+body {
+  background-color: #0b0c10; /* Fundo hiper escuro do sistema */
+  color: #e2e8f0;
+}
+
+/* O root é a div mestre do React */
+#root {
+  display: flex;
+  min-height: 100vh;
+}
