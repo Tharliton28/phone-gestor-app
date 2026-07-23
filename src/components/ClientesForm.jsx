@@ -20,7 +20,6 @@ const ClientesForm = ({ aoVoltar }) => {
   const [buscandoCpf, setBuscandoCpf] = useState(false);
   const [dadosConsulta, setDadosConsulta] = useState(null);
 
-  // Estados dos Modais Customizados
   const [modalAviso, setModalAviso] = useState({ aberto: false, titulo: '', mensagem: '', tipo: 'info', acaoOk: null });
   const [modalConfirmarLimpeza, setModalConfirmarLimpeza] = useState(false);
 
@@ -52,7 +51,7 @@ const ClientesForm = ({ aoVoltar }) => {
     if(!formData.nome) {
       return mostrarAviso('Atenção', 'O campo Nome é obrigatório!', 'erro');
     }
-    // Mostra o sucesso e, ao clicar em OK, volta para a tela anterior
+    
     mostrarAviso('Sucesso', 'Cadastro salvo com sucesso no banco de dados!', 'sucesso', () => aoVoltar());
   };
 

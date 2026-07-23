@@ -92,7 +92,6 @@ const OSList = ({ aoClicarEmNova }) => {
                           <MessageCircle size={14} color="#4ade80" /> Notificar via WhatsApp
                         </div>
                         
-                        {/* Ação de faturar só faz sentido se não estiver finalizado/pago */}
                         {os.status !== 'Finalizado' && (
                           <div style={{...styles.dropdownItem, borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px'}} onClick={() => { setMenuAberto(null); handleFaturar(); }}>
                             <DollarSign size={14} color="#fbbf24" /> Finalizar e Faturar

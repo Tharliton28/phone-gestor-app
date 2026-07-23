@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta }) => {
-  // ATUALIZADO: Todos os menus agora iniciam fechados (false)
+
   const [openMenus, setOpenMenus] = useState({ vendas: false, estoque: false, financeiro: false, fiscal: false });
 
   const toggleMenu = (menuKey) => {

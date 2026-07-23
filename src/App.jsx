@@ -28,25 +28,27 @@ import Configuracoes from './components/Configuracoes';
 
 function App() {
   const [telaAtiva, setTelaAtiva] = useState('listagem');
-  const [telaAnterior, setTelaAnterior] = useState(null); // NOVO: Memória de navegação
+  const [telaAnterior, setTelaAnterior] = useState(null); 
   const [sidebarAberta, setSidebarAberta] = useState(true);
+  
+  const [dadosNavegacao, setDadosNavegacao] = useState(null);
 
-  // NOVO: Função inteligente de mudança de tela
-  const mudarTela = (novaTela, telaOrigem = null) => {
+  const mudarTela = (novaTela, telaOrigem = null, dados = null) => {
     if (telaOrigem) {
       setTelaAnterior(telaOrigem);
     }
+    setDadosNavegacao(dados); 
     setTelaAtiva(novaTela);
   };
 
-  // Função para voltar para a tela correta
   const voltarTelaAnterior = (fallback) => {
     if (telaAnterior) {
       setTelaAtiva(telaAnterior);
-      setTelaAnterior(null); // Reseta a memória após usar
+      setTelaAnterior(null); 
     } else {
       setTelaAtiva(fallback);
     }
+    setDadosNavegacao(null); 
   };
 
   return (
@@ -70,7 +72,6 @@ function App() {
         
         <div style={{ padding: '24px', backgroundColor: '#0f111a', flex: 1, display: 'flex', flexDirection: 'column' }}>
           
-          {/* --- DASHBOARD INICIAL --- */}
           {telaAtiva === 'home' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -80,7 +81,6 @@ function App() {
             </>
           )}
 
-          {/* --- VENDAS --- */}
           {telaAtiva === 'listagem' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -102,13 +102,12 @@ function App() {
             </>
           )}
 
-          {/* AJUSTADO: VendaDetalhes agora usa a inteligência do botão voltar */}
           {telaAtiva === 'venda-detalhes' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
                 <span style={{color: '#3b82f6'}}>Venda</span> {'>'} Detalhes da Venda
               </div>
-              <VendaDetalhes aoVoltar={() => voltarTelaAnterior('listagem')} />
+              <VendaDetalhes aoVoltar={() => voltarTelaAnterior('listagem')} aoMudarTela={mudarTela} />
             </>
           )}
 
@@ -117,11 +116,10 @@ function App() {
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
                 <span style={{color: '#3b82f6'}}>Vendas</span> {'>'} Listagem de Vendas {'>'} Visualizar Recibo e Garantia
               </div>
-              <ReciboGarantia aoVoltar={() => voltarTelaAnterior('listagem')} />
+              <ReciboGarantia aoVoltar={() => voltarTelaAnterior('listagem')} vendaSelecionada={dadosNavegacao} />
             </>
           )}
 
-          {/* --- CLIENTES --- */}
           {telaAtiva === 'clientes' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -143,7 +141,6 @@ function App() {
             </>
           )}
 
-          {/* --- HISTÓRICO DE VENDAS --- */}
           {telaAtiva === 'historico' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -152,12 +149,10 @@ function App() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h2 style={{color: '#e2e8f0', fontSize: '20px', fontWeight: '600'}}>Histórico de Vendas</h2>
               </div>
-              {/* HistoricoVendas agora usa a nova função mudarTela */}
               <HistoricoVendas aoMudarTela={mudarTela} />
             </>
           )}
 
-          {/* --- ORÇAMENTOS --- */}
           {telaAtiva === 'orcamentos' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -166,7 +161,8 @@ function App() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h2 style={{color: '#e2e8f0', fontSize: '20px', fontWeight: '600'}}>Listagem de Orçamentos</h2>
               </div>
-              <OrcamentosList aoClicarEmCadastrar={() => mudarTela('novo-orcamento')} />
+              {/* UPDATE AQUI: Repassando o aoMudarTela para OrcamentosList */}
+              <OrcamentosList aoClicarEmCadastrar={() => mudarTela('novo-orcamento')} aoMudarTela={mudarTela} />
             </>
           )}
 
@@ -175,11 +171,10 @@ function App() {
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
                 <span style={{color: '#3b82f6'}}>Orçamento</span> {'>'} Novo
               </div>
-              <OrcamentoForm aoVoltar={() => mudarTela('orcamentos')} />
+              <OrcamentoForm aoVoltar={() => voltarTelaAnterior('orcamentos')} dadosNavegacao={dadosNavegacao} />
             </>
           )}
 
-          {/* --- HISTÓRICO DE RECIBOS E NOTAS --- */}
           {telaAtiva === 'recibos-notas' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -192,7 +187,6 @@ function App() {
             </>
           )}
 
-          {/* --- ESTOQUE --- */}
           {telaAtiva === 'consulta-estoque' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -214,7 +208,6 @@ function App() {
             </>
           )}
 
-          {/* --- COMPRAS --- */}
           {telaAtiva === 'ordem-compra' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -236,7 +229,6 @@ function App() {
             </>
           )}
 
-          {/* --- MOVIMENTAÇÕES E BALANÇOS --- */}
           {telaAtiva === 'movimentacoes' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -273,7 +265,6 @@ function App() {
             </>
           )}
 
-          {/* --- ORDEM DE SERVIÇO (OS) --- */}
           {telaAtiva === 'listagem-os' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -295,7 +286,6 @@ function App() {
             </>
           )}
 
-          {/* --- FINANCEIRO --- */}
           {telaAtiva === 'contas-receber' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -329,7 +319,6 @@ function App() {
             </>
           )}
 
-          {/* --- FISCAL E CONFIGURAÇÕES --- */}
           {telaAtiva === 'painel-fiscal' && (
             <>
               <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>

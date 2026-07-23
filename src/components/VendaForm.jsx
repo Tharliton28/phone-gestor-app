@@ -1,11 +1,120 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Save, Plus, Search, X, Trash2, 
   DollarSign, Percent, Eraser, CreditCard, Calculator, 
-  AlertCircle, CheckCircle, Smartphone, Info
+  AlertCircle, CheckCircle, Smartphone, Info, ChevronDown
 } from 'lucide-react';
 
+// ============================================================================
+// COMPONENTE CUSTOMIZADO: SELECT PESQUISÁVEL
+// ============================================================================
+const SelectPesquisavel = ({ opcoes, valorSelecionado, aoMudar, placeholder }) => {
+  const [aberto, setAberto] = useState(false);
+  const [busca, setBusca] = useState('');
+  const ref = useRef(null);
+
+  // Fecha o dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickFora = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setAberto(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickFora);
+    return () => document.removeEventListener('mousedown', handleClickFora);
+  }, []);
+
+  const opcoesFiltradas = opcoes.filter(opcao => 
+    opcao.toLowerCase().includes(busca.toLowerCase())
+  );
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      {/* Botão que parece um Select normal */}
+      <div 
+        style={styles.selectHeader} 
+        onClick={() => { setAberto(!aberto); setBusca(''); }}
+      >
+        <span style={{ color: valorSelecionado ? '#fff' : '#64748b', fontSize: '13px' }}>
+          {valorSelecionado || placeholder}
+        </span>
+        <ChevronDown size={14} color="#64748b" />
+      </div>
+      
+      {aberto && (
+        <div style={styles.selectDropdown}>
+          <div style={styles.selectSearchContainer}>
+            <Search size={14} color="#64748b" style={styles.selectSearchIcon} />
+            <input
+              autoFocus
+              style={styles.selectSearchInput}
+              placeholder="Pesquisar..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
+          <div style={styles.selectOptionsContainer}>
+            {opcoesFiltradas.length > 0 ? (
+              opcoesFiltradas.map((opcao, index) => (
+                <div 
+                  key={index} 
+                  style={styles.selectOption}
+                  onClick={() => {
+                    aoMudar(opcao);
+                    setAberto(false);
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1f2233'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  {opcao}
+                </div>
+              ))
+            ) : (
+              <div style={{ padding: '10px', color: '#64748b', fontSize: '12px', textAlign: 'center' }}>
+                Nenhum resultado encontrado.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// TELA PRINCIPAL: VENDA FORM
+// ============================================================================
 const VendaForm = ({ aoVoltar }) => {
+  // ==========================================
+  // ESTADOS GERAIS E CADASTROS
+  // ==========================================
+  const [cliente, setCliente] = useState('Consumidor Final (Padrão)');
+  const [vendedor, setVendedor] = useState('Wesley de Sousa Viana');
+
+  const listaClientes = [
+    'Consumidor Final (Padrão)',
+    'THAIS LOPES - 111.222.333-44',
+    'EVERTON SOUSA DE LIMA - 000.000.000-00',
+    'NATAN COVIDEIRA - 555.444.333-22',
+    'MANOEL MESSIAS DOS SANTOS - 062.493.715-16',
+    'ANTONIA DEBORA FELIPE - 777.888.999-00'
+  ];
+
+  const listaVendedores = [
+    'Wesley de Sousa Viana',
+    'João Silva',
+    'Maria Oliveira'
+  ];
+
+  const listaPagamentos = [
+    'PIX (Taxa: 0.00%)',
+    'Dinheiro (Taxa: 0.00%)',
+    'Crédito à Vista Stone (Taxa: 3.49%)',
+    'Crédito Parcelado 12x Stone (Taxa: 12.99%)',
+    'Débito PagSeguro (Taxa: 1.99%)',
+    'Aparelho Usado (Entrada)'
+  ];
+
   // ==========================================
   // ESTADOS DO CARRINHO E VALORES GERAIS
   // ==========================================
@@ -142,7 +251,6 @@ const VendaForm = ({ aoVoltar }) => {
     ));
   };
 
-  // CORREÇÃO: Remove a taxa associada se a linha for deletada
   const confirmarRemocaoPagamento = () => {
     const pagToRemove = pagamentos.find(p => p.id === modalExcluirPagamento.id);
     
@@ -235,17 +343,23 @@ const VendaForm = ({ aoVoltar }) => {
           <div style={styles.grid5}>
             <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
               <label style={styles.label}>Cliente:</label>
-              <select style={styles.input}>
-                <option>Consumidor Final (Padrão)</option>
-                <option>THAIS LOPES</option>
-                <option>NATAN COVIDEIRA</option>
-              </select>
+              {/* SELECT PESQUISÁVEL: CLIENTE */}
+              <SelectPesquisavel 
+                opcoes={listaClientes}
+                valorSelecionado={cliente}
+                aoMudar={setCliente}
+                placeholder="Buscar cliente..."
+              />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Vendedor:</label>
-              <select style={styles.input}>
-                <option>Wesley de Sousa Viana</option>
-              </select>
+              {/* SELECT PESQUISÁVEL: VENDEDOR */}
+              <SelectPesquisavel 
+                opcoes={listaVendedores}
+                valorSelecionado={vendedor}
+                aoMudar={setVendedor}
+                placeholder="Selecionar vendedor..."
+              />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Data da Venda:</label>
@@ -362,18 +476,16 @@ const VendaForm = ({ aoVoltar }) => {
           ) : (
             <>
               {pagamentos.map((pag, index) => (
-                <div key={pag.id} style={{...styles.grid4, marginBottom: '15px', paddingBottom: '15px', borderBottom: index < pagamentos.length - 1 ? '1px dashed #2a2e3f' : 'none'}}>
+                <div key={pag.id} style={{...styles.grid4, marginBottom: '15px', paddingBottom: '15px', borderBottom: index < pagamentos.length - 1 ? '1px dashed #2a2e3f' : 'none', position: 'relative', zIndex: 10 - index }}>
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Forma de pagamento:</label>
-                    <select style={styles.input} value={pag.forma} onChange={(e) => mudarFormaPagamento(pag.id, e.target.value)}>
-                      <option value="">Selecionar...</option>
-                      <option>PIX (Taxa: 0.00%)</option>
-                      <option>Dinheiro (Taxa: 0.00%)</option>
-                      <option>Crédito à Vista Stone (Taxa: 3.49%)</option>
-                      <option>Crédito Parcelado 12x Stone (Taxa: 12.99%)</option>
-                      <option>Débito PagSeguro (Taxa: 1.99%)</option>
-                      <option>Aparelho Usado (Entrada)</option>
-                    </select>
+                    {/* SELECT PESQUISÁVEL: FORMA DE PAGAMENTO */}
+                    <SelectPesquisavel 
+                      opcoes={listaPagamentos}
+                      valorSelecionado={pag.forma}
+                      aoMudar={(novaForma) => mudarFormaPagamento(pag.id, novaForma)}
+                      placeholder="Selecionar..."
+                    />
                   </div>
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Valor Pago (R$):</label>
@@ -382,7 +494,7 @@ const VendaForm = ({ aoVoltar }) => {
                       
                       {pag.taxa > 0 && !pag.taxaRepassada && (
                         <button style={styles.btnRepassarTaxa} onClick={() => repassarTaxaAoCliente(pag.id, pag.valor, pag.taxa)}>
-                          Repassar Taxa ({pag.taxa}%)
+                          Repassar ({pag.taxa}%)
                         </button>
                       )}
                       {pag.taxaRepassada && (
@@ -504,7 +616,7 @@ const VendaForm = ({ aoVoltar }) => {
             </div>
             <div style={styles.modalFooter}>
               <button style={styles.btnCancel} onClick={() => setModalAparelhoAberto(false)}>Cancelar</button>
-              <button style={styles.btnSaveModal} onClick={confirmarAparelhoEntrada}>Lançar e Adicionar ao Estoque</button>
+              <button style={styles.btnSaveModal} onClick={confirmarAparelhoEntrada}>Lançar e Adicionar</button>
             </div>
           </div>
         </div>
@@ -554,10 +666,10 @@ const VendaForm = ({ aoVoltar }) => {
       {modalExcluirPagamento.aberto && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContentSmall}>
-            <div style={styles.modalHeader}><h3 style={{color: '#fff'}}>Remover Pagamento?</h3></div>
+            <div style={styles.modalHeader}><h3 style={{margin: 0, color: '#fff'}}>Remover Pagamento?</h3></div>
             <div style={{padding: '20px 0', color: '#94a3b8'}}>Deseja remover esta forma de pagamento da venda? Os valores serão recalculados.</div>
             <div style={styles.modalFooter}>
-              <button style={styles.btnCancel} onClick={() => setModalExcluirPagamento({aberto: false})}>Não</button>
+              <button style={styles.btnCancel} onClick={() => setModalExcluirPagamento({aberto: false, id: null})}>Não</button>
               <button style={{...styles.btnSaveModal, backgroundColor: '#ef4444'}} onClick={confirmarRemocaoPagamento}>Sim, remover</button>
             </div>
           </div>
@@ -580,7 +692,7 @@ const styles = {
   grid5: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '15px' }, 
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
   label: { color: '#a1a1aa', fontSize: '12px', fontWeight: '500' },
-  input: { backgroundColor: '#0b0c10', border: '1px solid #2a2e3f', borderRadius: '4px', padding: '10px 12px', color: '#fff', fontSize: '13px', width: '100%', outline: 'none' },
+  input: { backgroundColor: '#0b0c10', border: '1px solid #2a2e3f', borderRadius: '4px', padding: '10px 12px', color: '#fff', fontSize: '13px', width: '100%', outline: 'none', boxSizing: 'border-box' },
   optionItem: { backgroundColor: '#11131c', color: '#e2e8f0' }, 
   inputMini: { backgroundColor: '#0b0c10', border: '1px solid #2a2e3f', borderRadius: '4px', padding: '6px', color: '#fff', fontSize: '13px', width: '60px', textAlign: 'center', outline: 'none' },
   btnPrimaryOutline: { backgroundColor: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', padding: '8px 16px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' },
@@ -611,7 +723,16 @@ const styles = {
   btnSaveModal: { backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' },
   inputWithIcon: { position: 'relative', display: 'flex', alignItems: 'center', width: '100%' },
   modalProductList: { overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '15px' },
-  modalProductItem: { backgroundColor: '#0f111a', border: '1px solid #2a2e3f', borderRadius: '6px', padding: '12px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }
+  modalProductItem: { backgroundColor: '#0f111a', border: '1px solid #2a2e3f', borderRadius: '6px', padding: '12px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' },
+  
+  // ESTILOS DO COMPONENTE SELECT PESQUISÁVEL
+  selectHeader: { backgroundColor: '#0b0c10', border: '1px solid #2a2e3f', borderRadius: '4px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', boxSizing: 'border-box' },
+  selectDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#11131c', border: '1px solid #3b82f6', borderRadius: '4px', marginTop: '4px', zIndex: 50, boxShadow: '0 10px 25px rgba(0,0,0,0.8)', overflow: 'hidden' },
+  selectSearchContainer: { display: 'flex', alignItems: 'center', padding: '8px', borderBottom: '1px solid #1f2233', backgroundColor: '#0f111a' },
+  selectSearchIcon: { marginRight: '8px' },
+  selectSearchInput: { flex: 1, backgroundColor: 'transparent', border: 'none', color: '#fff', fontSize: '13px', outline: 'none' },
+  selectOptionsContainer: { maxHeight: '200px', overflowY: 'auto' },
+  selectOption: { padding: '10px 12px', color: '#e2e8f0', fontSize: '13px', cursor: 'pointer', borderBottom: '1px solid #1f2233', transition: 'background-color 0.2s' },
 };
 
 export default VendaForm;

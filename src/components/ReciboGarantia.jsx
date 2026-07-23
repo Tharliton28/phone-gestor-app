@@ -1,11 +1,51 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Printer, Download, Share2, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
-const ReciboGarantia = ({ aoVoltar }) => {
+// A tela recebe a propriedade 'vendaSelecionada' além da função de voltar
+const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
   const [modalAviso, setModalAviso] = useState({ aberto: false, titulo: '', mensagem: '', tipo: 'info', acaoOk: null });
 
   const mostrarAviso = (titulo, mensagem, tipo = 'info', acaoOk = null) => {
     setModalAviso({ aberto: true, titulo, mensagem, tipo, acaoOk });
+  };
+
+  // ==========================================
+  // SIMULAÇÃO DO BANCO DE DADOS (Configurações da Empresa)
+  // Isso virá do Contexto/Estado Global no futuro
+  // ==========================================
+  const empresa = {
+    razaoSocial: 'Biscoito Imports LTDA',
+    nomeFantasia: 'Biscoito Imports',
+    cnpj: '64.951.713/0001-13',
+    endereco: 'Avenida Narciso Pessoa de Araújo, 113',
+    cidade: 'Maracanaú',
+    uf: 'CE',
+    telefone: '(85) 98589-2506'
+  };
+
+  // ==========================================
+  // DADOS DA VENDA
+  // Usa o objeto passado por prop, ou o MOCK caso seja aberto sem seleção
+  // ==========================================
+  const venda = vendaSelecionada || {
+    id: '4146187',
+    cliente: 'THAIS LOPES',
+    cpf: '000.000.000-00',
+    telefone: '(85) 99430-0841',
+    email: 'thais@email.com',
+    endereco: 'Rua das Flores, 123',
+    cidade: 'Maracanaú',
+    uf: 'CE',
+    data: '03/07/2026',
+    vendedor: 'Wesley de Sousa',
+    valorTotal: '5.500,00',
+    produtos: [
+      { id: '5181678', descricao: 'Celular - IPHONE 13 PRO MAX - 128GB - AZUL PACÍFICO', imei: '353967815666840', qtd: 1, valorUnitario: '5.500,00', valorTotal: '5.500,00' }
+    ],
+    pagamentos: [
+      { forma: 'APARELHO NA TROCA', detalhes: 'iPhone 11 64GB Preto (Avaliação)', valor: '2.000,00' },
+      { forma: 'PIX', detalhes: 'Chave CNPJ', valor: '3.500,00' }
+    ]
   };
 
   return (
@@ -35,26 +75,26 @@ const ReciboGarantia = ({ aoVoltar }) => {
         {/* A FOLHA A4 */}
         <div style={styles.a4Page} className="print-area">
           
-          {/* Cabeçalho do Recibo */}
+          {/* Cabeçalho do Recibo (DADOS DA EMPRESA DINÂMICOS) */}
           <div style={styles.docHeader}>
             <div style={styles.docHeaderLeft}>
               <h1 style={styles.logoText}>Biscoito<span style={{color: '#d4af37'}}>.</span>Imports</h1>
             </div>
             <div style={styles.docHeaderCenter}>
-              <p style={styles.companyInfo}><strong>Biscoito Imports LTDA</strong></p>
-              <p style={styles.companyInfo}>Avenida Narciso Pessoa de Araújo, 113, Maracanaú - CE</p>
-              <p style={styles.companyInfo}>CNPJ: 64.951.713/0001-13 | Tel: (85) 98822-5506</p>
+              <p style={styles.companyInfo}><strong>{empresa.razaoSocial}</strong></p>
+              <p style={styles.companyInfo}>{empresa.endereco}, {empresa.cidade} - {empresa.uf}</p>
+              <p style={styles.companyInfo}>CNPJ: {empresa.cnpj} | Tel: {empresa.telefone}</p>
             </div>
             <div style={styles.docHeaderRight}>
-              <p style={styles.docInfo}><strong>DATA:</strong> 03/07/2026</p>
-              <p style={styles.docInfo}><strong>VENDEDOR:</strong> Wesley de Sousa</p>
-              <p style={styles.docInfo}><strong>RECIBO Nº:</strong> MP0004146187</p>
+              <p style={styles.docInfo}><strong>DATA:</strong> {venda.data}</p>
+              <p style={styles.docInfo}><strong>VENDEDOR:</strong> {venda.vendedor}</p>
+              <p style={styles.docInfo}><strong>RECIBO Nº:</strong> MP{venda.id}</p>
             </div>
           </div>
 
           <h2 style={styles.docTitle}>RECIBO DE VENDA E TERMO DE GARANTIA</h2>
 
-          {/* Dados do Cliente */}
+          {/* Dados do Cliente (DADOS DA VENDA DINÂMICOS) */}
           <table style={styles.table}>
             <thead>
               <tr><th colSpan="4" style={styles.thTitle}>DESTINATÁRIO / COMPRADOR</th></tr>
@@ -67,20 +107,20 @@ const ReciboGarantia = ({ aoVoltar }) => {
             </thead>
             <tbody>
               <tr>
-                <td style={styles.td}>THAIS LOPES</td>
-                <td style={styles.td}>(85) 99430-0841</td>
-                <td style={styles.td}>000.000.000-00</td>
-                <td style={styles.td}>thais@email.com</td>
+                <td style={styles.td}>{venda.cliente}</td>
+                <td style={styles.td}>{venda.telefone}</td>
+                <td style={styles.td}>{venda.cpf}</td>
+                <td style={styles.td}>{venda.email || 'Não informado'}</td>
               </tr>
               <tr>
-                <td colSpan="2" style={styles.tdHeader}>Endereço: <span style={styles.tdValue}>Rua das Flores, 123</span></td>
-                <td style={styles.tdHeader}>Cidade: <span style={styles.tdValue}>Maracanaú</span></td>
-                <td style={styles.tdHeader}>UF: <span style={styles.tdValue}>CE</span></td>
+                <td colSpan="2" style={styles.tdHeader}>Endereço: <span style={styles.tdValue}>{venda.endereco || 'Não informado'}</span></td>
+                <td style={styles.tdHeader}>Cidade: <span style={styles.tdValue}>{venda.cidade || '-'}</span></td>
+                <td style={styles.tdHeader}>UF: <span style={styles.tdValue}>{venda.uf || '-'}</span></td>
               </tr>
             </tbody>
           </table>
 
-          {/* Dados do Produto */}
+          {/* Dados do Produto (LISTA DINÂMICA) */}
           <table style={styles.table}>
             <thead>
               <tr><th colSpan="5" style={styles.thTitle}>DADOS DO PRODUTO</th></tr>
@@ -93,39 +133,38 @@ const ReciboGarantia = ({ aoVoltar }) => {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td style={styles.td}>5181678</td>
-                <td style={styles.td}>Celular - IPHONE 13 PRO MAX - 128GB - AZUL PACÍFICO<br/>IMEI: 353967815666840</td>
-                <td style={{...styles.td, textAlign: 'center'}}>1</td>
-                <td style={{...styles.td, textAlign: 'right'}}>R$ 5.500,00</td>
-                <td style={{...styles.td, textAlign: 'right'}}>R$ 5.500,00</td>
-              </tr>
+              {venda.produtos.map((prod, index) => (
+                <tr key={index}>
+                  <td style={styles.td}>{prod.id}</td>
+                  <td style={styles.td}>{prod.descricao}{prod.imei && <><br/>IMEI: {prod.imei}</>}</td>
+                  <td style={{...styles.td, textAlign: 'center'}}>{prod.qtd}</td>
+                  <td style={{...styles.td, textAlign: 'right'}}>R$ {prod.valorUnitario}</td>
+                  <td style={{...styles.td, textAlign: 'right'}}>R$ {prod.valorTotal}</td>
+                </tr>
+              ))}
               <tr>
                 <td colSpan="4" style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>TOTAL DOS PRODUTOS:</td>
-                <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>R$ 5.500,00</td>
+                <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>R$ {venda.valorTotal}</td>
               </tr>
             </tbody>
           </table>
 
-          {/* Pagamento */}
+          {/* Pagamento (LISTA DINÂMICA) */}
           <table style={styles.table}>
             <thead>
               <tr><th colSpan="3" style={styles.thTitle}>FORMA DE PAGAMENTO</th></tr>
             </thead>
             <tbody>
-              <tr>
-                <td style={{...styles.td, width: '30%'}}>APARELHO NA TROCA</td>
-                <td style={{...styles.td, width: '45%'}}>iPhone 11 64GB Preto (Avaliação)</td>
-                <td style={{...styles.td, width: '25%', textAlign: 'right'}}>R$ 2.000,00</td>
-              </tr>
-              <tr>
-                <td style={styles.td}>PIX</td>
-                <td style={styles.td}>Chave CNPJ</td>
-                <td style={{...styles.td, textAlign: 'right'}}>R$ 3.500,00</td>
-              </tr>
+              {venda.pagamentos.map((pag, index) => (
+                <tr key={index}>
+                  <td style={{...styles.td, width: '30%'}}>{pag.forma}</td>
+                  <td style={{...styles.td, width: '45%'}}>{pag.detalhes}</td>
+                  <td style={{...styles.td, width: '25%', textAlign: 'right'}}>R$ {pag.valor}</td>
+                </tr>
+              ))}
               <tr>
                 <td colSpan="2" style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>TOTAL PAGO:</td>
-                <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>R$ 5.500,00</td>
+                <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>R$ {venda.valorTotal}</td>
               </tr>
             </tbody>
           </table>
@@ -141,7 +180,7 @@ const ReciboGarantia = ({ aoVoltar }) => {
               <strong>Cláusula 2ª:</strong> Por tratar-se de um aparelho seminovo, todas as informações e características do produto foram repassadas pelo vendedor no ato da compra, não podendo ser extraídas diretamente no site do fabricante.
             </p>
             <p style={styles.legalText}>
-              <strong>Cláusula 3ª (DO PRAZO):</strong> A garantia será de 90 (noventa) dias para defeitos de fabricação (placa), contados a partir da data de recebimento do produto, respeitando o Código de Defesa do Consumidor. A Biscoito Imports não garante a vedação contra água do aparelho.
+              <strong>Cláusula 3ª (DO PRAZO):</strong> A garantia será de 90 (noventa) dias para defeitos de fabricação (placa), contados a partir da data de recebimento do produto, respeitando o Código de Defesa do Consumidor. A {empresa.nomeFantasia} não garante a vedação contra água do aparelho.
             </p>
             <p style={styles.legalText}>
               <strong>Cláusula 4ª (PERDA DE GARANTIA):</strong> A garantia do produto cessará imediatamente nos seguintes casos:
@@ -159,17 +198,17 @@ const ReciboGarantia = ({ aoVoltar }) => {
             </p>
           </div>
 
-          {/* Assinaturas */}
+          {/* Assinaturas (NOME DA EMPRESA E CLIENTE DINÂMICOS) */}
           <div style={styles.signaturesArea}>
             <div style={styles.signatureBox}>
               <div style={styles.signatureLine}></div>
-              <p style={styles.signatureName}>THAIS LOPES</p>
+              <p style={styles.signatureName}>{venda.cliente}</p>
               <p style={styles.signatureRole}>Comprador(a) / Cliente</p>
             </div>
             <div style={styles.signatureBox}>
               <div style={styles.signatureLine}></div>
-              <p style={styles.signatureName}>Wesley de Sousa</p>
-              <p style={styles.signatureRole}>Vendedor / Biscoito Imports</p>
+              <p style={styles.signatureName}>{venda.vendedor}</p>
+              <p style={styles.signatureRole}>Vendedor / {empresa.nomeFantasia}</p>
             </div>
           </div>
           

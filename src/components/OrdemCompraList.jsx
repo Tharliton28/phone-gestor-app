@@ -8,7 +8,7 @@ import {
 const OrdemCompraList = ({ aoClicarEmNova }) => {
   const [menuAberto, setMenuAberto] = useState(null);
 
-  // Mágica para fechar o menu ao clicar fora
+  // Fechar o menu ao clicar fora
   useEffect(() => {
     const handleClickFora = () => setMenuAberto(null);
     document.addEventListener('click', handleClickFora);

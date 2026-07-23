@@ -10,11 +10,15 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const [menuExportarAberto, setMenuExportarAberto] = useState(false);
   const [paginaAtual, setPaginaAtual] = useState(1);
   
+  // Filtros
+  const [filtros, setFiltros] = useState({
+    codigo: '', cliente: '', vendedor: 'Todos', data: '', validade: '', status: 'Todos'
+  });
+
   // Estados para os Modais Customizados
   const [modalExcluirAberto, setModalExcluirAberto] = useState({ aberto: false, id: null });
   const [modalAprovarAberto, setModalAprovarAberto] = useState({ aberto: false, id: null });
   const [modalRejeitarAberto, setModalRejeitarAberto] = useState({ aberto: false, id: null });
-  const [modalPdfAberto, setModalPdfAberto] = useState({ aberto: false, id: null });
 
   const [orcamentos, setOrcamentos] = useState([
     { cod: '9001', cliente: 'CARLOS EDUARDO', vendedor: 'Wesley de Sousa', data: '08/07/2026', validade: '15/07/2026', valor: '4.500,00', status: 'Pendente' },
@@ -60,6 +64,30 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
     }
   };
 
+  const limparFiltros = () => {
+    setFiltros({ codigo: '', cliente: '', vendedor: 'Todos', data: '', validade: '', status: 'Todos' });
+  };
+
+  // Função para abrir o PDF (redireciona para o formulário no modo impressão)
+  const handleGerarPdf = (orc) => {
+    setMenuAberto(null);
+    if(aoMudarTela) {
+        // Envia o orçamento selecionado e uma flag para abrir o modal de impressão diretamente
+        aoMudarTela('novo-orcamento', 'orcamentos', { orcamentoSelecionado: orc, autoImprimir: true });
+    }
+  };
+
+  const orcamentosFiltrados = orcamentos.filter(orc => {
+    const matchCodigo = orc.cod.includes(filtros.codigo);
+    const matchCliente = orc.cliente.toLowerCase().includes(filtros.cliente.toLowerCase());
+    const matchVendedor = filtros.vendedor === 'Todos' || orc.vendedor === filtros.vendedor;
+    const matchData = filtros.data === '' || orc.data === filtros.data.split('-').reverse().join('/');
+    const matchValidade = filtros.validade === '' || orc.validade === filtros.validade.split('-').reverse().join('/');
+    const matchStatus = filtros.status === 'Todos' || orc.status === filtros.status;
+
+    return matchCodigo && matchCliente && matchVendedor && matchData && matchValidade && matchStatus;
+  });
+
   return (
     <div style={styles.container}>
       
@@ -70,7 +98,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
           </button>
         </div>
         <div style={styles.rightActions}>
-          <button style={styles.btnDangerOutline}>
+          <button style={styles.btnDangerOutline} onClick={limparFiltros}>
             <Eraser size={14} /> Limpar filtros
           </button>
           
@@ -109,28 +137,60 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
               <th style={{...styles.th, width: '10%', textAlign: 'center'}}>Ações</th>
             </tr>
             <tr style={styles.filterRow}>
-              <td style={styles.tdFilter}><input type="text" style={styles.filterInput} placeholder="Nº..." /></td>
+              <td style={styles.tdFilter}>
+                <input 
+                  type="text" 
+                  style={styles.filterInput} 
+                  placeholder="Nº..." 
+                  value={filtros.codigo}
+                  onChange={(e) => setFiltros({...filtros, codigo: e.target.value.replace(/[^0-9]/g, '')})}
+                />
+              </td>
               <td style={styles.tdFilter}>
                 <div style={styles.inputWithIcon}>
-                  <input type="text" placeholder="Buscar cliente..." style={styles.filterInputComIcone} />
+                  <input 
+                    type="text" 
+                    placeholder="Buscar cliente..." 
+                    style={styles.filterInputComIcone} 
+                    value={filtros.cliente}
+                    onChange={(e) => setFiltros({...filtros, cliente: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s]/g, '')})}
+                  />
                   <Search size={14} style={styles.innerIcon} />
                 </div>
               </td>
               <td style={styles.tdFilter}>
-                <select style={{...styles.filterInput, width: '100%'}}>
+                <select 
+                  style={{...styles.filterInput, width: '100%'}}
+                  value={filtros.vendedor}
+                  onChange={(e) => setFiltros({...filtros, vendedor: e.target.value})}
+                >
                   <option>Todos</option>
                   <option>Wesley de Sousa</option>
                 </select>
               </td>
               <td style={styles.tdFilter}>
-                <input type="date" style={{...styles.filterInput, width: '100%', padding: '8px 4px'}} />
+                <input 
+                  type="date" 
+                  style={{...styles.filterInput, width: '100%', padding: '8px 4px'}} 
+                  value={filtros.data}
+                  onChange={(e) => setFiltros({...filtros, data: e.target.value})}
+                />
               </td>
               <td style={styles.tdFilter}>
-                <input type="date" style={{...styles.filterInput, width: '100%', padding: '8px 4px'}} />
+                <input 
+                  type="date" 
+                  style={{...styles.filterInput, width: '100%', padding: '8px 4px'}} 
+                  value={filtros.validade}
+                  onChange={(e) => setFiltros({...filtros, validade: e.target.value})}
+                />
               </td>
               <td style={styles.tdFilter}></td>
               <td style={styles.tdFilter}>
-                <select style={{...styles.filterInput, width: '100%'}}>
+                <select 
+                  style={{...styles.filterInput, width: '100%'}}
+                  value={filtros.status}
+                  onChange={(e) => setFiltros({...filtros, status: e.target.value})}
+                >
                   <option>Todos</option>
                   <option>Pendente</option>
                   <option>Aprovado</option>
@@ -141,7 +201,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             </tr>
           </thead>
           <tbody>
-            {orcamentos.map((orc, index) => (
+            {orcamentosFiltrados.map((orc, index) => (
               <tr key={orc.cod} style={styles.tr}>
                 <td style={{...styles.td, color: '#e2e8f0'}}>{orc.cod}</td>
                 <td style={{...styles.td, fontWeight: 'bold', color: '#e2e8f0'}} title={orc.cliente}>{orc.cliente}</td>
@@ -164,11 +224,11 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                     {menuAberto === index && (
                       <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
                         
-                        <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); if(aoMudarTela) { aoMudarTela('novo-orcamento'); } else { aoClicarEmCadastrar(); } }}>
+                        <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); if(aoMudarTela) { aoMudarTela('novo-orcamento', 'orcamentos', { orcamentoSelecionado: orc }); } else { aoClicarEmCadastrar(); } }}>
                           <Edit size={14} color="#94a3b8" /> Editar Orçamento
                         </div>
                         
-                        <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); setModalPdfAberto({ aberto: true, id: orc.cod }); }}>
+                        <div style={styles.dropdownItem} onClick={() => handleGerarPdf(orc)}>
                           <FileText size={14} color="#38bdf8" /> Gerar PDF / Imprimir
                         </div>
                         
@@ -194,7 +254,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                 </td>
               </tr>
             ))}
-            {orcamentos.length === 0 && (
+            {orcamentosFiltrados.length === 0 && (
               <tr>
                 <td colSpan="8" style={{textAlign: 'center', padding: '30px', color: '#64748b', fontSize: '13px'}}>
                   Nenhum registro encontrado
@@ -205,9 +265,9 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
         </table>
       </div>
 
-      {orcamentos.length > 0 && (
+      {orcamentosFiltrados.length > 0 && (
         <div style={styles.paginationArea}>
-          <span style={styles.paginationText}>Mostrando 1 a {orcamentos.length} de {orcamentos.length} registros</span>
+          <span style={styles.paginationText}>Mostrando 1 a {orcamentosFiltrados.length} de {orcamentosFiltrados.length} registros</span>
           
           <div style={styles.paginationButtons}>
             <button style={styles.pageBtnNav} disabled={paginaAtual === 1} onClick={() => setPaginaAtual(prev => prev - 1)}>
@@ -284,35 +344,6 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             <div style={styles.modalFooter}>
               <button style={styles.btnCancel} onClick={() => setModalExcluirAberto({aberto: false, id: null})}>Cancelar</button>
               <button style={{...styles.btnSaveModal, backgroundColor: '#ef4444'}} onClick={confirmarExclusao}>Sim, Excluir</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: GERAR PDF (Apenas visual) */}
-      {modalPdfAberto.aberto && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContentSmall}>
-            <div style={styles.modalHeader}>
-              <h3 style={{margin: 0, color: '#fff', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                <FileText size={18} color="#38bdf8" /> Orçamento #{modalPdfAberto.id} Gerado
-              </h3>
-            </div>
-            <div style={{padding: '20px 0', textAlign: 'center'}}>
-              <p style={{color: '#94a3b8', fontSize: '14px', marginBottom: '20px'}}>
-                O PDF do orçamento foi gerado com sucesso. O que deseja fazer?
-              </p>
-              <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
-                <button style={{...styles.btnOutline, justifyContent: 'center', width: '100%'}}>
-                  Baixar Arquivo PDF
-                </button>
-                <button style={{...styles.btnPrimary, justifyContent: 'center', width: '100%'}}>
-                  Enviar Link via WhatsApp
-                </button>
-              </div>
-            </div>
-            <div style={styles.modalFooter}>
-              <button style={styles.btnCancel} onClick={() => setModalPdfAberto({aberto: false, id: null})}>Fechar</button>
             </div>
           </div>
         </div>

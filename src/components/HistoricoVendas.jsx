@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Eraser, Download, ChevronDown, 
   Phone, List, FilePen, Search,
-  FileText, FileSpreadsheet, TableProperties
+  FileText, FileSpreadsheet, TableProperties,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const HistoricoVendas = ({ aoMudarTela }) => {
@@ -38,6 +39,7 @@ const HistoricoVendas = ({ aoMudarTela }) => {
     setFiltros({ codigo: '', cliente: '', produto: '', data: '' });
   };
 
+  // MOCK: Estruturado como o banco de dados retornaria (JSON)
   const bancoDeDados = [
     { id: '6349496', cliente: 'EVERTON SOUSA DE LIMA', cpf: '000.000.000-00', data: '03/07/2026', hora: '12:11', status: 'Concluído', aparelho: 'iPhone 14 Plus', valor: '2.800,00' },
     { id: '6347117', cliente: 'MANOEL MESSIAS DOS SANTOS', cpf: '062.493.715-16', data: '03/07/2026', hora: '10:30', status: 'Concluído', aparelho: 'iPhone 13', valor: '2.300,00' },
@@ -45,6 +47,7 @@ const HistoricoVendas = ({ aoMudarTela }) => {
     { id: '6328609', cliente: 'ANA CAROLINE FURTADO', cpf: '555.444.333-22', data: '01/07/2026', hora: '14:20', status: 'Cancelada', aparelho: 'Samsung Galaxy S23', valor: '2.700,00' }
   ];
 
+  // Filtrando os concluídos e aplicando buscas
   const vendasFiltradas = bancoDeDados.filter(venda => {
     if (venda.status !== 'Concluído') return false;
 
@@ -166,6 +169,19 @@ const HistoricoVendas = ({ aoMudarTela }) => {
           </tbody>
         </table>
       </div>
+
+      {/* CONTAGEM DE REGISTROS E PAGINAÇÃO */}
+      <div style={styles.paginationArea}>
+        <div style={{color: '#64748b', fontSize: '12px'}}>
+          Mostrando {vendasFiltradas.length > 0 ? 1 : 0} a {vendasFiltradas.length} de {vendasFiltradas.length} registros
+        </div>
+        <div style={styles.paginationControls}>
+          <button style={styles.btnPage} disabled><ChevronLeft size={16}/></button>
+          <button style={styles.btnPageActive}>1</button>
+          <button style={styles.btnPage} disabled><ChevronRight size={16}/></button>
+        </div>
+      </div>
+
     </div>
   );
 };
@@ -188,7 +204,7 @@ const styles = {
   inputWithIcon: { position: 'relative', display: 'flex', alignItems: 'center', width: '100%' },
   innerIcon: { position: 'absolute', right: '10px', color: '#64748b' },
 
-  tableWrapper: { overflow: 'visible', paddingBottom: '120px', width: '100%' },
+  tableWrapper: { overflow: 'visible', paddingBottom: '30px', width: '100%', flex: 1 },
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
   th: { padding: '12px 10px', color: '#e2e8f0', fontSize: '11px', fontWeight: '600', borderBottom: '1px solid #1f2233', whiteSpace: 'nowrap' },
   td: { padding: '14px 10px', color: '#94a3b8', fontSize: '12px', borderBottom: '1px solid #1f2233', whiteSpace: 'nowrap' },
@@ -199,7 +215,12 @@ const styles = {
   
   dropdownMenu: { position: 'absolute', top: '30px', left: '25px', backgroundColor: '#0f111a', border: '1px solid #2a2e3f', borderRadius: '6px', padding: '8px 0', minWidth: '210px', boxShadow: '0 10px 25px rgba(0,0,0,0.8)', zIndex: 9999 },
   dropdownExport: { position: 'absolute', top: '35px', right: '0', backgroundColor: '#0f111a', border: '1px solid #2a2e3f', borderRadius: '6px', padding: '8px 0', minWidth: '180px', boxShadow: '0 10px 25px rgba(0,0,0,0.8)', zIndex: 9999, textAlign: 'left' },
-  dropdownItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer', transition: 'background-color 0.2s' }
+  dropdownItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer', transition: 'background-color 0.2s' },
+
+  paginationArea: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #1f2233' },
+  paginationControls: { display: 'flex', gap: '5px' },
+  btnPage: { backgroundColor: 'transparent', border: 'none', color: '#64748b', cursor: 'not-allowed', padding: '4px 8px', display: 'flex', alignItems: 'center' },
+  btnPageActive: { backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold' }
 };
 
 export default HistoricoVendas;

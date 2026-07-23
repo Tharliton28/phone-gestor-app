@@ -136,7 +136,7 @@ const RecibosNotas = ({ aoMudarTela }) => {
                     {menuAberto === index && (
                       <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
                         
-                        {/* AQUI ESTÁ A CORREÇÃO: Passando a origem 'recibos-notas' */}
+                        {/* Passando a origem 'recibos-notas' */}
                         <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); aoMudarTela('recibo-garantia', 'recibos-notas'); }}>
                           <FileText size={14} color="#38bdf8" /> Visualizar / Imprimir
                         </div>

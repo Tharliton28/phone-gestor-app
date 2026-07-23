@@ -9,7 +9,6 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar }) => {
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
   const [menuAberto, setMenuAberto] = useState(null);
 
-  // Fecha o menu ao clicar fora
   useEffect(() => {
     const handleClickFora = () => setMenuAberto(null);
     document.addEventListener('click', handleClickFora);
@@ -100,7 +99,7 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar }) => {
           <tbody>
             {mockEstoque.map((item, index) => (
               <tr key={index} style={styles.tr}>
-                {/* --- AQUI ESTÁ O BOTÃO COM OPÇÕES DE REGISTRO --- */}
+                {/* --- OPÇÕES DE REGISTRO --- */}
                 <td style={styles.td}>
                   <div style={{display: 'flex', alignItems: 'center', gap: '8px', position: 'relative'}}>
                     <button style={styles.gridActionBtn} onClick={(e) => toggleMenu(index, e)}>
@@ -160,7 +159,7 @@ const styles = {
   categoryBtn: { display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#94a3b8', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', cursor: 'pointer', transition: '0.2s' },
   categoryBtnActive: { backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid #38bdf8', fontWeight: '500' },
 
-  /* MÁGICA AQUI: Overflow visible e paddingBottom para não cortar o menu */
+  /* Overflow visible e paddingBottom para não cortar o menu */
   tableWrapper: { overflow: 'visible', marginTop: '10px', paddingBottom: '120px' },
   
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
@@ -177,7 +176,7 @@ const styles = {
   statusAtivo: { backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#4ade80', padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' },
   statusBaixo: { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' },
   
-  /* ESTILOS DO MENU SUSPENSO COM Z-INDEX ALTO */
+  /* ESTILOS DO MENU SUSPENSO */
   dropdownMenu: { position: 'absolute', top: '30px', left: '0', backgroundColor: '#0f111a', border: '1px solid #2a2e3f', borderRadius: '6px', padding: '8px 0', minWidth: '220px', boxShadow: '0 10px 25px rgba(0,0,0,0.8)', zIndex: 9999 },
   dropdownItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', fontSize: '12px', color: '#e2e8f0', cursor: 'pointer', transition: 'background-color 0.2s' }
 };

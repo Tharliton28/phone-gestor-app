@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Building, ShoppingCart, Package, DollarSign, FileText, 
   BarChart2, Save, UploadCloud, ToggleRight, ToggleLeft,
-  Plus, X, Edit, Trash2, CreditCard
+  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff
 } from 'lucide-react';
 
 // --- COMPONENTE REUTILIZÁVEL PARA GERENCIAR LISTAS (TAGS) ---
@@ -50,7 +50,7 @@ const GerenciadorLista = ({ titulo, descricao, itens, aoAdicionar, aoRemover, pl
 
 // --- COMPONENTE PRINCIPAL DE CONFIGURAÇÕES ---
 const Configuracoes = () => {
-  const [abaAtiva, setAbaAtiva] = useState('financeiro');
+  const [abaAtiva, setAbaAtiva] = useState('empresa');
   
   const [toggles, setToggles] = useState({
     vendaSemEstoque: false,
@@ -59,7 +59,6 @@ const Configuracoes = () => {
     resumoEmail: true
   });
 
-  // Tabela avançada de Formas de Pagamento e Maquininhas
   const [formasPagamento, setFormasPagamento] = useState([
     { id: 1, nome: 'PIX', tipo: 'PIX', taxa: '0.00', prazo: 'Imediato', ativo: true },
     { id: 2, nome: 'Dinheiro', tipo: 'Dinheiro', taxa: '0.00', prazo: 'Imediato', ativo: true },
@@ -69,15 +68,21 @@ const Configuracoes = () => {
     { id: 6, nome: 'Boleto Bancário (Cora)', tipo: 'Boleto', taxa: '2.50', prazo: 'D+2 após pago', ativo: true },
   ]);
 
-  // --- ESTADOS DO MODAL DE PAGAMENTO ---
   const [modalPagamentoAberto, setModalPagamentoAberto] = useState(false);
   const [formDataPagamento, setFormDataPagamento] = useState({ id: null, nome: '', tipo: 'Crédito', taxa: '', prazo: 'Imediato', ativo: true });
 
+  // === ESTADOS DOS DOCUMENTOS ===
+  const [termoGarantia, setTermoGarantia] = useState(`TERMO DE GARANTIA E CONDIÇÕES DE COMPRA\n\nCláusula 1ª: O comprador [NOME_CLIENTE], inscrito sob o CPF [CPF_CLIENTE], está adquirindo o produto descrito acima em plenas condições de uso, mediante valor e forma de pagamento ajustados com a empresa [NOME_EMPRESA].\n\nCláusula 2ª: Por tratar-se de um aparelho seminovo, todas as informações foram repassadas pelo vendedor [NOME_VENDEDOR] na data [DATA_VENDA].\n\nCláusula 3ª (DO PRAZO): A garantia será de 90 dias para defeitos de fabricação (placa), contados a partir da data de recebimento do produto. A [NOME_EMPRESA] não garante a vedação contra água do aparelho.\n\nCláusula 4ª (PERDA DE GARANTIA): A garantia cessará imediatamente em caso de danos físicos, contato com líquidos, ou rompimento do selo de garantia.`);
+  const [termoOS, setTermoOS] = useState(`Cláusula 1ª: Autorizo a [NOME_EMPRESA] a realizar o diagnóstico do equipamento descrito nesta OS.\n\nCláusula 2ª: A loja não se responsabiliza por dados perdidos (fotos, contatos). É dever do cliente [NOME_CLIENTE] realizar backup prévio.`);
+  
+  const [previewGarantia, setPreviewGarantia] = useState(false);
+  const [previewOS, setPreviewOS] = useState(false);
+
   const abrirModalPagamento = (forma = null) => {
     if (forma) {
-      setFormDataPagamento(forma); // Editar
+      setFormDataPagamento(forma); 
     } else {
-      setFormDataPagamento({ id: null, nome: '', tipo: 'Crédito', taxa: '', prazo: 'Imediato', ativo: true }); // Novo
+      setFormDataPagamento({ id: null, nome: '', tipo: 'Crédito', taxa: '', prazo: 'Imediato', ativo: true }); 
     }
     setModalPagamentoAberto(true);
   };
@@ -89,10 +94,8 @@ const Configuracoes = () => {
     }
 
     if (formDataPagamento.id) {
-      // Atualiza existente
       setFormasPagamento(formasPagamento.map(f => f.id === formDataPagamento.id ? formDataPagamento : f));
     } else {
-      // Adiciona novo
       setFormasPagamento([...formasPagamento, { ...formDataPagamento, id: Date.now() }]);
     }
     setModalPagamentoAberto(false);
@@ -104,7 +107,6 @@ const Configuracoes = () => {
     }
   };
 
-  // Estado Centralizado para as outras Listas Dinâmicas
   const [listas, setListas] = useState({
     tiposVenda: ['Presencial', 'WhatsApp', 'Instagram', 'Site / E-commerce'],
     tiposEntrega: ['Retirada na Loja', 'Motoboy', 'Correios (PAC/Sedex)', 'Excursão / Ônibus'],
@@ -125,6 +127,20 @@ const Configuracoes = () => {
 
   const removerItem = (chave, index) => {
     setListas(prev => ({ ...prev, [chave]: prev[chave].filter((_, i) => i !== index) }));
+  };
+
+  // Função para transformar as tags em dados reais no preview
+  const gerarPreview = (texto) => {
+    if (!texto) return '';
+    return texto
+      .replace(/\[NOME_EMPRESA\]/g, 'Biscoito Imports LTDA')
+      .replace(/\[CNPJ_EMPRESA\]/g, '64.951.713/0001-13')
+      .replace(/\[NOME_CLIENTE\]/g, 'João da Silva')
+      .replace(/\[CPF_CLIENTE\]/g, '123.456.789-00')
+      .replace(/\[DATA_VENDA\]/g, '14/07/2026')
+      .replace(/\[NOME_VENDEDOR\]/g, 'Wesley de Sousa')
+      .replace(/\[PRAZO_GARANTIA\]/g, '90 dias')
+      .replace(/\[NUMERO_RECIBO\]/g, 'MP0004146187');
   };
 
   const Switch = ({ ativo, onClick }) => (
@@ -160,6 +176,9 @@ const Configuracoes = () => {
           </button>
           <button style={abaAtiva === 'financeiro' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('financeiro')}>
             <DollarSign size={16} /> Financeiro e Taxas
+          </button>
+          <button style={abaAtiva === 'documentos' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('documentos')}>
+            <Printer size={16} /> Documentos e Impressão
           </button>
           <button style={abaAtiva === 'fiscal' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('fiscal')}>
             <FileText size={16} /> Fiscal e Tributário
@@ -248,12 +267,16 @@ const Configuracoes = () => {
                 </div>
               </div>
 
+              {/* Informação do tamanho ideal da imagem */}
               <div style={{...styles.logoUploadArea, marginTop: '20px'}}>
                 <div style={styles.logoPlaceholder}>LOGO</div>
-                <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px', flex: 1}}>
                   <span style={{color: '#e2e8f0', fontSize: '13px', fontWeight: 'bold'}}>Logotipo da Empresa</span>
-                  <span style={{color: '#94a3b8', fontSize: '12px'}}>Usado em recibos, orçamentos e relatórios (PNG/JPG).</span>
-                  <button style={styles.btnUpload}><UploadCloud size={14} /> Enviar nova imagem</button>
+                  <span style={{color: '#94a3b8', fontSize: '12px'}}>
+                    Usado no cabeçalho de recibos, orçamentos e relatórios em PDF.
+                    Para garantir que a imagem não quebre o layout do documento, o tamanho ideal e obrigatório é de <strong>500x500 pixels (Formato Quadrado)</strong>. Formatos aceitos: PNG (preferencialmente com fundo transparente) ou JPG. Tamanho máximo: 2MB.
+                  </span>
+                  <button style={styles.btnUpload}><UploadCloud size={14} /> Enviar nova imagem (500x500px)</button>
                 </div>
               </div>
             </div>
@@ -351,7 +374,7 @@ const Configuracoes = () => {
             </div>
           )}
 
-          {/* --- FINANCEIRO E TAXAS (ATUALIZADO COM MODAL) --- */}
+          {/* --- FINANCEIRO E TAXAS --- */}
           {abaAtiva === 'financeiro' && (
             <div style={{...styles.formSection, maxWidth: '100%'}}>
               
@@ -423,6 +446,79 @@ const Configuracoes = () => {
                   aoRemover={(index) => removerItem('planoContas', index)}
                 />
               </div>
+            </div>
+          )}
+
+          {/* --- DOCUMENTOS E IMPRESSÃO (DYNAMIC TEMPLATING) --- */}
+          {abaAtiva === 'documentos' && (
+            <div style={{...styles.formSection, maxWidth: '900px'}}>
+              <h3 style={styles.sectionTitle}>Modelos de Recibos, Contratos e Garantias</h3>
+              <p style={{color: '#94a3b8', fontSize: '13px', marginBottom: '20px', lineHeight: '1.5'}}>
+                Nesta seção você pode editar os termos legais que saem impressos nos documentos do sistema. 
+                Utilize as <strong>Variáveis Disponíveis</strong> para que o sistema preencha os dados automaticamente.
+              </p>
+
+              <div style={{backgroundColor: '#11131c', border: '1px solid #1f2233', borderRadius: '8px', padding: '20px', marginBottom: '20px'}}>
+                <span style={{fontSize: '12px', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>VARIÁVEIS DISPONÍVEIS (Clique para copiar):</span>
+                <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
+                  {['[NOME_EMPRESA]', '[CNPJ_EMPRESA]', '[NOME_CLIENTE]', '[CPF_CLIENTE]', '[DATA_VENDA]', '[NOME_VENDEDOR]', '[PRAZO_GARANTIA]', '[NUMERO_RECIBO]'].map(tag => (
+                    <span key={tag} style={styles.varTag} onClick={() => navigator.clipboard.writeText(tag)}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div style={styles.inputGroup}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px'}}>
+                  <label style={{...styles.label, color: '#e2e8f0', fontSize: '14px'}}>Termo de Garantia (Recibo de Venda):</label>
+                  <button 
+                    style={{...styles.btnActionSecondary, backgroundColor: previewGarantia ? 'rgba(56, 189, 248, 0.1)' : 'transparent'}} 
+                    onClick={() => setPreviewGarantia(!previewGarantia)}
+                  >
+                    {previewGarantia ? <EyeOff size={14}/> : <Eye size={14}/>}
+                    {previewGarantia ? 'Voltar para Edição' : 'Pré-visualizar (MOCK)'}
+                  </button>
+                </div>
+                
+                {previewGarantia ? (
+                  <div style={styles.previewBox}>
+                    {gerarPreview(termoGarantia)}
+                  </div>
+                ) : (
+                  <textarea 
+                    style={{...styles.input, minHeight: '200px', resize: 'vertical', lineHeight: '1.6', fontFamily: 'monospace'}} 
+                    value={termoGarantia}
+                    onChange={(e) => setTermoGarantia(e.target.value)}
+                  />
+                )}
+              </div>
+              
+              <div style={{...styles.inputGroup, marginTop: '20px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px'}}>
+                  <label style={{...styles.label, color: '#e2e8f0', fontSize: '14px'}}>Termo de Entrada (Ordem de Serviço):</label>
+                  <button 
+                    style={{...styles.btnActionSecondary, backgroundColor: previewOS ? 'rgba(56, 189, 248, 0.1)' : 'transparent'}} 
+                    onClick={() => setPreviewOS(!previewOS)}
+                  >
+                    {previewOS ? <EyeOff size={14}/> : <Eye size={14}/>}
+                    {previewOS ? 'Voltar para Edição' : 'Pré-visualizar (MOCK)'}
+                  </button>
+                </div>
+
+                {previewOS ? (
+                  <div style={styles.previewBox}>
+                    {gerarPreview(termoOS)}
+                  </div>
+                ) : (
+                  <textarea 
+                    style={{...styles.input, minHeight: '150px', resize: 'vertical', lineHeight: '1.6', fontFamily: 'monospace'}} 
+                    value={termoOS}
+                    onChange={(e) => setTermoOS(e.target.value)}
+                  />
+                )}
+              </div>
+
             </div>
           )}
 
@@ -594,6 +690,13 @@ const styles = {
   listManagerTags: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' },
   tag: { backgroundColor: '#161925', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '4px 8px 4px 12px', borderRadius: '16px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' },
   tagBtnRemove: { backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px', borderRadius: '50%' },
+  
+  /* Variáveis Tags */
+  varTag: { backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', cursor: 'copy', border: '1px dashed #38bdf8', transition: '0.2s' },
+  btnActionSecondary: { backgroundColor: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', padding: '6px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
+  
+  /* Preview Box */
+  previewBox: { backgroundColor: '#11131c', border: '1px dashed #4ade80', borderRadius: '6px', padding: '15px', color: '#e2e8f0', fontSize: '13px', whiteSpace: 'pre-wrap', minHeight: '150px', lineHeight: '1.6', fontFamily: 'monospace' },
 
   /* Tabela de Formas de Pagamento */
   tableWrapper: { backgroundColor: '#11131c', borderRadius: '8px', border: '1px solid #1f2233', padding: '15px' },

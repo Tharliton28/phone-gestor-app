@@ -1,17 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Save, Plus, Trash2, 
   FileText, Package, Edit, Calculator, X, Printer, Phone, Smartphone,
-  AlertCircle, CheckCircle, Info
+  AlertCircle, CheckCircle, Info, Search
 } from 'lucide-react';
 
-const OrcamentoForm = ({ aoVoltar }) => {
-  const [itens, setItems] = useState([]);
+const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
+  const orcamentoInicial = dadosNavegacao?.orcamentoSelecionado || null;
+  const autoImprimir = dadosNavegacao?.autoImprimir || false;
+
+  const [itens, setItems] = useState(
+    orcamentoInicial ? [
+      { id: '1', nome: 'Produto Referente ao Orçamento ' + orcamentoInicial.cod, preco: parseFloat(orcamentoInicial.valor.replace('.', '').replace(',', '.')), quantidade: 1, desconto: 0, idRow: Date.now() }
+    ] : []
+  );
   
-  // Estados para adição rápida
-  const [itemSelecionado, setItemSelecionado] = useState('');
   const [quantidade, setQuantidade] = useState(1);
   const [descontoItem, setDescontoItem] = useState('');
+
+  // ESTADOS DE BUSCA COM AUTOCOMPLETE
+  const [buscaCliente, setBuscaCliente] = useState('');
+  const [clienteSelecionadoObj, setClienteSelecionadoObj] = useState(null);
+  const [mostrarClientes, setModalMostrarClientes] = useState(false);
+
+  const [buscaProduto, setBuscaProduto] = useState('');
+  const [produtoSelecionadoObj, setProdutoSelecionadoObj] = useState(null);
+  const [mostrarProdutos, setModalMostrarProdutos] = useState(false);
+
+  const refCliente = useRef(null);
+  const refProduto = useRef(null);
 
   // ESTADOS DO SIMULADOR FINANCEIRO E DADOS GERAIS
   const [entrada, setEntrada] = useState('');
@@ -19,27 +36,18 @@ const OrcamentoForm = ({ aoVoltar }) => {
   const [parcelas, setParcelas] = useState(1);
   const [adicionarTaxa, setAdicionarTaxa] = useState(true);
   const [taxaVisivel, setTaxaVisivel] = useState(true);
-  
-  // NOVO CAMPO: Observações
   const [observacoes, setObservacoes] = useState('');
 
-  // ESTADOS PARA APARELHO DE ENTRADA NO ORÇAMENTO
   const [aparelhosNaTroca, setAparelhosNaTroca] = useState([]);
   const [modalAparelhoAberto, setModalAparelhoAberto] = useState(false);
   const [aparelhoEntrada, setAparelhoEntrada] = useState({ modelo: '', imei: '', valor: '' });
 
-  // ESTADOS PARA CLIENTE E VENDEDOR
-  const [clienteSelecionado, setClienteSelecionado] = useState('');
-
   // ESTADOS DOS MODAIS
   const [modalCliente, setModalCliente] = useState({ aberto: false, modo: 'novo' });
   const [novoCliente, setNovoCliente] = useState({ nome: '', telefone: '' });
-  const [modalPDF, setModalPDF] = useState(false);
-  
-  // MODAL DE AVISO CUSTOMIZADO (Substituindo o alert nativo)
+  const [modalPDF, setModalPDF] = useState(autoImprimir);
   const [modalAviso, setModalAviso] = useState({ aberto: false, titulo: '', mensagem: '', tipo: 'info', acaoOk: null });
 
-  // Mocks
   const [clientesMock, setClientesMock] = useState([
     { id: '1', nome: 'THAIS LOPES', telefone: '(85) 99430-0841' },
     { id: '2', nome: 'NATAN COVIDEIRA', telefone: '(85) 99999-8888' },
@@ -58,34 +66,53 @@ const OrcamentoForm = ({ aoVoltar }) => {
     7: 0.090, 8: 0.100, 9: 0.110, 10: 0.120, 11: 0.130, 12: 0.150
   };
 
+  // Fechar menus ao clicar fora
+  useEffect(() => {
+    const cliqueFora = (e) => {
+      if (refCliente.current && !refCliente.current.contains(e.target)) setModalMostrarClientes(false);
+      if (refProduto.current && !refProduto.current.contains(e.target)) setModalMostrarProdutos(false);
+    };
+    document.addEventListener('mousedown', cliqueFora);
+    return () => document.removeEventListener('mousedown', cliqueFora);
+  }, []);
+
+  useEffect(() => {
+    if (orcamentoInicial) {
+      let cliente = clientesMock.find(c => c.nome === orcamentoInicial.cliente);
+      if (!cliente) {
+        cliente = { id: `MOCK_${Date.now()}`, nome: orcamentoInicial.cliente, telefone: 'Não informado' };
+        setClientesMock(prev => [...prev, cliente]);
+      }
+      setClienteSelecionadoObj(cliente);
+      setBuscaCliente(cliente.nome);
+    }
+  }, [orcamentoInicial]);
+
   const mostrarAviso = (titulo, mensagem, tipo = 'info', acaoOk = null) => {
     setModalAviso({ aberto: true, titulo, mensagem, tipo, acaoOk });
   };
 
   const adicionarAoOrcamento = () => {
-    if (!itemSelecionado) return mostrarAviso('Atenção', 'Selecione um produto primeiro.', 'erro');
+    if (!produtoSelecionadoObj) return mostrarAviso('Atenção', 'Selecione um produto utilizando a busca.', 'erro');
     
-    const produto = estoqueMock.find(p => p.id === itemSelecionado);
-    if (produto) {
-      const descontoVal = Number(descontoItem) || 0;
-      const novoItem = { 
-        ...produto, 
-        idRow: Date.now(), 
-        quantidade: Number(quantidade),
-        desconto: descontoVal
-      };
-      setItems([...itens, novoItem]);
-      setItemSelecionado('');
-      setQuantidade(1);
-      setDescontoItem('');
-    }
+    const descontoVal = Number(descontoItem) || 0;
+    const novoItem = { 
+      ...produtoSelecionadoObj, 
+      idRow: Date.now(), 
+      quantidade: Number(quantidade),
+      desconto: descontoVal
+    };
+    setItems([...itens, novoItem]);
+    setProdutoSelecionadoObj(null);
+    setBuscaProduto('');
+    setQuantidade(1);
+    setDescontoItem('');
   };
 
   const removerDoOrcamento = (idRow) => {
     setItems(itens.filter(i => i.idRow !== idRow));
   };
 
-  // Funções do Aparelho na Troca
   const confirmarAparelhoEntrada = () => {
     const valorNum = parseFloat(aparelhoEntrada.valor.replace(',', '.'));
     if (!aparelhoEntrada.modelo || isNaN(valorNum) || valorNum <= 0) {
@@ -100,11 +127,9 @@ const OrcamentoForm = ({ aoVoltar }) => {
     setAparelhosNaTroca(aparelhosNaTroca.filter(a => a.id !== id));
   };
 
-  // Funções do Cliente
   const abrirModalEditarCliente = () => {
-    if (!clienteSelecionado) return mostrarAviso('Atenção', 'Selecione um cliente para editar.', 'erro');
-    const cli = clientesMock.find(c => c.id === clienteSelecionado);
-    setNovoCliente({ nome: cli.nome, telefone: cli.telefone });
+    if (!clienteSelecionadoObj) return mostrarAviso('Atenção', 'Selecione um cliente para editar.', 'erro');
+    setNovoCliente({ nome: clienteSelecionadoObj.nome, telefone: clienteSelecionadoObj.telefone });
     setModalCliente({ aberto: true, modo: 'editar' });
   };
 
@@ -113,9 +138,13 @@ const OrcamentoForm = ({ aoVoltar }) => {
     if (modalCliente.modo === 'novo') {
       const novo = { id: `C${Date.now()}`, nome: novoCliente.nome, telefone: novoCliente.telefone };
       setClientesMock([...clientesMock, novo]);
-      setClienteSelecionado(novo.id);
+      setClienteSelecionadoObj(novo);
+      setBuscaCliente(novo.nome);
     } else {
-      setClientesMock(clientesMock.map(c => c.id === clienteSelecionado ? { ...c, nome: novoCliente.nome, telefone: novoCliente.telefone } : c));
+      const updated = { ...clienteSelecionadoObj, nome: novoCliente.nome, telefone: novoCliente.telefone };
+      setClientesMock(clientesMock.map(c => c.id === clienteSelecionadoObj.id ? updated : c));
+      setClienteSelecionadoObj(updated);
+      setBuscaCliente(updated.nome);
     }
     setModalCliente({ aberto: false, modo: 'novo' });
     setNovoCliente({ nome: '', telefone: '' });
@@ -124,22 +153,35 @@ const OrcamentoForm = ({ aoVoltar }) => {
 
   const gerarPDF = () => {
     if (itens.length === 0) return mostrarAviso('Atenção', 'Adicione produtos para gerar o orçamento.', 'erro');
-    if (!clienteSelecionado) return mostrarAviso('Atenção', 'Selecione o cliente do orçamento.', 'erro');
+    if (!clienteSelecionadoObj) return mostrarAviso('Atenção', 'Selecione o cliente do orçamento.', 'erro');
     setModalPDF(true);
   };
+
+  const fecharModalPDF = () => {
+      setModalPDF(false);
+      if(autoImprimir) aoVoltar();
+  }
+
+  // Filtragem dos Autocompletes
+  const clientesFiltrados = clientesMock.filter(c => 
+    c.nome.toLowerCase().includes(buscaCliente.toLowerCase())
+  );
+
+  const produtosFiltrados = estoqueMock.filter(p => 
+    p.nome.toLowerCase().includes(buscaProduto.toLowerCase())
+  );
 
   // CÁLCULOS
   const subtotal = itens.reduce((acc, item) => acc + ((item.preco * item.quantidade) - item.desconto), 0);
   const valorEntradaDinheiro = Number(entrada) || 0;
   const valorTotalAparelhos = aparelhosNaTroca.reduce((acc, ap) => acc + ap.valor, 0);
-  
   const valorRestante = Math.max(0, subtotal - valorEntradaDinheiro - valorTotalAparelhos);
 
   let taxaAplicada = 0;
   if (formaPagamento === 'credito') taxaAplicada = taxasCredito[parcelas];
   else if (formaPagamento === 'debito') taxaAplicada = 0.0199;
 
-  const valorAcrescimo = valorRestante * taxaAplicada;
+  const valorAcrescimo = valorRestRestante = valorRestante * taxaAplicada;
   const acrescimoReal = adicionarTaxa ? valorAcrescimo : 0;
   const totalFinal = subtotal + acrescimoReal;
   const valorDaParcela = (valorRestante + acrescimoReal) / parcelas;
@@ -151,14 +193,16 @@ const OrcamentoForm = ({ aoVoltar }) => {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="orcamento-container">
       
       <div style={styles.header}>
         <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
           <button onClick={aoVoltar} style={styles.btnBack}>
             <ArrowLeft size={16} /> Voltar
           </button>
-          <h2 style={{color: '#fff', fontSize: '18px', margin: 0}}>Novo Orçamento de Venda</h2>
+          <h2 style={{color: '#fff', fontSize: '18px', margin: 0}}>
+             {orcamentoInicial ? `Editando Orçamento #${orcamentoInicial.cod}` : 'Novo Orçamento de Venda'}
+          </h2>
         </div>
       </div>
 
@@ -167,21 +211,57 @@ const OrcamentoForm = ({ aoVoltar }) => {
         {/* DADOS GERAIS */}
         <div style={styles.section}>
           <div style={styles.grid4}>
-            <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
+            
+            {/* SEARCH INPUT CLIENTE */}
+            <div style={{...styles.inputGroup, gridColumn: 'span 2', position: 'relative'}} ref={refCliente}>
               <label style={styles.label}><span style={styles.required}>*</span> Cliente:</label>
               <div style={{display: 'flex', gap: '10px'}}>
-                <select style={{...styles.input, flex: 1}} value={clienteSelecionado} onChange={e => setClienteSelecionado(e.target.value)}>
-                  <option value="">Buscar Cliente...</option>
-                  {clientesMock.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
+                <div style={{position: 'relative', flex: 1}}>
+                  <input 
+                    style={{...styles.input, paddingLeft: '35px'}} 
+                    placeholder="Digitar nome para pesquisar cliente..." 
+                    value={buscaCliente}
+                    onChange={(e) => {
+                      setBuscaCliente(e.target.value);
+                      setClienteSelecionadoObj(null); 
+                      setModalMostrarClientes(true);
+                    }}
+                    onFocus={() => setModalMostrarClientes(true)}
+                  />
+                  <Search size={14} color="#64748b" style={{position: 'absolute', left: '12px', top: '13px'}} />
+                </div>
                 <button style={styles.btnIcon} title="Editar Cliente" onClick={abrirModalEditarCliente}><Edit size={16}/></button>
                 <button style={styles.btnIconSuccess} title="Novo Cliente" onClick={() => { setNovoCliente({nome: '', telefone: ''}); setModalCliente({aberto: true, modo: 'novo'}); }}><Plus size={16}/></button>
               </div>
+
+              {/* LISTA FLUTUANTE DE CLIENTES */}
+              {mostrarClientes && (
+                <div style={styles.autocompleteDropdown}>
+                  {clientesFiltrados.length === 0 ? (
+                    <div style={styles.dropdownOptionVazia}>Nenhum cliente encontrado</div>
+                  ) : (
+                    clientesFiltrados.map(c => (
+                      <div 
+                        key={c.id} 
+                        style={styles.dropdownOption}
+                        onClick={() => {
+                          setClienteSelecionadoObj(c);
+                          setBuscaCliente(c.nome);
+                          setModalMostrarClientes(false);
+                        }}
+                      >
+                        {c.nome} <span style={{fontSize: '11px', color: '#64748b', marginLeft: '5px'}}>{c.telefone}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
+
             <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
               <label style={styles.label}><span style={styles.required}>*</span> Vendedor:</label>
               <select style={styles.input}>
-                <option>Wesley de Sousa Viana</option>
+                <option>{orcamentoInicial ? orcamentoInicial.vendedor : 'Wesley de Sousa Viana'}</option>
               </select>
             </div>
             
@@ -198,7 +278,6 @@ const OrcamentoForm = ({ aoVoltar }) => {
               <input style={styles.input} type="date" />
             </div>
             
-            {/* NOVO CAMPO: OBSERVAÇÕES */}
             <div style={{...styles.inputGroup, gridColumn: 'span 4'}}>
               <label style={styles.label}>Observações / Condições Especiais:</label>
               <input 
@@ -216,13 +295,49 @@ const OrcamentoForm = ({ aoVoltar }) => {
           <h3 style={styles.sectionTitle}><Package size={16} /> Itens do Orçamento</h3>
           
           <div style={styles.addItemArea}>
-            <div style={{...styles.inputGroup, flex: 3}}>
-              <label style={styles.label}><span style={styles.required}>*</span> Selecione o Produto:</label>
-              <select style={styles.input} value={itemSelecionado} onChange={(e) => setItemSelecionado(e.target.value)}>
-                <option value="">Buscar no estoque...</option>
-                {estoqueMock.map(p => <option key={p.id} value={p.id}>{p.nome} - R$ {p.preco.toFixed(2)}</option>)}
-              </select>
+            
+            {/* SEARCH INPUT PRODUTO */}
+            <div style={{...styles.inputGroup, flex: 3, position: 'relative'}} ref={refProduto}>
+              <label style={styles.label}><span style={styles.required}>*</span> Seleziona o Produto:</label>
+              <div style={{position: 'relative'}}>
+                <input 
+                  style={{...styles.input, paddingLeft: '35px'}} 
+                  placeholder="Digitar nome para pesquisar no estoque..."
+                  value={buscaProduto}
+                  onChange={(e) => {
+                    setBuscaProduto(e.target.value);
+                    setProdutoSelecionadoObj(null);
+                    setModalMostrarProdutos(true);
+                  }}
+                  onFocus={() => setModalMostrarProdutos(true)}
+                />
+                <Search size={14} color="#64748b" style={{position: 'absolute', left: '12px', top: '13px'}} />
+              </div>
+
+              {/* LISTA FLUTUANTE DE PRODUTOS */}
+              {mostrarProdutos && (
+                <div style={styles.autocompleteDropdown}>
+                  {produtosFiltrados.length === 0 ? (
+                    <div style={styles.dropdownOptionVazia}>Nenhum produto em estoque</div>
+                  ) : (
+                    produtosFiltrados.map(p => (
+                      <div 
+                        key={p.id} 
+                        style={styles.dropdownOption}
+                        onClick={() => {
+                          setProdutoSelecionadoObj(p);
+                          setBuscaProduto(p.nome);
+                          setModalMostrarProdutos(false);
+                        }}
+                      >
+                        {p.nome} - <span style={{fontWeight: 'bold', color: '#4ade80'}}>R$ {p.preco.toFixed(2)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
+
             <div style={{...styles.inputGroup, flex: 1}}>
               <label style={styles.label}><span style={styles.required}>*</span> Qtd:</label>
               <input style={styles.input} type="number" min="1" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} />
@@ -290,7 +405,6 @@ const OrcamentoForm = ({ aoVoltar }) => {
                   <input style={{...styles.input, width: '120px', padding: '6px 10px', textAlign: 'right'}} type="number" placeholder="0.00" value={entrada} onChange={(e) => setEntrada(e.target.value)} />
                 </div>
 
-                {/* ÁREA DO APARELHO NA TROCA */}
                 <div style={{marginTop: '10px', marginBottom: '15px'}}>
                   {aparelhosNaTroca.map(ap => (
                     <div key={ap.id} style={styles.tradeInItem}>
@@ -306,7 +420,6 @@ const OrcamentoForm = ({ aoVoltar }) => {
                   </button>
                 </div>
 
-                {/* SOMA DOS ABATIMENTOS E RESTANTE */}
                 {(valorEntradaDinheiro > 0 || valorTotalAparelhos > 0) && (
                   <div style={styles.summaryRow}>
                     <span style={styles.summaryLabel}>Restante a pagar:</span>
@@ -377,7 +490,7 @@ const OrcamentoForm = ({ aoVoltar }) => {
         </div>
       </div>
 
-      <div style={styles.footer}>
+      <div style={styles.footer} className="no-print">
         <div style={styles.totalArea}>
           <span style={styles.totalLabel}>Total Final do Orçamento:</span>
           <span style={styles.totalValue}>R$ {totalFinal.toFixed(2)}</span>
@@ -396,7 +509,7 @@ const OrcamentoForm = ({ aoVoltar }) => {
 
       {/* MODAL DE AVISO CUSTOMIZADO */}
       {modalAviso.aberto && (
-        <div style={styles.modalOverlay}>
+        <div style={styles.modalOverlay} className="no-print">
           <div style={styles.modalContentSmall}>
             <div style={styles.modalHeader}>
               <h3 style={{margin: 0, color: '#fff', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px'}}>
@@ -426,7 +539,7 @@ const OrcamentoForm = ({ aoVoltar }) => {
 
       {/* MODAL: NOVO/EDITAR CLIENTE */}
       {modalCliente.aberto && (
-        <div style={styles.modalOverlay}>
+        <div style={styles.modalOverlay} className="no-print">
           <div style={styles.modalContentSmall}>
             <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1f2233', paddingBottom: '10px', marginBottom: '15px'}}>
               <h3 style={{margin: 0, color: '#fff', fontSize: '16px'}}>
@@ -454,7 +567,7 @@ const OrcamentoForm = ({ aoVoltar }) => {
 
       {/* MODAL: APARELHO NA TROCA */}
       {modalAparelhoAberto && (
-        <div style={styles.modalOverlay}>
+        <div style={styles.modalOverlay} className="no-print">
           <div style={styles.modalContentSmall}>
             <div style={styles.modalHeader}>
               <h3 style={{margin: 0, color: '#fff', fontSize: '16px'}}>Simular Aparelho na Troca</h3>
@@ -484,9 +597,9 @@ const OrcamentoForm = ({ aoVoltar }) => {
 
       {/* MODAL: VISUALIZAÇÃO A4 PDF */}
       {modalPDF && (
-        <div style={styles.modalOverlayPdf}>
-          <div style={styles.pdfHeaderActions}>
-            <button style={styles.btnOutlinePdf} onClick={() => setModalPDF(false)}><ArrowLeft size={16}/> Voltar</button>
+        <div style={styles.modalOverlayPdf} className="modal-pdf-overlay">
+          <div style={styles.pdfHeaderActions} className="no-print">
+            <button style={styles.btnOutlinePdf} onClick={fecharModalPDF}><ArrowLeft size={16}/> Voltar</button>
             <div style={{display: 'flex', gap: '10px'}}>
               <button style={styles.btnPrimary} onClick={() => window.print()}><Printer size={16}/> Imprimir Orçamento</button>
               <button style={styles.btnWhatsappPdf}><Phone size={16}/> Enviar WhatsApp</button>
@@ -494,22 +607,22 @@ const OrcamentoForm = ({ aoVoltar }) => {
           </div>
           
           {/* FOLHA A4 */}
-          <div style={styles.a4Sheet}>
+          <div style={styles.a4Sheet} className="print-area">
             <div style={styles.pdfHeader}>
               <div>
                 <h1 style={{margin: '0 0 5px 0', fontSize: '24px', color: '#111827'}}>BISCOITO IMPORTS LTDA</h1>
-                <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>CNPJ: 64.951.713/0001-13<br/>Rua Exemplo, 123 - Centro<br/>Telefone: (85) 9999-9999</p>
+                <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>CNPJ: 64.951.713/0001-13<br/>Avenida Narciso Pessoa de Araújo, 113<br/>Telefone: (85) 98589-2506</p>
               </div>
               <div style={{textAlign: 'right'}}>
-                <h2 style={{margin: '0 0 5px 0', fontSize: '20px', color: '#3b82f6'}}>ORÇAMENTO #9005</h2>
-                <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>Data: 08/07/2026<br/>Validade: 15 Dias</p>
+                <h2 style={{margin: '0 0 5px 0', fontSize: '20px', color: '#3b82f6'}}>ORÇAMENTO #{orcamentoInicial ? orcamentoInicial.cod : '9005'}</h2>
+                <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>Data: {orcamentoInicial ? orcamentoInicial.data : '08/07/2026'}<br/>Validade: {orcamentoInicial ? orcamentoInicial.validade : '15 Dias'}</p>
               </div>
             </div>
 
             <div style={styles.pdfClientInfo}>
-              <strong>Cliente:</strong> {clientesMock.find(c => c.id === clienteSelecionado)?.nome || 'Não informado'} <br/>
-              <strong>Telefone:</strong> {clientesMock.find(c => c.id === clienteSelecionado)?.telefone || 'Não informado'} <br/>
-              <strong>Vendedor:</strong> Wesley de Sousa Viana
+              <strong>Cliente:</strong> {clienteSelecionadoObj?.nome || 'Não informado'} <br/>
+              <strong>Telefone:</strong> {clienteSelecionadoObj?.telefone || 'Não informado'} <br/>
+              <strong>Vendedor:</strong> {orcamentoInicial ? orcamentoInicial.vendedor : 'Wesley de Sousa Viana'}
             </div>
 
             <table style={styles.pdfTable}>
@@ -541,7 +654,6 @@ const OrcamentoForm = ({ aoVoltar }) => {
                 <span>R$ {subtotal.toFixed(2)}</span>
               </div>
 
-              {/* LISTA APARELHOS NA TROCA NO PDF */}
               {aparelhosNaTroca.map(ap => (
                 <div style={styles.pdfSummaryRow} key={ap.id}>
                   <span>Aparelho na Troca ({ap.modelo}):</span>
@@ -556,7 +668,6 @@ const OrcamentoForm = ({ aoVoltar }) => {
                 </div>
               )}
 
-              {/* LÓGICA DE EXIBIÇÃO DA TAXA NO PDF */}
               {adicionarTaxa && acrescimoReal > 0 && taxaVisivel && (
                 <div style={styles.pdfSummaryRow}>
                   <span>Acréscimo ({getNomePagamento()}):</span>
@@ -593,6 +704,70 @@ const OrcamentoForm = ({ aoVoltar }) => {
           </div>
         </div>
       )}
+
+      <style>{`
+        @media print {
+          @page { 
+            size: A4 portrait; 
+            margin: 0; 
+          }
+          
+          /* Esconde totalmente a Sidebar e a Topbar */
+          #root > div > :not(main) { display: none !important; }
+          main > :not(div) { display: none !important; }
+          
+          /* Esconde qualquer tela irmã do formulário de orçamento no main */
+          main > div > :not(.orcamento-container) { display: none !important; }
+          
+          /* Dentro do formulário, oculta TUDO (menus, formulários, botões) e deixa só o Modal do PDF */
+          .orcamento-container > :not(.modal-pdf-overlay) { display: none !important; }
+          
+          /* Oculta os botões internos do modal do PDF */
+          .no-print { display: none !important; }
+
+          /* CORREÇÃO DO ENCOLHIMENTO: Força toda a árvore de elementos a perder as regras flex do tema */
+          html, body, #root, #root > div, main, main > div, .orcamento-container {
+            background-color: #ffffff !important;
+            background: #ffffff !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: visible !important;
+            position: static !important;
+            display: block !important;
+          }
+
+          /* Desenrola o Modal de visualização para virar um bloco comum na folha */
+          .modal-pdf-overlay {
+            position: static !important;
+            background-color: #ffffff !important;
+            background: #ffffff !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            overflow: visible !important;
+            width: 100% !important;
+            height: auto !important;
+          }
+
+          /* Alinha a folha de orçamento perfeitamente no fluxo A4 do papel */
+          .print-area {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 15mm !important;
+            box-shadow: none !important;
+            height: auto !important;
+            min-height: 0 !important;
+            display: block !important;
+            page-break-after: avoid !important;
+            page-break-inside: avoid !important;
+          }
+        }
+      `}</style>
 
     </div>
   );
@@ -653,6 +828,11 @@ const styles = {
   btnDangerOutline: { backgroundColor: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
   btnCancel: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold' },
   
+  /* DROPDOWN FLUTUANTE DO AUTOCOMPLETE */
+  autocompleteDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#161925', border: '1px solid #2a2e3f', borderRadius: '4px', marginTop: '4px', maxHeight: '180px', overflowY: 'auto', zIndex: 9999, boxShadow: '0 10px 25px rgba(0,0,0,0.5)' },
+  dropdownOption: { padding: '10px 14px', color: '#e2e8f0', fontSize: '13px', cursor: 'pointer', borderBottom: '1px solid #1f2233', transition: 'background-color 0.2s' },
+  dropdownOptionVazia: { padding: '12px 14px', color: '#64748b', fontSize: '13px', textAlign: 'center' },
+
   /* MODAL PDF (A4) */
   modalOverlayPdf: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 17, 26, 0.95)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px', overflowY: 'auto' },
   pdfHeaderActions: { width: '800px', display: 'flex', justifyContent: 'space-between', marginBottom: '20px' },

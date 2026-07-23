@@ -5,7 +5,6 @@ const Topbar = () => {
   return (
     <header style={styles.topbar}>
       <div style={styles.leftSection}>
-        {/* O espaço para encolher o menu agora fica na própria Sidebar, então aqui fica limpo */}
       </div>
 
       <div style={styles.centerSection}>
@@ -15,15 +14,13 @@ const Topbar = () => {
       <div style={styles.rightSection}>
         <div style={styles.iconGroup}>
           
-          {/* BOTÃO UPGRADE PRO (Substituiu o Cifrão) */}
+          {/* BOTÃO UPGRADE PRO */}
           <button style={styles.btnUpgrade} onClick={() => alert('Abrir planos de assinatura...')}>
             <Zap size={14} color="#fbbf24" fill="#fbbf24" /> Upgrade PRO
           </button>
-          
+
           <span style={styles.iconWrapper}><HelpCircle size={18} /></span>
-          <span style={styles.iconWrapper}><Bell size={18} /></span>
-          {/* Botão de Refresh removido daqui */}
-          
+          <span style={styles.iconWrapper}><Bell size={18} /></span>   
         </div>
         
         <div style={styles.userProfile}>

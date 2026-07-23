@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 
 const Inventario = () => {
-  // Controle para abrir/fechar o painel de filtros avançados
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
 
   // Dados simulados para o balanço de estoque
@@ -59,7 +58,7 @@ const Inventario = () => {
         </div>
       </div>
 
-      {/* Painel de Filtros Avançados (Aparece ao clicar no botão) */}
+      {/* Painel de Filtros Avançados */}
       {filtrosAbertos && (
         <div style={styles.advancedFiltersPanel}>
           <div style={styles.inputGroup}>
@@ -154,7 +153,6 @@ const Inventario = () => {
                   <td style={styles.td}>{item.categoria}</td>
                   <td style={{...styles.td, textAlign: 'center', fontWeight: 'bold', fontSize: '14px'}}>{item.qtdSistema}</td>
                   
-                  {/* Campo Editável da Quantidade Contada */}
                   <td style={{...styles.td, textAlign: 'center'}}>
                     <input 
                       type="number" 

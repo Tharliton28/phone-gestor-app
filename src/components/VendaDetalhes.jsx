@@ -4,7 +4,7 @@ import {
   CreditCard, User, Calendar, MapPin, Tag 
 } from 'lucide-react';
 
-const VendaDetalhes = ({ aoVoltar }) => {
+const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
   // Mock dos dados de uma venda específica (ex: Venda 6349496)
   const vendaMock = {
     codigo: '6349496',
@@ -31,6 +31,42 @@ const VendaDetalhes = ({ aoVoltar }) => {
     observacoes: 'Cliente solicitou película de brinde, entregue no ato.'
   };
 
+  const handleImprimirRecibo = () => {
+    // Formata os dados da VendaDetalhes para o padrão que a tela ReciboGarantia espera
+    const vendaFormatada = {
+      id: vendaMock.codigo,
+      cliente: vendaMock.cliente.nome,
+      cpf: vendaMock.cliente.cpf,
+      telefone: vendaMock.cliente.telefone,
+      email: 'Não informado', 
+      endereco: vendaMock.cliente.endereco,
+      cidade: 'Fortaleza', 
+      uf: 'CE',
+      data: vendaMock.data.split(' ')[0], // Pega apenas a data, ignorando a hora
+      vendedor: vendaMock.vendedor,
+      valorTotal: vendaMock.resumo.totalFinal,
+      produtos: vendaMock.itens.map((item, index) => ({
+        id: index + 1,
+        descricao: item.produto,
+        imei: item.imei,
+        qtd: item.qtd,
+        valorUnitario: item.valorUn,
+        valorTotal: item.total
+      })),
+      pagamentos: vendaMock.pagamentos.map(pag => ({
+        forma: pag.metodo,
+        detalhes: pag.detalhes,
+        valor: pag.valor
+      }))
+    };
+
+    if (aoMudarTela) {
+      aoMudarTela('recibo-garantia', 'venda-detalhes', vendaFormatada);
+    } else {
+      alert("A função aoMudarTela não foi passada por prop no App.jsx.");
+    }
+  };
+
   return (
     <div style={styles.container}>
       
@@ -44,8 +80,12 @@ const VendaDetalhes = ({ aoVoltar }) => {
           <span style={styles.statusPill}>{vendaMock.status}</span>
         </div>
         <div style={styles.rightActions}>
-          <button style={styles.btnOutline}><FileText size={14} /> Gerar PDF</button>
-          <button style={styles.btnPrimary}><Printer size={14} /> Imprimir Recibo</button>
+          <button style={styles.btnOutline} onClick={() => alert('Geração de PDF em desenvolvimento (Requer biblioteca jsPDF)')}>
+            <FileText size={14} /> Gerar PDF
+          </button>
+          <button style={styles.btnPrimary} onClick={handleImprimirRecibo}>
+            <Printer size={14} /> Imprimir Recibo
+          </button>
         </div>
       </div>
 

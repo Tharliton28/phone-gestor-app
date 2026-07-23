@@ -14,7 +14,7 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
 
   // Controles de Configuração dos Widgets Individuais
   const [menuWidgetAberto, setMenuWidgetAberto] = useState(null);
-  const [tipoGrafico, setTipoGrafico] = useState('barras'); // 'barras' ou 'linhas'
+  const [tipoGrafico, setTipoGrafico] = useState('barras');
 
   const todosAtalhos = [
     { id: 1, nome: 'Nova Venda', icon: <ShoppingCart size={18} />, acao: aoClicarEmNovaVenda },
@@ -126,7 +126,6 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
       <div style={styles.widgetsSection}>
         <div style={styles.widgetsHeader}>
           <h3 style={styles.sectionTitle}>Meus Widgets</h3>
-          {/* REMOVIDO: O botão geral de configurações foi removido daqui */}
         </div>
 
         <div style={styles.filterBar}>
