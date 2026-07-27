@@ -1,43 +1,115 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Topbar from '../components/Topbar';
+import { useLoja } from '../contexts/LojaContext';
 import { useErpNavigation } from '../hooks/useErpNavigation';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import './appLayout.css';
+
+const SIDEBAR_WIDTH_OPEN = 260;
+const SIDEBAR_WIDTH_COLLAPSED = 70;
 
 export default function AppLayout() {
-  const [sidebarAberta, setSidebarAberta] = useState(true);
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const [sidebarAberta, setSidebarAberta] = useState(!isMobile);
   const { telaAtiva, mudarTela } = useErpNavigation();
+  const { loading, error, temLoja } = useLoja();
+
+  useEffect(() => {
+    setSidebarAberta(!isMobile);
+  }, [isMobile]);
+
+  const fecharSidebarMobile = () => {
+    if (isMobile) setSidebarAberta(false);
+  };
+
+  const toggleSidebar = () => setSidebarAberta((prev) => !prev);
+
+  const sidebarWidth = isMobile ? 0 : sidebarAberta ? SIDEBAR_WIDTH_OPEN : SIDEBAR_WIDTH_COLLAPSED;
+
+  if (loading) {
+    return (
+      <div className="app-layout" style={{ alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+        Carregando dados da loja...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className="app-layout"
+        style={{
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: '12px',
+          color: '#94a3b8',
+          padding: '24px',
+          textAlign: 'center',
+        }}
+      >
+        <p>Não foi possível carregar os dados da loja.</p>
+        <p style={{ fontSize: '13px', color: '#64748b' }}>{error}</p>
+      </div>
+    );
+  }
+
+  if (!temLoja) {
+    return (
+      <div
+        className="app-layout"
+        style={{
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: '12px',
+          color: '#94a3b8',
+          padding: '24px',
+          textAlign: 'center',
+        }}
+      >
+        <p>Nenhuma loja vinculada a este usuário.</p>
+        <p style={{ fontSize: '13px', color: '#64748b' }}>
+          Peça ao administrador para vincular sua conta a uma loja.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: 'flex', width: '100%', overflowX: 'hidden', minHeight: '100vh' }}>
+    <div className="app-layout">
+      {isMobile && sidebarAberta && (
+        <button
+          type="button"
+          className="app-layout__backdrop"
+          onClick={fecharSidebarMobile}
+          aria-label="Fechar menu"
+        />
+      )}
+
       <Sidebar
-        aoMudarTela={mudarTela}
+        aoMudarTela={(tela) => {
+          mudarTela(tela);
+          fecharSidebarMobile();
+        }}
         telaAtiva={telaAtiva}
         sidebarAberta={sidebarAberta}
         setSidebarAberta={setSidebarAberta}
+        isMobile={isMobile}
       />
 
       <main
+        className="app-layout__main"
         style={{
-          marginLeft: sidebarAberta ? '260px' : '70px',
-          width: `calc(100% - ${sidebarAberta ? '260px' : '70px'})`,
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: '100vh',
-          transition: 'all 0.3s ease',
+          marginLeft: isMobile ? 0 : sidebarWidth,
+          width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
         }}
       >
-        <Topbar />
+        <Topbar onMenuToggle={toggleSidebar} isMobile={isMobile} />
 
-        <div
-          style={{
-            padding: '24px',
-            backgroundColor: '#0f111a',
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
+        <div className="app-layout__content">
           <Outlet />
         </div>
       </main>

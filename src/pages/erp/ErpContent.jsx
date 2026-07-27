@@ -22,6 +22,7 @@ import FinanceiroForm from '../../components/FinanceiroForm';
 import PainelFiscal from '../../components/PainelFiscal';
 import ReciboGarantia from '../../components/ReciboGarantia';
 import Configuracoes from '../../components/Configuracoes';
+import ComingSoon from '../../components/ComingSoon';
 import { useErpNavigation } from '../../hooks/useErpNavigation';
 
 /**
@@ -356,7 +357,7 @@ export default function ErpContent() {
       return (
         <>
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
-            <span style={{ color: '#3b82f6' }}>Ordem de Serviço</span> {'>'} Listagem
+            <span style={{ color: '#3b82f6' }}>Assistência Técnica</span> {'>'} Listagem de OS
           </div>
           <div
             style={{
@@ -378,9 +379,87 @@ export default function ErpContent() {
       return (
         <>
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
-            <span style={{ color: '#3b82f6' }}>Ordem de Serviço</span> {'>'} Entrada de Equipamento
+            <span style={{ color: '#3b82f6' }}>Assistência Técnica</span> {'>'} Nova OS / Entrada
           </div>
           <OSForm aoVoltar={() => mudarTela('listagem-os')} />
+        </>
+      );
+
+    case 'painel-tecnico':
+      return (
+        <>
+          <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
+            <span style={{ color: '#3b82f6' }}>Assistência Técnica</span> {'>'} Painel do Técnico
+          </div>
+          <ComingSoon
+            title="Painel do Técnico"
+            description="Visualize OS por status em formato kanban, atribua técnicos e acompanhe o andamento dos reparos em tempo real."
+          />
+        </>
+      );
+
+    case 'historico-os':
+      return (
+        <>
+          <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
+            <span style={{ color: '#3b82f6' }}>Assistência Técnica</span> {'>'} Histórico / Finalizadas
+          </div>
+          <ComingSoon
+            title="Histórico de OS"
+            description="Consulte ordens de serviço finalizadas e entregues, com filtros por período, cliente e técnico."
+          />
+        </>
+      );
+
+    case 'termos-os':
+      return (
+        <>
+          <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
+            <span style={{ color: '#3b82f6' }}>Assistência Técnica</span> {'>'} Termos e Garantia
+          </div>
+          <ComingSoon
+            title="Termos e Garantia de OS"
+            description="Configure e imprima termos de responsabilidade e garantia de serviço vinculados às ordens de serviço."
+          />
+        </>
+      );
+
+    case 'relatorios':
+      return (
+        <>
+          <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
+            <span style={{ color: '#3b82f6' }}>Relatórios</span>
+          </div>
+          <ComingSoon
+            title="Relatórios"
+            description="Relatórios de vendas, estoque, financeiro e assistência técnica estarão disponíveis em breve."
+          />
+        </>
+      );
+
+    case 'ferramentas':
+      return (
+        <>
+          <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
+            <span style={{ color: '#3b82f6' }}>Ferramentas</span>
+          </div>
+          <ComingSoon
+            title="Ferramentas"
+            description="Calculadoras, importação/exportação de dados e utilitários operacionais."
+          />
+        </>
+      );
+
+    case 'documentos':
+      return (
+        <>
+          <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
+            <span style={{ color: '#3b82f6' }}>Documentos</span>
+          </div>
+          <ComingSoon
+            title="Documentos"
+            description="Central de recibos, notas e documentos gerados pelo sistema."
+          />
         </>
       );
 

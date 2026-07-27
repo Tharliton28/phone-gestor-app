@@ -1,0 +1,26 @@
+.sidebar {
+  background-color: #11131c;
+  border-right: 1px solid #1f2233;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  transition: width 0.3s ease, transform 0.3s ease;
+  z-index: 100;
+}
+
+.sidebar--mobile {
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+}
+
+.sidebar--mobile-closed {
+  transform: translateX(-100%);
+}
+
+@media (max-width: 767px) {
+  .sidebar {
+    width: 260px !important;
+  }
+}

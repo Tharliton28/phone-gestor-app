@@ -1,88 +1,114 @@
-import React from 'react';
-import { Bell, HelpCircle, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, ChevronDown, HelpCircle, LogOut, Menu, Store, Zap } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useLoja } from '../contexts/LojaContext';
+import { formatCnpj, getInitials, truncate } from '../utils/formatters';
+import './topbar.css';
 
-const Topbar = () => {
+export default function Topbar({ onMenuToggle, isMobile }) {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const { perfil, lojaAtiva, lojas, lojaAtivaId, setLojaAtiva, papelAtivo } = useLoja();
+  const [menuAberto, setMenuAberto] = useState(false);
+
+  const nomeExibicao = lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'Sem loja vinculada';
+  const cnpjFormatado = lojaAtiva?.cnpj ? formatCnpj(lojaAtiva.cnpj) : '';
+  const nomeUsuario = perfil?.nome ?? 'Usuário';
+  const iniciais = getInitials(nomeUsuario);
+
+  const handleLogout = async () => {
+    setMenuAberto(false);
+    const { error } = await signOut();
+    if (!error) navigate('/login', { replace: true });
+  };
+
   return (
-    <header style={styles.topbar}>
-      <div style={styles.leftSection}>
+    <header className="topbar">
+      <div className="topbar__left">
+        {isMobile && (
+          <button type="button" className="topbar__menu-btn" onClick={onMenuToggle} aria-label="Abrir menu">
+            <Menu size={20} />
+          </button>
+        )}
       </div>
 
-      <div style={styles.centerSection}>
-        <span style={styles.companyText}>Empresa: Biscoito Imports LTDA - 64.951.713/0001...</span>
+      <div className="topbar__center">
+        {lojas.length > 1 ? (
+          <div className="topbar__loja-select">
+            <Store size={14} className="topbar__loja-icon" />
+            <select
+              className="topbar__select"
+              value={lojaAtivaId ?? ''}
+              onChange={(e) => setLojaAtiva(e.target.value)}
+              aria-label="Selecionar loja"
+            >
+              {lojas.map((loja) => (
+                <option key={loja.id} value={loja.id}>
+                  {loja.nome_fantasia || loja.razao_social}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <span className="topbar__company">
+            Empresa: {truncate(nomeExibicao, 28)}
+            {cnpjFormatado ? ` — ${truncate(cnpjFormatado, 20)}` : ''}
+          </span>
+        )}
       </div>
 
-      <div style={styles.rightSection}>
-        <div style={styles.iconGroup}>
-          
-          {/* BOTÃO UPGRADE PRO */}
-          <button style={styles.btnUpgrade} onClick={() => alert('Abrir planos de assinatura...')}>
-            <Zap size={14} color="#fbbf24" fill="#fbbf24" /> Upgrade PRO
+      <div className="topbar__right">
+        <div className="topbar__icons">
+          <button type="button" className="topbar__btn-upgrade" onClick={() => alert('Abrir planos de assinatura...')}>
+            <Zap size={14} color="#fbbf24" fill="#fbbf24" />
+            <span className="topbar__upgrade-text">Upgrade PRO</span>
           </button>
 
-          <span style={styles.iconWrapper}><HelpCircle size={18} /></span>
-          <span style={styles.iconWrapper}><Bell size={18} /></span>   
+          <span className="topbar__icon-wrap" title="Ajuda">
+            <HelpCircle size={18} />
+          </span>
+          <span className="topbar__icon-wrap" title="Notificações">
+            <Bell size={18} />
+          </span>
         </div>
-        
-        <div style={styles.userProfile}>
-          <div style={styles.avatar}>WV</div>
-          <span style={styles.userName}>Wesley de Sousa Viana ▾</span>
+
+        <div className="topbar__user">
+          <button
+            type="button"
+            className="topbar__user-btn"
+            onClick={() => setMenuAberto((prev) => !prev)}
+            aria-expanded={menuAberto}
+            aria-haspopup="true"
+          >
+            <div className="topbar__avatar">{iniciais}</div>
+            <span className="topbar__user-name">{truncate(nomeUsuario, 22)}</span>
+            <ChevronDown size={16} className="topbar__chevron" />
+          </button>
+
+          {menuAberto && (
+            <>
+              <button
+                type="button"
+                className="topbar__menu-backdrop"
+                onClick={() => setMenuAberto(false)}
+                aria-label="Fechar menu"
+              />
+              <div className="topbar__dropdown">
+                <div className="topbar__dropdown-header">
+                  <strong>{nomeUsuario}</strong>
+                  <span>{perfil?.email}</span>
+                  {papelAtivo && <span className="topbar__papel">{papelAtivo}</span>}
+                </div>
+                <button type="button" className="topbar__dropdown-item" onClick={handleLogout}>
+                  <LogOut size={16} />
+                  Sair
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
   );
-};
-
-const styles = {
-  topbar: {
-    height: '60px',
-    backgroundColor: '#11131c', 
-    borderBottom: '1px solid #1f2233',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0 24px',
-    color: '#e2e8f0',
-  },
-  leftSection: { display: 'flex', alignItems: 'center' },
-  centerSection: {
-    backgroundColor: '#161925',
-    padding: '6px 16px',
-    borderRadius: '4px',
-    border: '1px solid #2a2e3f',
-  },
-  companyText: { fontSize: '13px', color: '#a1a1aa' },
-  rightSection: { display: 'flex', alignItems: 'center', gap: '24px' },
-  iconGroup: { display: 'flex', alignItems: 'center', gap: '12px' },
-  
-  btnUpgrade: {
-    backgroundColor: 'rgba(251, 191, 36, 0.1)', 
-    border: '1px solid rgba(251, 191, 36, 0.3)', 
-    color: '#fbbf24', 
-    padding: '6px 12px', 
-    borderRadius: '20px', 
-    cursor: 'pointer', 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '6px', 
-    fontSize: '12px', 
-    fontWeight: 'bold', 
-    marginRight: '10px'
-  },
-
-  iconWrapper: {
-    width: '32px', height: '32px',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#161925', borderRadius: '50%',
-    color: '#a1a1aa', cursor: 'pointer',
-  },
-  userProfile: { display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' },
-  avatar: {
-    width: '36px', height: '36px',
-    backgroundColor: '#1e3a8a', borderRadius: '50%',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: '14px', fontWeight: 'bold'
-  },
-  userName: { fontSize: '14px', color: '#e2e8f0' }
-};
-
-export default Topbar;
+}
