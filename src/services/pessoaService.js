@@ -76,8 +76,8 @@ export function mapPessoaMeta(pessoa) {
 
 export async function listPessoasResumo(lojaId, { categoria = 'cliente' } = {}) {
   let query = supabase
-    .from('pessoas_resumo')
-    .select('*')
+    .from('pessoas')
+    .select('id, loja_id, codigo, nome, cpf_cnpj, telefone, categoria, ativo, created_at, updated_at')
     .eq('loja_id', lojaId)
     .eq('ativo', true)
     .order('nome', { ascending: true });
