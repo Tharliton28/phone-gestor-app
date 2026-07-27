@@ -6,6 +6,24 @@ export function formatCnpj(cnpj) {
   return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
 }
 
+/** Formata CPF ou CNPJ conforme tamanho */
+export function formatCpfCnpj(value) {
+  if (!value) return '';
+  const digits = String(value).replace(/\D/g, '');
+  if (digits.length === 11) {
+    return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+  }
+  if (digits.length === 14) {
+    return formatCnpj(digits);
+  }
+  return digits;
+}
+
+/** Remove tudo que não for dígito */
+export function onlyDigits(value) {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
 /** Iniciais do nome (máx. 2 letras) */
 export function getInitials(nome) {
   if (!nome) return '?';

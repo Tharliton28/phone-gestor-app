@@ -1,10 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Save, MapPin, Trash2, Settings, 
   UploadCloud, FileText, CheckCircle, User, Calendar, AlertCircle, Info, X
 } from 'lucide-react';
+import { useLoja } from '../contexts/LojaContext';
+import {
+  createPessoa,
+  getPessoaById,
+  mapFormToPessoa,
+  mapPessoaMeta,
+  mapPessoaToForm,
+  updatePessoa,
+} from '../services/pessoaService';
 
-const ClientesForm = ({ aoVoltar }) => {
+const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
+  const { lojaAtivaId } = useLoja();
+  const isEdicao = Boolean(pessoaId);
+  const [carregando, setCarregando] = useState(isEdicao);
+  const [salvando, setSalvando] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState('dados-gerais');
   const [tipoPessoa, setTipoPessoa] = useState('Pessoa Física');
   const [categoria, setCategoria] = useState('Cliente');
@@ -27,6 +40,34 @@ const ClientesForm = ({ aoVoltar }) => {
     setModalAviso({ aberto: true, titulo, mensagem, tipo, acaoOk });
   };
 
+  useEffect(() => {
+    if (!pessoaId || !lojaAtivaId) return;
+
+    const carregarPessoa = async () => {
+      setCarregando(true);
+      const { data, error } = await getPessoaById(lojaAtivaId, pessoaId);
+
+      if (error || !data) {
+        mostrarAviso(
+          'Erro',
+          error?.message ?? 'Não foi possível carregar o cadastro.',
+          'erro',
+          aoVoltar
+        );
+        setCarregando(false);
+        return;
+      }
+
+      const meta = mapPessoaMeta(data);
+      setTipoPessoa(meta.tipoPessoa);
+      setCategoria(meta.categoria);
+      setFormData(mapPessoaToForm(data));
+      setCarregando(false);
+    };
+
+    carregarPessoa();
+  }, [pessoaId, lojaAtivaId, aoVoltar]);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     if(e.target.name === 'cpf') setDadosConsulta(null);
@@ -47,12 +88,38 @@ const ClientesForm = ({ aoVoltar }) => {
     setModalConfirmarLimpeza(false);
   };
 
-  const salvarCadastro = () => {
-    if(!formData.nome) {
+  const salvarCadastro = async () => {
+    if (!formData.nome.trim()) {
       return mostrarAviso('Atenção', 'O campo Nome é obrigatório!', 'erro');
     }
-    
-    mostrarAviso('Sucesso', 'Cadastro salvo com sucesso no banco de dados!', 'sucesso', () => aoVoltar());
+
+    if (!lojaAtivaId) {
+      return mostrarAviso('Erro', 'Nenhuma loja ativa selecionada.', 'erro');
+    }
+
+    setSalvando(true);
+
+    const payload = mapFormToPessoa(formData, { tipoPessoa, categoria });
+    const { error } = isEdicao
+      ? await updatePessoa(lojaAtivaId, pessoaId, payload)
+      : await createPessoa(lojaAtivaId, payload);
+
+    setSalvando(false);
+
+    if (error) {
+      return mostrarAviso(
+        'Erro',
+        error.message ?? 'Não foi possível salvar o cadastro.',
+        'erro'
+      );
+    }
+
+    mostrarAviso(
+      'Sucesso',
+      isEdicao ? 'Cadastro atualizado com sucesso!' : 'Cadastro salvo com sucesso!',
+      'sucesso',
+      () => aoVoltar()
+    );
   };
 
   const buscarCep = async () => {
@@ -128,11 +195,19 @@ const ClientesForm = ({ aoVoltar }) => {
           <button onClick={aoVoltar} style={styles.btnBack}>
             <ArrowLeft size={16} /> Voltar
           </button>
-          <h2 style={{color: '#fff', fontSize: '18px', margin: 0}}>Cadastro de Pessoa</h2>
+          <h2 style={{color: '#fff', fontSize: '18px', margin: 0}}>
+            {isEdicao ? 'Editar Pessoa' : 'Cadastro de Pessoa'}
+          </h2>
         </div>
       </div>
 
       <div style={styles.content}>
+        {carregando ? (
+          <div style={{ color: '#94a3b8', padding: '40px', textAlign: 'center' }}>
+            Carregando cadastro...
+          </div>
+        ) : (
+        <>
         
         <div style={styles.tabsContainer}>
           <div style={styles.tabsGroup}>
@@ -409,13 +484,16 @@ const ClientesForm = ({ aoVoltar }) => {
               </div>
            </div>
         )}
+        </>
+        )}
 
       </div>
 
+      {!carregando && (
       <div style={styles.footer}>
         <div style={styles.footerLeft}>
-          <button style={styles.btnPrimary} onClick={salvarCadastro}>
-            <Save size={16} /> Salvar
+          <button style={styles.btnPrimary} onClick={salvarCadastro} disabled={salvando}>
+            <Save size={16} /> {salvando ? 'Salvando...' : 'Salvar'}
           </button>
           <button style={styles.btnDangerOutline} onClick={limparFormulario}>
             <Trash2 size={16} /> Limpar formulário
@@ -433,6 +511,7 @@ const ClientesForm = ({ aoVoltar }) => {
           </button>
         </div>
       </div>
+      )}
 
       {/* MODAL CUSTOMIZADO PARA AVISOS E ERROS */}
       {modalAviso.aberto && (

@@ -134,9 +134,13 @@ export default function ErpContent() {
       return (
         <>
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
-            <span style={{ color: '#3b82f6' }}>Pessoas</span> {'>'} Novo Cadastro
+            <span style={{ color: '#3b82f6' }}>Pessoas</span> {'>'} Clientes {'>'}{' '}
+            {dadosNavegacao?.pessoaId ? 'Editar' : 'Novo Cadastro'}
           </div>
-          <ClientesForm aoVoltar={() => mudarTela('clientes')} />
+          <ClientesForm
+            pessoaId={dadosNavegacao?.pessoaId ?? null}
+            aoVoltar={() => mudarTela('clientes')}
+          />
         </>
       );
 

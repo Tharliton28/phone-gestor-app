@@ -1,12 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Users, UserCheck, RefreshCw, Plus, Eraser, Download, ChevronDown, 
   Search, Settings, Edit, ShoppingBag, MessageCircle, Trash2,
   FileText, FileSpreadsheet, TableProperties, ChevronLeft, ChevronRight,
   X, AlertCircle, CheckCircle, Info
 } from 'lucide-react';
+import { useLoja } from '../contexts/LojaContext';
+import {
+  desativarPessoa,
+  getPessoaStats,
+  listPessoasResumo,
+} from '../services/pessoaService';
+import { formatCpfCnpj, onlyDigits } from '../utils/formatters';
 
 const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
+  const { lojaAtivaId } = useLoja();
+  const [clientes, setClientes] = useState([]);
+  const [stats, setStats] = useState({ totalPessoas: 0, totalClientes: 0 });
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState(null);
   const [menuAberto, setMenuAberto] = useState(null);
   const [menuExportarAberto, setMenuExportarAberto] = useState(false);
   
@@ -26,6 +38,34 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
     document.addEventListener('click', handleClickFora);
     return () => document.removeEventListener('click', handleClickFora);
   }, []);
+
+  const carregarClientes = useCallback(async () => {
+    if (!lojaAtivaId) return;
+
+    setLoading(true);
+    setErro(null);
+
+    try {
+      const [listResult, statsData] = await Promise.all([
+        listPessoasResumo(lojaAtivaId, { categoria: 'cliente' }),
+        getPessoaStats(lojaAtivaId),
+      ]);
+
+      if (listResult.error) throw listResult.error;
+
+      setClientes(listResult.data ?? []);
+      setStats(statsData);
+    } catch (err) {
+      setErro(err.message ?? 'Erro ao carregar clientes.');
+      setClientes([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [lojaAtivaId]);
+
+  useEffect(() => {
+    carregarClientes();
+  }, [carregarClientes]);
 
   const toggleMenu = (index, e) => {
     e.stopPropagation(); 
@@ -52,24 +92,40 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
     setModalHistorico({ aberto: true, cliente });
   };
 
-  const mockClientes = [
-    { id: '8217798', nome: 'EVERTON SOUSA DE LIMA', cpf: '000.000.000-00', telefone: '(85) 98857-8165', ultimoProduto: 'iPhone 14 Plus', dataCompra: '01/07/2026' },
-    { id: '8216461', nome: 'MANOEL MESSIAS DOS SANTOS', cpf: '062.493.715-16', telefone: '(85) 92158-1071', ultimoProduto: 'iPhone 13', dataCompra: '01/07/2026' },
-    { id: '8215122', nome: 'THAIS LOPES', cpf: '111.222.333-44', telefone: '(85) 99430-0841', ultimoProduto: 'iPhone 13 Pro Max', dataCompra: '01/07/2026' },
-    { id: '8214300', nome: 'NATAN COVIDEIRA', cpf: '555.444.333-22', telefone: '(85) 99999-8888', ultimoProduto: 'Capa MagSafe', dataCompra: '30/06/2026' },
-    { id: '8213888', nome: 'ANTONIA DEBORA FELIPE', cpf: '777.888.999-00', telefone: '(85) 97777-6666', ultimoProduto: 'Xiaomi Redmi Note 13', dataCompra: '02/07/2026' },
-  ];
+  const editarCliente = (cliente) => {
+    setMenuAberto(null);
+    if (aoMudarTela) {
+      aoMudarTela('novo-cliente', 'clientes', { pessoaId: cliente.id });
+    }
+  };
 
-  // Filtros dinâmicos
-  const clientesFiltrados = mockClientes.filter(cliente => {
-    const matchCodigo = cliente.id.includes(filtros.codigo);
-    const matchNome = cliente.nome.toLowerCase().includes(filtros.nome.toLowerCase());
-    const matchCpf = cliente.cpf.includes(filtros.cpf);
-    const matchTelefone = cliente.telefone.includes(filtros.telefone);
-    const matchProduto = cliente.ultimoProduto.toLowerCase().includes(filtros.produto.toLowerCase());
-    const matchData = filtros.data === '' || cliente.dataCompra === filtros.data.split('-').reverse().join('/'); 
+  const excluirCliente = async (cliente) => {
+    setMenuAberto(null);
+    if (!lojaAtivaId) return;
 
-    return matchCodigo && matchNome && matchCpf && matchTelefone && matchProduto && matchData;
+    const { error } = await desativarPessoa(lojaAtivaId, cliente.id);
+    if (error) {
+      mostrarAviso(
+        'Erro',
+        error.message ?? 'Não foi possível excluir o cliente.',
+        'erro'
+      );
+      return;
+    }
+
+    mostrarAviso('Sucesso', 'Cliente removido com sucesso.', 'sucesso', carregarClientes);
+  };
+
+  const clientesFiltrados = clientes.filter((cliente) => {
+    const cpfFormatado = formatCpfCnpj(cliente.cpf_cnpj);
+    const matchCodigo = String(cliente.codigo ?? '').includes(filtros.codigo);
+    const matchNome = (cliente.nome ?? '').toLowerCase().includes(filtros.nome.toLowerCase());
+    const matchCpf =
+      cpfFormatado.includes(filtros.cpf) ||
+      onlyDigits(cliente.cpf_cnpj).includes(onlyDigits(filtros.cpf));
+    const matchTelefone = (cliente.telefone ?? '').includes(filtros.telefone);
+
+    return matchCodigo && matchNome && matchCpf && matchTelefone;
   });
 
   const qtdFiltrosAtivos = Object.values(filtros).filter(val => val !== '').length;
@@ -83,21 +139,21 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
           <div style={styles.metricIconBox}><Users size={20} color="#38bdf8" /></div>
           <div>
             <div style={styles.metricLabel}>Total de pessoas</div>
-            <div style={styles.metricValue}>468</div>
+            <div style={styles.metricValue}>{stats.totalPessoas}</div>
           </div>
         </div>
         <div style={styles.metricCard}>
           <div style={styles.metricIconBox}><UserCheck size={20} color="#38bdf8" /></div>
           <div>
             <div style={styles.metricLabel}>Total de clientes</div>
-            <div style={styles.metricValue}>416</div>
+            <div style={styles.metricValue}>{stats.totalClientes}</div>
           </div>
         </div>
         <div style={styles.metricCard}>
           <div style={styles.metricIconBox}><RefreshCw size={20} color="#c084fc" /></div>
           <div>
             <div style={styles.metricLabel}>Índice de recompra (%)</div>
-            <div style={styles.metricValue}>18.02%</div>
+            <div style={styles.metricValue}>—</div>
           </div>
         </div>
       </div>
@@ -135,6 +191,9 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
 
         {/* TABELA DE CLIENTES */}
         <div style={styles.tableWrapper}>
+          {erro && (
+            <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px' }}>{erro}</div>
+          )}
           <table style={styles.table}>
             <thead>
               <tr>
@@ -192,17 +251,23 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
               </tr>
             </thead>
             <tbody>
-              {clientesFiltrados.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                    Carregando clientes...
+                  </td>
+                </tr>
+              ) : clientesFiltrados.length === 0 ? (
                 <tr><td colSpan="7" style={{textAlign: 'center', padding: '40px', color: '#64748b'}}>Nenhum cliente encontrado.</td></tr>
               ) : (
                 clientesFiltrados.map((item, index) => (
-                  <tr key={index} style={styles.tr}>
-                    <td style={{...styles.td, color: '#e2e8f0'}}>{item.id}</td>
+                  <tr key={item.id} style={styles.tr}>
+                    <td style={{...styles.td, color: '#e2e8f0'}}>{item.codigo}</td>
                     <td style={{...styles.td, fontWeight: 'bold', color: '#e2e8f0'}}>{item.nome}</td>
-                    <td style={styles.td}>{item.cpf}</td>
-                    <td style={styles.td}>{item.telefone}</td>
-                    <td style={{...styles.td, color: '#38bdf8'}}>{item.ultimoProduto}</td>
-                    <td style={styles.td}>{item.dataCompra}</td>
+                    <td style={styles.td}>{formatCpfCnpj(item.cpf_cnpj) || '—'}</td>
+                    <td style={styles.td}>{item.telefone || '—'}</td>
+                    <td style={{...styles.td, color: '#64748b'}}>—</td>
+                    <td style={styles.td}>—</td>
                     
                     {/* MENU DE AÇÕES INTELIGENTE */}
                     <td style={{...styles.td, textAlign: 'center'}}>
@@ -213,7 +278,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
 
                         {menuAberto === index && (
                           <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                            <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); aoClicarEmCadastrar(); }}>
+                            <div style={styles.dropdownItem} onClick={() => editarCliente(item)}>
                               <Edit size={14} color="#e2e8f0" /> Editar Cadastro
                             </div>
                             
@@ -227,7 +292,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                             </div>
 
                             <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px'}} 
-                                 onClick={() => { setMenuAberto(null); mostrarAviso('Atenção', 'Você não pode excluir um cliente que já possui vendas atreladas a ele.', 'erro'); }}>
+                                 onClick={() => excluirCliente(item)}>
                               <Trash2 size={14} color="#ef4444" /> Excluir Registro
                             </div>
                           </div>
