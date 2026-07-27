@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 * {
   margin: 0;
@@ -12,8 +12,7 @@ body {
   color: #e2e8f0;
 }
 
-/* O root é a div mestre do React */
 #root {
-  display: flex;
   min-height: 100vh;
+  width: 100%;
 }
