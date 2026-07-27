@@ -122,10 +122,32 @@ export async function getPessoaById(lojaId, pessoaId) {
     .maybeSingle();
 }
 
-export async function createPessoa(lojaId, payload) {
-  const { data: codigo, error: codigoError } = await supabase.rpc('next_pessoa_codigo', {
+async function getNextPessoaCodigo(lojaId) {
+  const { data, error } = await supabase.rpc('next_pessoa_codigo', {
     p_loja_id: lojaId,
   });
+
+  if (!error && data != null) {
+    return { codigo: data, error: null };
+  }
+
+  // Fallback quando a RPC ainda não foi criada no Supabase (migration 002 incompleta)
+  const { data: rows, error: queryError } = await supabase
+    .from('pessoas')
+    .select('codigo')
+    .eq('loja_id', lojaId)
+    .order('codigo', { ascending: false })
+    .limit(1);
+
+  if (queryError) {
+    return { codigo: null, error: queryError };
+  }
+
+  return { codigo: (rows?.[0]?.codigo ?? 0) + 1, error: null };
+}
+
+export async function createPessoa(lojaId, payload) {
+  const { codigo, error: codigoError } = await getNextPessoaCodigo(lojaId);
 
   if (codigoError) {
     return { data: null, error: codigoError };
