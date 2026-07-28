@@ -24,18 +24,83 @@ export function onlyDigits(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
+function hasAllSameDigits(digits) {
+  return /^(\d)\1+$/.test(digits);
+}
+
+/** Valida dígitos verificadores do CPF */
+export function isValidCpf(digits) {
+  if (!digits || digits.length !== 11 || hasAllSameDigits(digits)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i += 1) sum += Number(digits[i]) * (10 - i);
+  let remainder = (sum * 10) % 11;
+  if (remainder === 10) remainder = 0;
+  if (remainder !== Number(digits[9])) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i += 1) sum += Number(digits[i]) * (11 - i);
+  remainder = (sum * 10) % 11;
+  if (remainder === 10) remainder = 0;
+  return remainder === Number(digits[10]);
+}
+
+/** Valida dígitos verificadores do CNPJ */
+export function isValidCnpj(digits) {
+  if (!digits || digits.length !== 14 || hasAllSameDigits(digits)) return false;
+
+  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+  let sum = 0;
+  for (let i = 0; i < 12; i += 1) sum += Number(digits[i]) * weights1[i];
+  let remainder = sum % 11;
+  const digit1 = remainder < 2 ? 0 : 11 - remainder;
+  if (digit1 !== Number(digits[12])) return false;
+
+  sum = 0;
+  for (let i = 0; i < 13; i += 1) sum += Number(digits[i]) * weights2[i];
+  remainder = sum % 11;
+  const digit2 = remainder < 2 ? 0 : 11 - remainder;
+  return digit2 === Number(digits[13]);
+}
+
 /** Valida CPF (11) ou CNPJ (14). Vazio é permitido. */
 export function validateCpfCnpj(value) {
   const digits = onlyDigits(value);
   if (!digits) return { valid: true, digits: null, message: null };
-  if (digits.length === 11 || digits.length === 14) {
+
+  if (digits.length === 11) {
+    if (!isValidCpf(digits)) {
+      return { valid: false, digits, message: 'CPF inválido. Verifique os dígitos informados.' };
+    }
     return { valid: true, digits, message: null };
   }
+
+  if (digits.length === 14) {
+    if (!isValidCnpj(digits)) {
+      return { valid: false, digits, message: 'CNPJ inválido. Verifique os dígitos informados.' };
+    }
+    return { valid: true, digits, message: null };
+  }
+
   return {
     valid: false,
     digits,
     message: 'CPF deve ter 11 dígitos ou CNPJ 14 dígitos.',
   };
+}
+
+/** Valida telefone brasileiro (10 ou 11 dígitos com DDD) */
+export function validateTelefone(value) {
+  const digits = onlyDigits(value);
+  if (digits.length < 10 || digits.length > 11) {
+    return {
+      valid: false,
+      message: 'Informe um telefone válido com DDD (10 ou 11 dígitos).',
+    };
+  }
+  return { valid: true, message: null };
 }
 
 /** Iniciais do nome (máx. 2 letras) */

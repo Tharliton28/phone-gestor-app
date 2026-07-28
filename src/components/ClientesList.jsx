@@ -7,18 +7,28 @@ import {
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import {
+  CATEGORIA_LABEL,
   desativarPessoa,
   getPessoaStats,
   listPessoasResumo,
 } from '../services/pessoaService';
 import { formatCpfCnpj, onlyDigits } from '../utils/formatters';
 
+const FILTRO_CATEGORIA = {
+  Todos: null,
+  Cliente: 'cliente',
+  Fornecedor: 'fornecedor',
+  Técnico: 'tecnico',
+  Motoboy: 'motoboy',
+};
+
 const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const { lojaAtivaId } = useLoja();
-  const [clientes, setClientes] = useState([]);
+  const [pessoas, setPessoas] = useState([]);
   const [stats, setStats] = useState({ totalPessoas: 0, totalClientes: 0 });
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
+  const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
   const [menuAberto, setMenuAberto] = useState(null);
   const [menuExportarAberto, setMenuExportarAberto] = useState(false);
   
@@ -39,7 +49,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
     return () => document.removeEventListener('click', handleClickFora);
   }, []);
 
-  const carregarClientes = useCallback(async () => {
+  const carregarPessoas = useCallback(async () => {
     if (!lojaAtivaId) return;
 
     setLoading(true);
@@ -47,25 +57,25 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
 
     try {
       const [listResult, statsData] = await Promise.all([
-        listPessoasResumo(lojaAtivaId, { categoria: 'cliente' }),
+        listPessoasResumo(lojaAtivaId),
         getPessoaStats(lojaAtivaId),
       ]);
 
       if (listResult.error) throw listResult.error;
 
-      setClientes(listResult.data ?? []);
+      setPessoas(listResult.data ?? []);
       setStats(statsData);
     } catch (err) {
-      setErro(err.message ?? 'Erro ao carregar clientes.');
-      setClientes([]);
+      setErro(err.message ?? 'Erro ao carregar pessoas.');
+      setPessoas([]);
     } finally {
       setLoading(false);
     }
   }, [lojaAtivaId]);
 
   useEffect(() => {
-    carregarClientes();
-  }, [carregarClientes]);
+    carregarPessoas();
+  }, [carregarPessoas]);
 
   const toggleMenu = (index, e) => {
     e.stopPropagation(); 
@@ -113,17 +123,20 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
       return;
     }
 
-    mostrarAviso('Sucesso', 'Cliente removido com sucesso.', 'sucesso', carregarClientes);
+    mostrarAviso('Sucesso', 'Registro removido com sucesso.', 'sucesso', carregarPessoas);
   };
 
-  const clientesFiltrados = clientes.filter((cliente) => {
-    const cpfFormatado = formatCpfCnpj(cliente.cpf_cnpj);
-    const matchCodigo = String(cliente.codigo ?? '').includes(filtros.codigo);
-    const matchNome = (cliente.nome ?? '').toLowerCase().includes(filtros.nome.toLowerCase());
+  const pessoasFiltradas = pessoas.filter((pessoa) => {
+    const categoriaDb = FILTRO_CATEGORIA[categoriaAtiva];
+    if (categoriaDb && pessoa.categoria !== categoriaDb) return false;
+
+    const cpfFormatado = formatCpfCnpj(pessoa.cpf_cnpj);
+    const matchCodigo = String(pessoa.codigo ?? '').includes(filtros.codigo);
+    const matchNome = (pessoa.nome ?? '').toLowerCase().includes(filtros.nome.toLowerCase());
     const matchCpf =
       cpfFormatado.includes(filtros.cpf) ||
-      onlyDigits(cliente.cpf_cnpj).includes(onlyDigits(filtros.cpf));
-    const matchTelefone = (cliente.telefone ?? '').includes(filtros.telefone);
+      onlyDigits(pessoa.cpf_cnpj).includes(onlyDigits(filtros.cpf));
+    const matchTelefone = (pessoa.telefone ?? '').includes(filtros.telefone);
 
     return matchCodigo && matchNome && matchCpf && matchTelefone;
   });
@@ -189,7 +202,22 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
           </div>
         </div>
 
-        {/* TABELA DE CLIENTES */}
+        <div style={styles.categoriesGroup}>
+          {Object.keys(FILTRO_CATEGORIA).map((cat) => (
+            <button
+              key={cat}
+              style={{
+                ...styles.categoryBtn,
+                ...(categoriaAtiva === cat ? styles.categoryBtnActive : {}),
+              }}
+              onClick={() => setCategoriaAtiva(cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* TABELA DE PESSOAS */}
         <div style={styles.tableWrapper}>
           {erro && (
             <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px' }}>{erro}</div>
@@ -198,7 +226,8 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             <thead>
               <tr>
                 <th style={styles.th}>Cód.</th>
-                <th style={styles.th}>Nome do Cliente</th>
+                <th style={styles.th}>Nome</th>
+                <th style={styles.th}>Vínculo</th>
                 <th style={styles.th}>CPF/CNPJ</th>
                 <th style={styles.th}>Telefone</th>
                 <th style={styles.th}>Último Produto Comprado</th>
@@ -208,12 +237,11 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
               {/* LINHA DE FILTROS NA TABELA */}
               <tr style={styles.filterRow}>
                 <td style={styles.tdFilter}>
-                  {/* BLOQUEIO VIA REGEX: Apenas números no Código */}
-                  <input 
-                    style={styles.filterInput} 
-                    placeholder="Nº..." 
-                    value={filtros.codigo} 
-                    onChange={(e) => setFiltros({...filtros, codigo: e.target.value.replace(/[^0-9]/g, '')})} 
+                  <input
+                    style={styles.filterInput}
+                    placeholder="Nº..."
+                    value={filtros.codigo}
+                    onChange={(e) => setFiltros({ ...filtros, codigo: e.target.value.replace(/[^0-9]/g, '') })}
                   />
                 </td>
                 <td style={styles.tdFilter}>
@@ -222,22 +250,21 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                     <Search size={12} color="#64748b" style={styles.innerIcon} />
                   </div>
                 </td>
+                <td style={styles.tdFilter}></td>
                 <td style={styles.tdFilter}>
-                  {/* BLOQUEIO VIA REGEX: Apenas números, ponto, hífen e barra */}
-                  <input 
-                    style={styles.filterInput} 
-                    placeholder="000.000.000-00" 
-                    value={filtros.cpf} 
-                    onChange={(e) => setFiltros({...filtros, cpf: e.target.value.replace(/[^0-9.\-/]/g, '')})} 
+                  <input
+                    style={styles.filterInput}
+                    placeholder="000.000.000-00"
+                    value={filtros.cpf}
+                    onChange={(e) => setFiltros({ ...filtros, cpf: e.target.value.replace(/[^0-9.\-/]/g, '') })}
                   />
                 </td>
                 <td style={styles.tdFilter}>
-                  {/* BLOQUEIO VIA REGEX: Apenas números, parênteses, espaço e hífen */}
-                  <input 
-                    style={styles.filterInput} 
-                    placeholder="(00) 00000-0000" 
-                    value={filtros.telefone} 
-                    onChange={(e) => setFiltros({...filtros, telefone: e.target.value.replace(/[^0-9()\-\s]/g, '')})} 
+                  <input
+                    style={styles.filterInput}
+                    placeholder="(00) 00000-0000"
+                    value={filtros.telefone}
+                    onChange={(e) => setFiltros({ ...filtros, telefone: e.target.value.replace(/[^0-9()\-\s]/g, '') })}
                   />
                 </td>
                 <td style={styles.tdFilter}>
@@ -253,17 +280,22 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                    Carregando clientes...
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                    Carregando pessoas...
                   </td>
                 </tr>
-              ) : clientesFiltrados.length === 0 ? (
-                <tr><td colSpan="7" style={{textAlign: 'center', padding: '40px', color: '#64748b'}}>Nenhum cliente encontrado.</td></tr>
+              ) : pessoasFiltradas.length === 0 ? (
+                <tr><td colSpan="8" style={{textAlign: 'center', padding: '40px', color: '#64748b'}}>Nenhuma pessoa encontrada.</td></tr>
               ) : (
-                clientesFiltrados.map((item, index) => (
+                pessoasFiltradas.map((item, index) => (
                   <tr key={item.id} style={styles.tr}>
                     <td style={{...styles.td, color: '#e2e8f0'}}>{item.codigo}</td>
                     <td style={{...styles.td, fontWeight: 'bold', color: '#e2e8f0'}}>{item.nome}</td>
+                    <td style={styles.td}>
+                      <span style={styles.badgeCategoria}>
+                        {CATEGORIA_LABEL[item.categoria] ?? item.categoria}
+                      </span>
+                    </td>
                     <td style={styles.td}>{formatCpfCnpj(item.cpf_cnpj) || '—'}</td>
                     <td style={styles.td}>{item.telefone || '—'}</td>
                     <td style={{...styles.td, color: '#64748b'}}>—</td>
@@ -309,7 +341,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
         {/* CONTAGEM DE REGISTROS */}
         <div style={styles.paginationArea}>
           <div style={{color: '#64748b', fontSize: '12px'}}>
-            Mostrando {clientesFiltrados.length > 0 ? 1 : 0} a {clientesFiltrados.length} de {clientesFiltrados.length} registros
+            Mostrando {pessoasFiltradas.length > 0 ? 1 : 0} a {pessoasFiltradas.length} de {pessoasFiltradas.length} registros
           </div>
           <div style={styles.paginationControls}>
             <button style={styles.btnPage} disabled><ChevronLeft size={16}/></button>
@@ -424,6 +456,11 @@ const styles = {
   btnPrimary: { backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 'bold' },
   btnClear: { backgroundColor: 'transparent', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '4px', fontSize: '13px', fontWeight: '500', transition: '0.2s' },
   btnOutline: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
+
+  categoriesGroup: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' },
+  categoryBtn: { backgroundColor: '#0f111a', border: '1px solid #2a2e3f', color: '#94a3b8', padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: '500' },
+  categoryBtnActive: { backgroundColor: 'rgba(59, 130, 246, 0.15)', borderColor: '#3b82f6', color: '#38bdf8', fontWeight: '600' },
+  badgeCategoria: { backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#93c5fd', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' },
 
   tableWrapper: { overflowX: 'auto', marginTop: '10px', paddingBottom: '80px', flex: 1 },
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },

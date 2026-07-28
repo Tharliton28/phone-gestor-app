@@ -12,6 +12,7 @@ import {
   mapPessoaToForm,
   updatePessoa,
 } from '../services/pessoaService';
+import { validateCpfCnpj } from '../utils/formatters';
 
 const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
   const { lojaAtivaId } = useLoja();
@@ -162,6 +163,15 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
 
     if (documentoLimpo.length !== 11 && documentoLimpo.length !== 14) {
       return mostrarAviso('Atenção', 'Digite um CPF (11 dígitos) ou CNPJ (14 dígitos) válido para consultar.', 'erro');
+    }
+
+    try {
+      const validation = validateCpfCnpj(formData.cpf);
+      if (!validation.valid) {
+        return mostrarAviso('Atenção', validation.message, 'erro');
+      }
+    } catch {
+      return mostrarAviso('Atenção', 'Documento inválido.', 'erro');
     }
 
     setBuscandoCpf(true);
@@ -333,7 +343,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
             <h3 style={styles.sectionDivider}>Dados de contato</h3>
             <div style={styles.gridContainer}>
               <div style={{...styles.inputGroup, gridColumn: 'span 3'}}>
-                <label style={styles.label}>Telefone / WhatsApp:</label>
+                <label style={styles.label}><span style={styles.required}>*</span> Telefone / WhatsApp:</label>
                 <input style={styles.input} name="telefone" value={formData.telefone} onChange={handleChange} placeholder="(00) 00000-0000" />
               </div>
               <div style={{...styles.inputGroup, gridColumn: 'span 3'}}>

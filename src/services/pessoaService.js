@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { formatCpfCnpj, onlyDigits, validateCpfCnpj } from '../utils/formatters';
+import { formatCpfCnpj, onlyDigits, validateCpfCnpj, validateTelefone } from '../utils/formatters';
 
 const CATEGORIA_UI_TO_DB = {
   Cliente: 'cliente',
@@ -20,6 +20,11 @@ export function mapFormToPessoa(formData, { tipoPessoa, categoria }) {
 
   const cpfCnpj = cpfValidation.digits;
   const cep = onlyDigits(formData.cep);
+
+  const telefoneValidation = validateTelefone(formData.telefone);
+  if (!telefoneValidation.valid) {
+    throw new Error(telefoneValidation.message);
+  }
 
   return {
     tipo: tipoPessoa === 'Pessoa Jurídica' ? 'juridica' : 'fisica',
@@ -79,7 +84,14 @@ export function mapPessoaMeta(pessoa) {
   };
 }
 
-export async function listPessoasResumo(lojaId, { categoria = 'cliente' } = {}) {
+export const CATEGORIA_LABEL = {
+  cliente: 'Cliente',
+  fornecedor: 'Fornecedor',
+  tecnico: 'Técnico',
+  motoboy: 'Motoboy',
+};
+
+export async function listPessoasResumo(lojaId, { categoria = null } = {}) {
   let query = supabase
     .from('pessoas')
     .select('id, loja_id, codigo, nome, cpf_cnpj, telefone, categoria, ativo, created_at, updated_at')
