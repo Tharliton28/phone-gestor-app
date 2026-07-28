@@ -4,6 +4,7 @@ import {
   BarChart2, Save, UploadCloud, ToggleRight, ToggleLeft,
   Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff
 } from 'lucide-react';
+import { useDialog } from '../contexts/DialogContext';
 
 // --- COMPONENTE REUTILIZÁVEL PARA GERENCIAR LISTAS (TAGS) ---
 const GerenciadorLista = ({ titulo, descricao, itens, aoAdicionar, aoRemover, placeholder }) => {
@@ -50,6 +51,7 @@ const GerenciadorLista = ({ titulo, descricao, itens, aoAdicionar, aoRemover, pl
 
 // --- COMPONENTE PRINCIPAL DE CONFIGURAÇÕES ---
 const Configuracoes = () => {
+  const { alert, confirm } = useDialog();
   const [abaAtiva, setAbaAtiva] = useState('empresa');
   
   const [toggles, setToggles] = useState({
@@ -87,9 +89,9 @@ const Configuracoes = () => {
     setModalPagamentoAberto(true);
   };
 
-  const salvarPagamento = () => {
+  const salvarPagamento = async () => {
     if (!formDataPagamento.nome || !formDataPagamento.taxa) {
-      alert("Preencha o nome e a taxa da forma de pagamento.");
+      await alert('Preencha o nome e a taxa da forma de pagamento.', { type: 'warning', title: 'Campos obrigatórios' });
       return;
     }
 
@@ -101,8 +103,11 @@ const Configuracoes = () => {
     setModalPagamentoAberto(false);
   };
 
-  const removerPagamento = (id) => {
-    if(window.confirm('Tem certeza que deseja remover esta forma de pagamento?')) {
+  const removerPagamento = async (id) => {
+    const confirmar = await confirm('Tem certeza que deseja remover esta forma de pagamento?', {
+      title: 'Remover forma de pagamento',
+    });
+    if (confirmar) {
       setFormasPagamento(formasPagamento.filter(f => f.id !== id));
     }
   };
@@ -157,7 +162,7 @@ const Configuracoes = () => {
           <h2 style={styles.title}>Configurações do Sistema</h2>
           <p style={styles.subtitle}>Gerencie os dados da sua empresa e as regras de negócio dos módulos.</p>
         </div>
-        <button style={styles.btnSave} onClick={() => alert('Configurações salvas com sucesso!')}>
+        <button style={styles.btnSave} onClick={() => alert('Configurações salvas com sucesso!', { type: 'success', title: 'Sucesso' })}>
           <Save size={16} /> Salvar Alterações
         </button>
       </div>

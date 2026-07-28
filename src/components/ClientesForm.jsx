@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Save, MapPin, Trash2, Settings, 
-  UploadCloud, FileText, CheckCircle, User, Calendar, AlertCircle, Info, X
+  UploadCloud, FileText, CheckCircle, User, Calendar, X
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
+import { useDialog } from '../contexts/DialogContext';
 import {
   createPessoa,
   getPessoaById,
@@ -14,8 +15,16 @@ import {
 } from '../services/pessoaService';
 import { validateCpfCnpj } from '../utils/formatters';
 
+const DIALOG_TYPE = {
+  erro: 'error',
+  sucesso: 'success',
+  info: 'info',
+  warning: 'warning',
+};
+
 const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
   const { lojaAtivaId } = useLoja();
+  const { alert, confirm } = useDialog();
   const isEdicao = Boolean(pessoaId);
   const [carregando, setCarregando] = useState(isEdicao);
   const [salvando, setSalvando] = useState(false);
@@ -34,11 +43,9 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
   const [buscandoCpf, setBuscandoCpf] = useState(false);
   const [dadosConsulta, setDadosConsulta] = useState(null);
 
-  const [modalAviso, setModalAviso] = useState({ aberto: false, titulo: '', mensagem: '', tipo: 'info', acaoOk: null });
-  const [modalConfirmarLimpeza, setModalConfirmarLimpeza] = useState(false);
-
-  const mostrarAviso = (titulo, mensagem, tipo = 'info', acaoOk = null) => {
-    setModalAviso({ aberto: true, titulo, mensagem, tipo, acaoOk });
+  const mostrarAviso = async (titulo, mensagem, tipo = 'info', acaoOk = null) => {
+    await alert(mensagem, { title: titulo, type: DIALOG_TYPE[tipo] ?? tipo });
+    if (acaoOk) acaoOk();
   };
 
   useEffect(() => {
@@ -74,11 +81,13 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
     if(e.target.name === 'cpf') setDadosConsulta(null);
   };
 
-  const limparFormulario = () => {
-    setModalConfirmarLimpeza(true);
-  };
+  const limparFormulario = async () => {
+    const confirmar = await confirm(
+      'Tem certeza que deseja apagar todos os dados digitados? Esta ação não pode ser desfeita.',
+      { title: 'Limpar formulário', confirmLabel: 'Sim, limpar' }
+    );
+    if (!confirmar) return;
 
-  const confirmarLimpeza = () => {
     setFormData({
       cpf: '', nome: '', origem: '', inscEstadual: '', indContribuinte: '',
       inscMunicipal: '', dataNascimento: '', genero: '', telefone: '',
@@ -86,7 +95,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
       numero: '', bairro: '', cidade: '', estado: '', complemento: '', observacoes: ''
     });
     setDadosConsulta(null);
-    setModalConfirmarLimpeza(false);
   };
 
   const salvarCadastro = async () => {
@@ -530,58 +538,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
       </div>
       )}
 
-      {/* MODAL CUSTOMIZADO PARA AVISOS E ERROS */}
-      {modalAviso.aberto && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContentSmall}>
-            <div style={styles.modalHeader}>
-              <h3 style={{margin: 0, color: '#fff', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                {modalAviso.tipo === 'sucesso' && <CheckCircle size={18} color="#4ade80" />}
-                {modalAviso.tipo === 'erro' && <AlertCircle size={18} color="#ef4444" />}
-                {modalAviso.tipo === 'info' && <Info size={18} color="#3b82f6" />}
-                {modalAviso.titulo}
-              </h3>
-            </div>
-            <div style={{padding: '20px 0'}}>
-              <p style={{color: '#94a3b8', fontSize: '14px', margin: 0}}>{modalAviso.mensagem}</p>
-            </div>
-            <div style={styles.modalFooter}>
-              <button 
-                style={{...styles.btnSaveModal, backgroundColor: modalAviso.tipo === 'erro' ? '#ef4444' : '#3b82f6'}} 
-                onClick={() => {
-                  setModalAviso({...modalAviso, aberto: false});
-                  if (modalAviso.acaoOk) modalAviso.acaoOk();
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL PARA CONFIRMAÇÃO DE LIMPEZA */}
-      {modalConfirmarLimpeza && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContentSmall}>
-            <div style={styles.modalHeader}>
-              <h3 style={{margin: 0, color: '#fff', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                <AlertCircle size={18} color="#ef4444" /> Limpar Formulário
-              </h3>
-            </div>
-            <div style={{padding: '20px 0'}}>
-              <p style={{color: '#94a3b8', fontSize: '14px', margin: 0}}>
-                Tem certeza que deseja apagar todos os dados digitados? Esta ação não pode ser desfeita.
-              </p>
-            </div>
-            <div style={styles.modalFooter}>
-              <button style={styles.btnCancelModal} onClick={() => setModalConfirmarLimpeza(false)}>Cancelar</button>
-              <button style={{...styles.btnSaveModal, backgroundColor: '#ef4444'}} onClick={confirmarLimpeza}>Sim, Limpar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
@@ -634,14 +590,6 @@ const styles = {
   btnOutlineYellow: { backgroundColor: 'transparent', border: '1px solid #fbbf24', color: '#fbbf24', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
   btnBackBottom: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#94a3b8', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
   btnConfig: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
-
-  /* MODAIS CUSTOMIZADOS */
-  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  modalContentSmall: { backgroundColor: '#11131c', border: '1px solid #2a2e3f', borderRadius: '8px', width: '400px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column' },
-  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1f2233', paddingBottom: '15px' },
-  modalFooter: { marginTop: '10px', display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid #1f2233', paddingTop: '15px' },
-  btnCancelModal: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
-  btnSaveModal: { color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' },
 };
 
 export default ClientesForm;

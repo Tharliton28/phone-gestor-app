@@ -3,9 +3,10 @@ import {
   Users, UserCheck, RefreshCw, Plus, Eraser, Download, ChevronDown, 
   Search, Settings, Edit, ShoppingBag, MessageCircle, Trash2,
   FileText, FileSpreadsheet, TableProperties, ChevronLeft, ChevronRight,
-  X, AlertCircle, CheckCircle, Info
+  X
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
+import { useDialog } from '../contexts/DialogContext';
 import {
   CATEGORIA_LABEL,
   desativarPessoa,
@@ -22,8 +23,16 @@ const FILTRO_CATEGORIA = {
   Motoboy: 'motoboy',
 };
 
+const DIALOG_TYPE = {
+  erro: 'error',
+  sucesso: 'success',
+  info: 'info',
+  warning: 'warning',
+};
+
 const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const { lojaAtivaId } = useLoja();
+  const { alert } = useDialog();
   const [pessoas, setPessoas] = useState([]);
   const [stats, setStats] = useState({ totalPessoas: 0, totalClientes: 0 });
   const [loading, setLoading] = useState(true);
@@ -32,8 +41,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const [menuAberto, setMenuAberto] = useState(null);
   const [menuExportarAberto, setMenuExportarAberto] = useState(false);
   
-  // Modais
-  const [modalAviso, setModalAviso] = useState({ aberto: false, titulo: '', mensagem: '', tipo: 'info', acaoOk: null });
+  // Modal de histórico (conteúdo rico — permanece local)
   const [modalHistorico, setModalHistorico] = useState({ aberto: false, cliente: null });
 
   const [filtros, setFiltros] = useState({
@@ -89,8 +97,9 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
     setMenuAberto(null);
   };
 
-  const mostrarAviso = (titulo, mensagem, tipo = 'info', acaoOk = null) => {
-    setModalAviso({ aberto: true, titulo, mensagem, tipo, acaoOk });
+  const mostrarAviso = async (titulo, mensagem, tipo = 'info', acaoOk = null) => {
+    await alert(mensagem, { title: titulo, type: DIALOG_TYPE[tipo] ?? tipo });
+    if (acaoOk) acaoOk();
   };
 
   const limparFiltros = () => {
@@ -407,36 +416,6 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
         </div>
       )}
 
-      {/* MODAL DE AVISO CUSTOMIZADO */}
-      {modalAviso.aberto && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContentSmall}>
-            <div style={styles.modalHeader}>
-              <h3 style={{margin: 0, color: '#fff', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                {modalAviso.tipo === 'sucesso' && <CheckCircle size={18} color="#4ade80" />}
-                {modalAviso.tipo === 'erro' && <AlertCircle size={18} color="#ef4444" />}
-                {modalAviso.tipo === 'info' && <Info size={18} color="#3b82f6" />}
-                {modalAviso.titulo}
-              </h3>
-            </div>
-            <div style={{padding: '20px 0'}}>
-              <p style={{color: '#94a3b8', fontSize: '14px', margin: 0, lineHeight: '1.5'}}>{modalAviso.mensagem}</p>
-            </div>
-            <div style={styles.modalFooter}>
-              <button 
-                style={{...styles.btnSaveModal, backgroundColor: modalAviso.tipo === 'erro' ? '#ef4444' : '#3b82f6', width: '100%'}} 
-                onClick={() => {
-                  setModalAviso({...modalAviso, aberto: false});
-                  if (modalAviso.acaoOk) modalAviso.acaoOk();
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
@@ -488,12 +467,10 @@ const styles = {
   btnPageActive: { backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold' },
 
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  modalContentSmall: { backgroundColor: '#11131c', border: '1px solid #2a2e3f', borderRadius: '8px', width: '400px', padding: '24px', display: 'flex', flexDirection: 'column' },
   modalContentLarge: { backgroundColor: '#11131c', border: '1px solid #2a2e3f', borderRadius: '8px', width: '700px', padding: '24px', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1f2233', paddingBottom: '15px' },
   btnClose: { backgroundColor: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   modalFooter: { marginTop: '10px', display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid #1f2233', paddingTop: '15px' },
-  btnSaveModal: { color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }
 };
 
 export default ClientesList;

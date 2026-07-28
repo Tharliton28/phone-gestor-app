@@ -4,6 +4,7 @@ import {
   ChevronDown, FilePen, FileText, RotateCcw, Plus, X
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
+import { useDialog } from '../contexts/DialogContext';
 import { listProdutos } from '../services/produtoService';
 import {
   createMovimentacaoManual,
@@ -38,6 +39,7 @@ function descricaoMotivo(item) {
 
 const MovimentacoesEstoque = () => {
   const { lojaAtivaId, perfil } = useLoja();
+  const { alert, confirm } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [produtos, setProdutos] = useState([]);
@@ -92,7 +94,7 @@ const MovimentacoesEstoque = () => {
 
   const salvarMovimentacao = async () => {
     if (!lojaAtivaId || !form.produtoId) {
-      alert('Selecione um produto.');
+      await alert('Selecione um produto.', { type: 'warning', title: 'Campo obrigatório' });
       return;
     }
 
@@ -107,7 +109,7 @@ const MovimentacoesEstoque = () => {
     setSalvando(false);
 
     if (error) {
-      alert(error.message ?? 'Não foi possível registrar a movimentação.');
+      await alert(error.message ?? 'Não foi possível registrar a movimentação.', { type: 'error', title: 'Erro' });
       return;
     }
 
@@ -125,22 +127,24 @@ const MovimentacoesEstoque = () => {
       `Movimentação ${item.codigo}\n` +
         `Produto: ${item.produto?.nome ?? '—'}\n` +
         `Saldo: ${item.quantidade_anterior} → ${item.quantidade_posterior}\n` +
-        `Motivo: ${descricaoMotivo(item)}`
+        `Motivo: ${descricaoMotivo(item)}`,
+      { type: 'info', title: 'Detalhes da movimentação' }
     );
   };
 
   const handleEstornar = async (item) => {
     if (!lojaAtivaId) return;
 
-    const confirmar = window.confirm(
-      'Deseja estornar esta movimentação? O saldo do produto será revertido.'
+    const confirmar = await confirm(
+      'Deseja estornar esta movimentação? O saldo do produto será revertido.',
+      { title: 'Estornar movimentação' }
     );
     if (!confirmar) return;
 
     const { error } = await estornarMovimentacao(lojaAtivaId, item.id, perfil?.id);
 
     if (error) {
-      alert(error.message ?? 'Não foi possível estornar a movimentação.');
+      await alert(error.message ?? 'Não foi possível estornar a movimentação.', { type: 'error', title: 'Erro' });
       return;
     }
 

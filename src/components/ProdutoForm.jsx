@@ -4,6 +4,7 @@ import {
   Hash, Battery, CheckCircle, Calendar, FileText
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
+import { useDialog } from '../contexts/DialogContext';
 import { formatBRL, parseMoney } from '../utils/formatters';
 import { listPessoasResumo } from '../services/pessoaService';
 import {
@@ -45,6 +46,7 @@ const EMPTY_FORM = {
 
 const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
   const { lojaAtivaId } = useLoja();
+  const { alert } = useDialog();
   const isEdicao = Boolean(produtoId);
   const [carregando, setCarregando] = useState(isEdicao);
   const [salvando, setSalvando] = useState(false);
@@ -70,7 +72,7 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
       const { data, error } = await getProdutoById(lojaAtivaId, produtoId);
 
       if (error || !data) {
-        alert(error?.message ?? 'Não foi possível carregar o produto.');
+        await alert(error?.message ?? 'Não foi possível carregar o produto.', { type: 'error', title: 'Erro' });
         aoVoltar();
         return;
       }
@@ -95,12 +97,12 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
 
   const salvarProduto = async () => {
     if (!formData.nome.trim() || !formData.marca.trim() || !formData.categoria.trim()) {
-      alert('Preencha categoria, marca e nome do produto.');
+      await alert('Preencha categoria, marca e nome do produto.', { type: 'warning', title: 'Campos obrigatórios' });
       return;
     }
 
     if (!lojaAtivaId) {
-      alert('Nenhuma loja ativa selecionada.');
+      await alert('Nenhuma loja ativa selecionada.', { type: 'error', title: 'Erro' });
       return;
     }
 
@@ -113,7 +115,7 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
     setSalvando(false);
 
     if (error) {
-      alert(error.message ?? 'Não foi possível salvar o produto.');
+      await alert(error.message ?? 'Não foi possível salvar o produto.', { type: 'error', title: 'Erro' });
       return;
     }
 

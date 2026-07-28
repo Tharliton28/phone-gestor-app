@@ -5,6 +5,7 @@ import {
   PackageCheck, Printer, XCircle
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
+import { useDialog } from '../contexts/DialogContext';
 import {
   cancelarOrdemCompra,
   listOrdensCompra,
@@ -21,6 +22,7 @@ function formatData(iso) {
 
 const OrdemCompraList = ({ aoClicarEmNova, aoMudarTela }) => {
   const { lojaAtivaId, perfil } = useLoja();
+  const { alert, confirm } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
   const [ordens, setOrdens] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -76,15 +78,16 @@ const OrdemCompraList = ({ aoClicarEmNova, aoMudarTela }) => {
     setMenuAberto(null);
     if (!lojaAtivaId) return;
 
-    const confirmar = window.confirm(
-      `Confirmar recebimento da ${ordem.codigo}? Os produtos entrarão no estoque automaticamente.`
+    const confirmar = await confirm(
+      `Confirmar recebimento da ${ordem.codigo}? Os produtos entrarão no estoque automaticamente.`,
+      { title: 'Receber ordem de compra', confirmLabel: 'Confirmar recebimento', confirmVariant: 'primary' }
     );
     if (!confirmar) return;
 
     const { error } = await receberOrdemCompra(lojaAtivaId, ordem.id, perfil?.id);
 
     if (error) {
-      alert(error.message ?? 'Não foi possível receber a ordem de compra.');
+      await alert(error.message ?? 'Não foi possível receber a ordem de compra.', { type: 'error', title: 'Erro' });
       return;
     }
 
@@ -95,12 +98,13 @@ const OrdemCompraList = ({ aoClicarEmNova, aoMudarTela }) => {
     setMenuAberto(null);
     if (!lojaAtivaId) return;
 
-    if (!window.confirm(`Cancelar a ordem ${ordem.codigo}?`)) return;
+    const confirmar = await confirm(`Cancelar a ordem ${ordem.codigo}?`, { title: 'Cancelar ordem de compra' });
+    if (!confirmar) return;
 
     const { error } = await cancelarOrdemCompra(lojaAtivaId, ordem.id);
 
     if (error) {
-      alert(error.message ?? 'Não foi possível cancelar a ordem.');
+      await alert(error.message ?? 'Não foi possível cancelar a ordem.', { type: 'error', title: 'Erro' });
       return;
     }
 
@@ -253,7 +257,7 @@ const OrdemCompraList = ({ aoClicarEmNova, aoMudarTela }) => {
                               <PackageCheck size={14} color="#22c55e" /> Dar Entrada (Receber)
                             </div>
                           )}
-                          <div style={styles.dropdownItem} onClick={() => alert('Impressão/PDF em breve.')}>
+                          <div style={styles.dropdownItem} onClick={() => alert('Impressão/PDF em breve.', { type: 'info', title: 'Em breve' })}>
                             <Printer size={14} color="#94a3b8" /> Imprimir / PDF
                           </div>
                           {item.status === 'pendente' && (

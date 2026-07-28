@@ -5,8 +5,10 @@ import {
   FileText, FileSpreadsheet, TableProperties,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
+import { useDialog } from '../contexts/DialogContext';
 
 const HistoricoVendas = ({ aoMudarTela }) => {
+  const { alert } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
   const [menuExportarAberto, setMenuExportarAberto] = useState(false);
   
@@ -80,13 +82,13 @@ const HistoricoVendas = ({ aoMudarTela }) => {
             </button>
             {menuExportarAberto && (
               <div style={styles.dropdownExport} onClick={(e) => e.stopPropagation()}>
-                <div style={styles.dropdownItem} onClick={() => alert('Gerando PDF...')}>
+                <div style={styles.dropdownItem} onClick={() => alert('Gerando PDF...', { type: 'info', title: 'Exportação' })}>
                   <FileText size={14} color="#ef4444" /> Exportar para PDF
                 </div>
-                <div style={styles.dropdownItem} onClick={() => alert('Gerando Excel...')}>
+                <div style={styles.dropdownItem} onClick={() => alert('Gerando Excel...', { type: 'info', title: 'Exportação' })}>
                   <FileSpreadsheet size={14} color="#22c55e" /> Exportar para Excel
                 </div>
-                <div style={styles.dropdownItem} onClick={() => alert('Gerando CSV...')}>
+                <div style={styles.dropdownItem} onClick={() => alert('Gerando CSV...', { type: 'info', title: 'Exportação' })}>
                   <TableProperties size={14} color="#38bdf8" /> Exportar para CSV
                 </div>
               </div>
@@ -146,7 +148,7 @@ const HistoricoVendas = ({ aoMudarTela }) => {
 
                       {menuAberto === index && (
                         <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                          <div style={styles.dropdownItem} onClick={() => alert('Abrindo WhatsApp Web para envio de recibo...')}>
+                          <div style={styles.dropdownItem} onClick={() => alert('Abrindo WhatsApp Web para envio de recibo...', { type: 'info', title: 'WhatsApp' })}>
                             <Phone size={14} color="#22c55e" /> Whatsapp Recibo da venda
                           </div>
                           

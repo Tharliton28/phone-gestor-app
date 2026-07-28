@@ -3,8 +3,10 @@ import {
   Plus, Search, Filter, ChevronDown, Wrench, Clock, CheckCircle, 
   FilePen, Edit, Printer, MessageCircle, DollarSign, Ban, FileText
 } from 'lucide-react';
+import { useDialog } from '../contexts/DialogContext';
 
 const OSList = ({ aoClicarEmNova }) => {
+  const { alert } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
 
   // Fecha o menu ao clicar fora
@@ -20,9 +22,9 @@ const OSList = ({ aoClicarEmNova }) => {
   };
 
   // Funções simuladas
-  const handleImprimirVia = () => alert("Simulação: Gerando PDF do comprovante de entrada para o cliente...");
-  const handleWhatsApp = () => alert("Simulação: Abrindo WhatsApp Web com mensagem pré-configurada de atualização de status.");
-  const handleFaturar = () => alert("Simulação: OS Finalizada! Enviando valor de R$ para o módulo Financeiro (Contas a Receber).");
+  const handleImprimirVia = () => alert('Simulação: Gerando PDF do comprovante de entrada para o cliente...', { type: 'info', title: 'Simulação' });
+  const handleWhatsApp = () => alert('Simulação: Abrindo WhatsApp Web com mensagem pré-configurada de atualização de status.', { type: 'info', title: 'Simulação' });
+  const handleFaturar = () => alert('Simulação: OS Finalizada! Enviando valor para o módulo Financeiro (Contas a Receber).', { type: 'success', title: 'Simulação' });
 
   const mockOS = [
     { id: 'OS-5020', cliente: 'Everton Sousa', aparelho: 'iPhone 13', problema: 'Troca de Tela', tecnico: 'Wesley Viana', status: 'Em Manutenção', valor: '450,00' },
@@ -85,7 +87,7 @@ const OSList = ({ aoClicarEmNova }) => {
                         <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); handleImprimirVia(); }}>
                           <Printer size={14} color="#94a3b8" /> Imprimir Via do Cliente
                         </div>
-                        <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); alert('Abrindo laudo técnico...'); }}>
+                        <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); alert('Abrindo laudo técnico...', { type: 'info', title: 'Laudo técnico' }); }}>
                           <FileText size={14} color="#94a3b8" /> Ver Laudo Técnico
                         </div>
                         <div style={{...styles.dropdownItem, color: '#4ade80'}} onClick={() => { setMenuAberto(null); handleWhatsApp(); }}>
@@ -98,7 +100,7 @@ const OSList = ({ aoClicarEmNova }) => {
                           </div>
                         )}
                         
-                        <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: os.status === 'Finalizado' ? '1px solid #1f2233' : 'none', marginTop: os.status === 'Finalizado' ? '4px' : '0', paddingTop: os.status === 'Finalizado' ? '8px' : '10px'}} onClick={() => { setMenuAberto(null); alert('OS Cancelada!'); }}>
+                        <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: os.status === 'Finalizado' ? '1px solid #1f2233' : 'none', marginTop: os.status === 'Finalizado' ? '4px' : '0', paddingTop: os.status === 'Finalizado' ? '8px' : '10px'}} onClick={() => { setMenuAberto(null); alert('OS Cancelada!', { type: 'warning', title: 'Cancelamento' }); }}>
                           <Ban size={14} color="#ef4444" /> Cancelar OS
                         </div>
                       </div>

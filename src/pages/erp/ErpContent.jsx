@@ -366,7 +366,7 @@ export default function ErpContent() {
               Produtos Vendidos sem Estoque
             </h2>
           </div>
-          <VendidosSemEstoque />
+          <VendidosSemEstoque aoMudarTela={mudarTela} />
         </>
       );
 

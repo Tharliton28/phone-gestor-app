@@ -3,8 +3,10 @@ import {
   FileText, ShieldCheck, Download, AlertTriangle, CheckCircle, 
   RefreshCw, Send, Settings, FileKey, ChevronDown, Filter, FileArchive
 } from 'lucide-react';
+import { useDialog } from '../contexts/DialogContext';
 
 const PainelFiscal = () => {
+  const { alert } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
 
   useEffect(() => {
@@ -63,7 +65,7 @@ const PainelFiscal = () => {
           <div style={styles.cardText}>
             <span style={styles.cardLabel}>Fechamento Mensal</span>
             <span style={{...styles.cardValue, fontSize: '16px'}}>Exportar Contabilidade</span>
-            <button style={styles.btnExportQuick} onClick={() => alert('Baixando arquivo ZIP com todos os XMLs do mês anterior...')}>
+            <button style={styles.btnExportQuick} onClick={() => alert('Baixando arquivo ZIP com todos os XMLs do mês anterior...', { type: 'info', title: 'Exportação' })}>
               <Download size={14} /> Baixar XMLs (Junho)
             </button>
           </div>
@@ -74,12 +76,12 @@ const PainelFiscal = () => {
       <div style={styles.actionHeader}>
         <div style={styles.leftActions}>
           <button style={styles.btnOutline}><Filter size={14} /> Filtros Avançados</button>
-          <button style={styles.btnOutline} onClick={() => alert('Sincronizando notas em contingência...')}>
+          <button style={styles.btnOutline} onClick={() => alert('Sincronizando notas em contingência...', { type: 'info', title: 'Sincronização' })}>
             <RefreshCw size={14} /> Sincronizar Pendentes
           </button>
         </div>
         <div style={styles.rightActions}>
-          <button style={styles.btnSettings} onClick={() => alert('Abrindo painel de alíquotas, CFOP e NCM...')}>
+          <button style={styles.btnSettings} onClick={() => alert('Abrindo painel de alíquotas, CFOP e NCM...', { type: 'info', title: 'Configurações fiscais' })}>
             <Settings size={14} /> Configurações Fiscais
           </button>
         </div>
@@ -111,28 +113,28 @@ const PainelFiscal = () => {
 
                     {menuAberto === index && (
                       <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                        <div style={styles.dropdownItem} onClick={() => alert('Baixando XML...')}>
+                        <div style={styles.dropdownItem} onClick={() => alert('Baixando XML...', { type: 'info', title: 'Download' })}>
                           <Download size={14} color="#38bdf8" /> Baixar XML
                         </div>
                         
                         {item.status === 'Rejeição Sefaz' && (
-                          <div style={{...styles.dropdownItem, color: '#fbbf24'}} onClick={() => alert('Abrindo tela para corrigir nota...')}>
+                          <div style={{...styles.dropdownItem, color: '#fbbf24'}} onClick={() => alert('Abrindo tela para corrigir nota...', { type: 'warning', title: 'Correção' })}>
                             <Settings size={14} color="#fbbf24" /> Corrigir Nota (Editar)
                           </div>
                         )}
                         
                         {item.status === 'Pendente Envio' && (
-                          <div style={{...styles.dropdownItem, color: '#4ade80'}} onClick={() => alert('Forçando envio para a Sefaz...')}>
+                          <div style={{...styles.dropdownItem, color: '#4ade80'}} onClick={() => alert('Forçando envio para a Sefaz...', { type: 'info', title: 'Envio Sefaz' })}>
                             <Send size={14} color="#4ade80" /> Transmitir Agora
                           </div>
                         )}
 
                         {(item.status === 'Autorizado' || item.status === 'Homologado') && (
                           <>
-                            <div style={styles.dropdownItem} onClick={() => alert('Imprimindo DANFE...')}>
+                            <div style={styles.dropdownItem} onClick={() => alert('Imprimindo DANFE...', { type: 'info', title: 'Impressão' })}>
                               <FileText size={14} color="#94a3b8" /> Imprimir DANFE
                             </div>
-                            <div style={styles.dropdownItem} onClick={() => alert('Criando Carta de Correção (CC-e)...')}>
+                            <div style={styles.dropdownItem} onClick={() => alert('Criando Carta de Correção (CC-e)...', { type: 'info', title: 'Carta de Correção' })}>
                               <Edit size={14} color="#94a3b8" /> Carta de Correção (CC-e)
                             </div>
                           </>

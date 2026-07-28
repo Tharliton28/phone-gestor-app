@@ -5,6 +5,7 @@ import {
   PackagePlus, History, Trash2
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
+import { useDialog } from '../contexts/DialogContext';
 import { desativarProduto, listProdutos, STATUS_LABEL, TIPO_LABEL } from '../services/produtoService';
 import { formatBRL } from '../utils/formatters';
 
@@ -17,6 +18,7 @@ const FILTRO_TIPO = {
 
 const ConsultaEstoque = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const { lojaAtivaId } = useLoja();
+  const { alert } = useDialog();
   const [produtos, setProdutos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
@@ -73,7 +75,7 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar, aoMudarTela }) => {
 
     const { error } = await desativarProduto(lojaAtivaId, produto.id);
     if (error) {
-      alert(error.message ?? 'Não foi possível excluir o produto.');
+      await alert(error.message ?? 'Não foi possível excluir o produto.', { type: 'error', title: 'Erro' });
       return;
     }
     carregarProdutos();

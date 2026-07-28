@@ -3,6 +3,7 @@ import {
   ArrowLeft, Save, Plus, Trash2, Calendar, ShoppingCart,
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
+import { useDialog } from '../contexts/DialogContext';
 import { listPessoasResumo } from '../services/pessoaService';
 import { listProdutos } from '../services/produtoService';
 import {
@@ -27,6 +28,7 @@ function hojeISO() {
 
 const OrdemCompraForm = ({ aoVoltar, ordemCompraId = null }) => {
   const { lojaAtivaId, perfil } = useLoja();
+  const { alert } = useDialog();
   const isEdicao = Boolean(ordemCompraId);
   const [carregando, setCarregando] = useState(isEdicao);
   const [salvando, setSalvando] = useState(false);
@@ -67,7 +69,7 @@ const OrdemCompraForm = ({ aoVoltar, ordemCompraId = null }) => {
       const { data, error } = await getOrdemCompraById(lojaAtivaId, ordemCompraId);
 
       if (error || !data) {
-        alert(error?.message ?? 'Não foi possível carregar a ordem de compra.');
+        await alert(error?.message ?? 'Não foi possível carregar a ordem de compra.', { type: 'error', title: 'Erro' });
         aoVoltar();
         return;
       }
@@ -101,18 +103,18 @@ const OrdemCompraForm = ({ aoVoltar, ordemCompraId = null }) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const adicionarItem = () => {
+  const adicionarItem = async () => {
     const produto = produtos.find((p) => p.id === itemDraft.produtoId);
     if (!produto) {
-      alert('Selecione um produto.');
+      await alert('Selecione um produto.', { type: 'warning', title: 'Campo obrigatório' });
       return;
     }
     if (!itemDraft.quantidade || Number(itemDraft.quantidade) <= 0) {
-      alert('Informe uma quantidade válida.');
+      await alert('Informe uma quantidade válida.', { type: 'warning', title: 'Campo obrigatório' });
       return;
     }
     if (!itemDraft.custoUnitario) {
-      alert('Informe o preço de custo unitário.');
+      await alert('Informe o preço de custo unitário.', { type: 'warning', title: 'Campo obrigatório' });
       return;
     }
 
@@ -136,7 +138,7 @@ const OrdemCompraForm = ({ aoVoltar, ordemCompraId = null }) => {
   const salvar = async () => {
     if (!lojaAtivaId) return;
     if (!form.fornecedorId) {
-      alert('Selecione um fornecedor.');
+      await alert('Selecione um fornecedor.', { type: 'warning', title: 'Campo obrigatório' });
       return;
     }
 
@@ -147,7 +149,7 @@ const OrdemCompraForm = ({ aoVoltar, ordemCompraId = null }) => {
     setSalvando(false);
 
     if (error) {
-      alert(error.message ?? 'Não foi possível salvar a ordem de compra.');
+      await alert(error.message ?? 'Não foi possível salvar a ordem de compra.', { type: 'error', title: 'Erro' });
       return;
     }
 

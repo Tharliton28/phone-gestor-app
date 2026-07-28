@@ -4,8 +4,10 @@ import {
   TrendingUp, TrendingDown, DollarSign, Calendar, 
   FilePen, CheckCircle, Clock, XCircle, Edit, Trash2, FileText
 } from 'lucide-react';
+import { useDialog } from '../contexts/DialogContext';
 
 const FinanceiroList = ({ tipo, aoClicarEmNovo }) => {
+  const { alert } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
   const isReceber = tipo === 'receber';
 
@@ -144,7 +146,7 @@ const FinanceiroList = ({ tipo, aoClicarEmNovo }) => {
                       <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
                         
                         {(item.status === 'Pendente' || item.status === 'Atrasado') && (
-                          <div style={{...styles.dropdownItem, color: '#4ade80', fontWeight: 'bold'}} onClick={() => { setMenuAberto(null); alert('Abrindo modal de liquidação (Baixa)...'); }}>
+                          <div style={{...styles.dropdownItem, color: '#4ade80', fontWeight: 'bold'}} onClick={() => { setMenuAberto(null); alert('Abrindo modal de liquidação (Baixa)...', { type: 'info', title: 'Liquidação' }); }}>
                             <DollarSign size={14} color="#4ade80" /> Dar Baixa ({isReceber ? 'Receber' : 'Pagar'})
                           </div>
                         )}
@@ -152,10 +154,10 @@ const FinanceiroList = ({ tipo, aoClicarEmNovo }) => {
                         <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); aoClicarEmNovo(); }}>
                           <Edit size={14} color="#38bdf8" /> Editar Lançamento
                         </div>
-                        <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); alert('Gerando recibo/comprovante...'); }}>
+                        <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); alert('Gerando recibo/comprovante...', { type: 'info', title: 'Recibo' }); }}>
                           <FileText size={14} color="#94a3b8" /> Gerar Recibo
                         </div>
-                        <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px'}} onClick={() => { setMenuAberto(null); alert('Título excluído!'); }}>
+                        <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px'}} onClick={() => { setMenuAberto(null); alert('Título excluído!', { type: 'success', title: 'Exclusão' }); }}>
                           <Trash2 size={14} color="#ef4444" /> Excluir Título
                         </div>
                       </div>

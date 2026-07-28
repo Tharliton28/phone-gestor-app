@@ -16,6 +16,7 @@ import {
   Search,
 } from 'lucide-react';
 import './sidebar.css';
+import { useDialog } from '../contexts/DialogContext';
 
 const ASSISTENCIA_TELAS = [
   'listagem-os',
@@ -26,6 +27,7 @@ const ASSISTENCIA_TELAS = [
 ];
 
 const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMobile }) => {
+  const { alert } = useDialog();
   const [openMenus, setOpenMenus] = useState({
     vendas: false,
     estoque: false,
@@ -150,7 +152,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
     if (label === 'Contas a Pagar' && aoMudarTela) aoMudarTela('contas-pagar');
     if (label === 'Novo Lançamento' && aoMudarTela) aoMudarTela('novo-lancamento');
     if (label === 'Painel Sefaz' && aoMudarTela) aoMudarTela('painel-fiscal');
-    if (label === 'Exportar Contabilidade') alert('Baixando pacote XML automaticamente...');
+    if (label === 'Exportar Contabilidade') alert('Baixando pacote XML automaticamente...', { type: 'info', title: 'Exportação' });
   };
 
   const isSubActive = (sub) => {

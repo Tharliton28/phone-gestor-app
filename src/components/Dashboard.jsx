@@ -5,8 +5,10 @@ import {
   X, Check, FileText, Zap, DollarSign, BarChart2, Edit, Plus,
   BarChart, Activity
 } from 'lucide-react';
+import { useDialog } from '../contexts/DialogContext';
 
 const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
+  const { alert } = useDialog();
   const [modalAberto, setModalAberto] = useState(false);
   
   // Controle do Tooltip (Balão flutuante do gráfico)
@@ -22,11 +24,11 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
     { id: 3, nome: 'Estoque', icon: <Package size={18} />, acao: () => aoMudarTela && aoMudarTela('consulta-estoque') },
     { id: 4, nome: 'Ordem de Serviço', icon: <PenTool size={18} />, acao: () => aoMudarTela && aoMudarTela('listagem-os') },
     { id: 5, nome: 'Financeiro', icon: <DollarSign size={18} />, acao: () => aoMudarTela && aoMudarTela('contas-receber') },
-    { id: 6, nome: 'Relatórios', icon: <BarChart2 size={18} />, acao: () => aoMudarTela ? aoMudarTela('relatorios') : alert('Módulo de Relatórios em construção') },
+    { id: 6, nome: 'Relatórios', icon: <BarChart2 size={18} />, acao: () => aoMudarTela ? aoMudarTela('relatorios') : alert('Módulo de Relatórios em construção', { type: 'info', title: 'Em breve' }) },
     { id: 7, nome: 'Orçamentos', icon: <FileText size={18} />, acao: () => aoMudarTela && aoMudarTela('orcamentos') },
     { id: 8, nome: 'PDV Rápido', icon: <Zap size={18} />, acao: aoClicarEmNovaVenda },
-    { id: 9, nome: 'Configurações', icon: <Settings size={18} />, acao: () => aoMudarTela ? aoMudarTela('config') : alert('Módulo de Configurações em construção') },
-    { id: 10, nome: 'Alertas', icon: <AlertTriangle size={18} />, acao: () => alert('Verificando novos alertas no sistema...') },
+    { id: 9, nome: 'Configurações', icon: <Settings size={18} />, acao: () => aoMudarTela ? aoMudarTela('config') : alert('Módulo de Configurações em construção', { type: 'info', title: 'Em breve' }) },
+    { id: 10, nome: 'Alertas', icon: <AlertTriangle size={18} />, acao: () => alert('Verificando novos alertas no sistema...', { type: 'info', title: 'Alertas' }) },
   ];
 
   const [atalhosAtivos, setAtalhosAtivos] = useState([1, 2, 3, 4, 10]);
@@ -36,7 +38,7 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
       setAtalhosAtivos(atalhosAtivos.filter(itemId => itemId !== id));
     } else {
       if (atalhosAtivos.length >= 6) {
-        alert("Você já atingiu o limite máximo de 6 atalhos. Remova um para adicionar outro.");
+        alert('Você já atingiu o limite máximo de 6 atalhos. Remova um para adicionar outro.', { type: 'warning', title: 'Limite de atalhos' });
         return;
       }
       setAtalhosAtivos([...atalhosAtivos, id]);

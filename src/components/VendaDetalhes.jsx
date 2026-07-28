@@ -3,8 +3,10 @@ import {
   ArrowLeft, Printer, FileText, ShoppingCart, 
   CreditCard, User, Calendar, MapPin, Tag 
 } from 'lucide-react';
+import { useDialog } from '../contexts/DialogContext';
 
 const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
+  const { alert } = useDialog();
   // Mock dos dados de uma venda específica (ex: Venda 6349496)
   const vendaMock = {
     codigo: '6349496',
@@ -63,7 +65,7 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
     if (aoMudarTela) {
       aoMudarTela('recibo-garantia', 'venda-detalhes', vendaFormatada);
     } else {
-      alert("A função aoMudarTela não foi passada por prop no App.jsx.");
+      alert('A função aoMudarTela não foi passada por prop no App.jsx.', { type: 'error', title: 'Erro de navegação' });
     }
   };
 
@@ -80,7 +82,7 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
           <span style={styles.statusPill}>{vendaMock.status}</span>
         </div>
         <div style={styles.rightActions}>
-          <button style={styles.btnOutline} onClick={() => alert('Geração de PDF em desenvolvimento (Requer biblioteca jsPDF)')}>
+          <button style={styles.btnOutline} onClick={() => alert('Geração de PDF em desenvolvimento (Requer biblioteca jsPDF)', { type: 'info', title: 'Em breve' })}>
             <FileText size={14} /> Gerar PDF
           </button>
           <button style={styles.btnPrimary} onClick={handleImprimirRecibo}>
