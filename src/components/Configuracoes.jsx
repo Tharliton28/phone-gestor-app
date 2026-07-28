@@ -5,6 +5,12 @@ import {
   Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
+import { useLoja } from '../contexts/LojaContext';
+import {
+  getLojaConfig,
+  mapConfigToToggles,
+  updateLojaConfigToggles,
+} from '../services/lojaConfigService';
 
 // --- COMPONENTE REUTILIZÁVEL PARA GERENCIAR LISTAS (TAGS) ---
 const GerenciadorLista = ({ titulo, descricao, itens, aoAdicionar, aoRemover, placeholder }) => {
@@ -52,7 +58,10 @@ const GerenciadorLista = ({ titulo, descricao, itens, aoAdicionar, aoRemover, pl
 // --- COMPONENTE PRINCIPAL DE CONFIGURAÇÕES ---
 const Configuracoes = () => {
   const { alert, confirm } = useDialog();
+  const { lojaAtivaId } = useLoja();
   const [abaAtiva, setAbaAtiva] = useState('empresa');
+  const [salvando, setSalvando] = useState(false);
+  const [carregandoConfig, setCarregandoConfig] = useState(true);
   
   const [toggles, setToggles] = useState({
     vendaSemEstoque: false,
@@ -79,6 +88,44 @@ const Configuracoes = () => {
   
   const [previewGarantia, setPreviewGarantia] = useState(false);
   const [previewOS, setPreviewOS] = useState(false);
+
+  useEffect(() => {
+    if (!lojaAtivaId) {
+      setCarregandoConfig(false);
+      return;
+    }
+
+    const carregar = async () => {
+      setCarregandoConfig(true);
+      const { data, error } = await getLojaConfig(lojaAtivaId);
+
+      if (!error && data) {
+        setToggles(mapConfigToToggles(data));
+      }
+
+      setCarregandoConfig(false);
+    };
+
+    carregar();
+  }, [lojaAtivaId]);
+
+  const salvarAlteracoes = async () => {
+    if (!lojaAtivaId) {
+      await alert('Nenhuma loja ativa selecionada.', { type: 'error', title: 'Erro' });
+      return;
+    }
+
+    setSalvando(true);
+    const { error } = await updateLojaConfigToggles(lojaAtivaId, toggles);
+    setSalvando(false);
+
+    if (error) {
+      await alert(error.message ?? 'Não foi possível salvar as configurações.', { type: 'error', title: 'Erro' });
+      return;
+    }
+
+    await alert('Configurações salvas com sucesso!', { type: 'success', title: 'Sucesso' });
+  };
 
   const abrirModalPagamento = (forma = null) => {
     if (forma) {
@@ -162,8 +209,8 @@ const Configuracoes = () => {
           <h2 style={styles.title}>Configurações do Sistema</h2>
           <p style={styles.subtitle}>Gerencie os dados da sua empresa e as regras de negócio dos módulos.</p>
         </div>
-        <button style={styles.btnSave} onClick={() => alert('Configurações salvas com sucesso!', { type: 'success', title: 'Sucesso' })}>
-          <Save size={16} /> Salvar Alterações
+        <button style={styles.btnSave} onClick={salvarAlteracoes} disabled={salvando || carregandoConfig}>
+          <Save size={16} /> {salvando ? 'Salvando...' : 'Salvar Alterações'}
         </button>
       </div>
 
@@ -294,8 +341,12 @@ const Configuracoes = () => {
               
               <div style={styles.toggleRow}>
                 <div>
-                  <h4 style={styles.toggleTitle}>Permitir Venda Sem Estoque (Ruptura)</h4>
-                  <p style={styles.toggleDesc}>Se ativado, permite concluir uma venda mesmo se o saldo do produto estiver zerado.</p>
+                  <h4 style={styles.toggleTitle}>Permitir venda com saldo insuficiente (ruptura)</h4>
+                  <p style={styles.toggleDesc}>
+                    Desativado: o PDV bloqueará vendas quando o saldo for zero ou negativo.
+                    Ativado: permite concluir a venda e o produto aparecerá em Ruptura de Estoque.
+                    A regra será aplicada automaticamente quando o módulo de Vendas/PDV estiver conectado.
+                  </p>
                 </div>
                 <Switch ativo={toggles.vendaSemEstoque} onClick={() => handleToggle('vendaSemEstoque')} />
               </div>

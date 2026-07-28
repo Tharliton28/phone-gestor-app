@@ -17,7 +17,7 @@ export const TELA_ROUTES = {
   'nova-ordem-compra': '/app/compras/nova',
   movimentacoes: '/app/estoque/movimentacoes',
   inventario: '/app/estoque/inventario',
-  'vendidos-sem-estoque': '/app/estoque/ruptura',
+  'ruptura-estoque': '/app/estoque/ruptura',
   'listagem-os': '/app/assistencia/os',
   'nova-os': '/app/assistencia/os/nova',
   'painel-tecnico': '/app/assistencia/painel',

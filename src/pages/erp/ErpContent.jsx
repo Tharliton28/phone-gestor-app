@@ -13,7 +13,7 @@ import OrdemCompraList from '../../components/OrdemCompraList';
 import OrdemCompraForm from '../../components/OrdemCompraForm';
 import MovimentacoesEstoque from '../../components/MovimentacoesEstoque';
 import Inventario from '../../components/Inventario';
-import VendidosSemEstoque from '../../components/VendidosSemEstoque';
+import RupturaEstoque from '../../components/RupturaEstoque';
 import OSList from '../../components/OSList';
 import OSForm from '../../components/OSForm';
 import RecibosNotas from '../../components/RecibosNotas';
@@ -348,7 +348,7 @@ export default function ErpContent() {
         </>
       );
 
-    case 'vendidos-sem-estoque':
+    case 'ruptura-estoque':
       return (
         <>
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
@@ -363,10 +363,10 @@ export default function ErpContent() {
             }}
           >
             <h2 style={{ color: '#e2e8f0', fontSize: '20px', fontWeight: '600' }}>
-              Produtos Vendidos sem Estoque
+              Ruptura de Estoque (Saldo Negativo)
             </h2>
           </div>
-          <VendidosSemEstoque aoMudarTela={mudarTela} />
+          <RupturaEstoque aoMudarTela={mudarTela} />
         </>
       );
 

@@ -2,13 +2,14 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   AlertCircle, RefreshCw, Download, ChevronDown,
   Search, FilePen, TrendingDown, PackagePlus,
-  Package, List, ShoppingCart
+  Package, List, ShoppingCart, Shield
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { TIPO_LABEL } from '../services/produtoService';
 import { createMovimentacaoManual } from '../services/movimentacaoService';
 import { listRupturasEstoque } from '../services/rupturaService';
+import { getLojaConfig, permiteVendaSemEstoque } from '../services/lojaConfigService';
 import { formatBRL } from '../utils/formatters';
 
 function formatDateTime(iso) {
@@ -22,10 +23,11 @@ function formatDateTime(iso) {
   });
 }
 
-const VendidosSemEstoque = ({ aoMudarTela }) => {
+const RupturaEstoque = ({ aoMudarTela }) => {
   const { lojaAtivaId, perfil } = useLoja();
   const { alert, confirm } = useDialog();
   const [rupturas, setRupturas] = useState([]);
+  const [permiteRuptura, setPermiteRuptura] = useState(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
   const [menuAberto, setMenuAberto] = useState(null);
@@ -38,13 +40,20 @@ const VendidosSemEstoque = ({ aoMudarTela }) => {
     setLoading(true);
     setErro(null);
 
-    const { data, error } = await listRupturasEstoque(lojaAtivaId);
+    const [rupturasResult, configResult] = await Promise.all([
+      listRupturasEstoque(lojaAtivaId),
+      getLojaConfig(lojaAtivaId),
+    ]);
 
-    if (error) {
-      setErro(error.message ?? 'Erro ao carregar rupturas.');
+    if (rupturasResult.error) {
+      setErro(rupturasResult.error.message ?? 'Erro ao carregar rupturas.');
       setRupturas([]);
     } else {
-      setRupturas(data ?? []);
+      setRupturas(rupturasResult.data ?? []);
+    }
+
+    if (!configResult.error && configResult.data) {
+      setPermiteRuptura(permiteVendaSemEstoque(configResult.data));
     }
 
     setLoading(false);
@@ -94,17 +103,20 @@ const VendidosSemEstoque = ({ aoMudarTela }) => {
 
   const handleVerProduto = (item) => {
     if (aoMudarTela) {
-      aoMudarTela('novo-produto', 'vendidos-sem-estoque', { produtoId: item.id });
+      aoMudarTela('novo-produto', 'ruptura-estoque', { produtoId: item.id });
     }
   };
 
   const handleVerVenda = () => {
-    alert('Detalhes da venda estarão disponíveis após conectar o módulo de Vendas/PDV.', { type: 'info', title: 'Em breve' });
+    alert(
+      'Colunas de venda, vendedor e data serão exibidas quando o módulo de Vendas/PDV estiver conectado.',
+      { type: 'info', title: 'Em breve — PDV' }
+    );
   };
 
   const handleGerarCompra = () => {
     if (aoMudarTela) {
-      aoMudarTela('nova-ordem-compra', 'vendidos-sem-estoque');
+      aoMudarTela('nova-ordem-compra', 'ruptura-estoque');
     } else {
       alert('Acesse Compras > Ordem de Compra para registrar uma nova compra.', { type: 'info', title: 'Ordem de compra' });
     }
@@ -135,6 +147,13 @@ const VendidosSemEstoque = ({ aoMudarTela }) => {
     return { total, valorTotal, nivel };
   }, [rupturasFiltradas]);
 
+  const regraVendaLabel =
+    permiteRuptura === null
+      ? 'Carregando regra...'
+      : permiteRuptura
+        ? 'PDV: permite venda com saldo negativo'
+        : 'PDV: bloqueia venda sem estoque';
+
   return (
     <div style={styles.container}>
       <div style={styles.actionHeader}>
@@ -145,22 +164,41 @@ const VendidosSemEstoque = ({ aoMudarTela }) => {
         </div>
         <div style={styles.rightActions}>
           <button style={styles.btnOutline} type="button">
-            <Download size={14} /> Exportar Relatório de Ruptura <ChevronDown size={14} />
+            <Download size={14} /> Exportar Relatório <ChevronDown size={14} />
           </button>
         </div>
       </div>
 
       {erro && <div style={styles.erro}>{erro}</div>}
 
+      <div style={styles.policyBanner}>
+        <Shield size={16} color="#38bdf8" />
+        <span>
+          <strong style={{ color: '#e2e8f0' }}>Regra da loja:</strong> {regraVendaLabel}.
+          {permiteRuptura !== null && (
+            <>
+              {' '}
+              <button
+                type="button"
+                style={styles.linkBtn}
+                onClick={() => aoMudarTela?.('config')}
+              >
+                Alterar em Configurações
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+
       <div style={styles.alertBanner}>
         <div style={styles.alertIcon}>
           <AlertCircle size={24} color="#fff" />
         </div>
         <div style={styles.alertContent}>
-          <h4 style={styles.alertTitle}>Atenção: Ruptura de Estoque Detectada</h4>
+          <h4 style={styles.alertTitle}>Saldo negativo detectado</h4>
           <p style={styles.alertText}>
-            Produtos com saldo negativo no sistema. Isso indica falha no processo de entrada ou inventário desatualizado.
-            Dados de venda e vendedor serão exibidos quando o módulo de Vendas estiver conectado.
+            Produtos com quantidade abaixo de zero indicam ruptura de estoque — entrada não registrada,
+            inventário desatualizado ou venda além do saldo disponível.
           </p>
         </div>
         <div style={styles.impactBadge}>
@@ -180,7 +218,7 @@ const VendidosSemEstoque = ({ aoMudarTela }) => {
                 <th style={styles.th}>Cód.</th>
                 <th style={styles.th}>Produto</th>
                 <th style={styles.th}>Categoria</th>
-                <th style={{ ...styles.th, textAlign: 'center' }}>Saldo em Sistema</th>
+                <th style={{ ...styles.th, textAlign: 'center' }}>Saldo Negativo</th>
                 <th style={{ ...styles.th, textAlign: 'right' }}>Valor Unit. (R$)</th>
                 <th style={{ ...styles.th, textAlign: 'right' }}>Impacto Estimado (R$)</th>
                 <th style={styles.th}>Atualizado em</th>
@@ -215,7 +253,7 @@ const VendidosSemEstoque = ({ aoMudarTela }) => {
                 <tr>
                   <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
                     {rupturas.length === 0
-                      ? 'Nenhuma ruptura de estoque detectada.'
+                      ? 'Nenhum produto com saldo negativo.'
                       : 'Nenhum item corresponde aos filtros.'}
                   </td>
                 </tr>
@@ -249,7 +287,7 @@ const VendidosSemEstoque = ({ aoMudarTela }) => {
                                 style={styles.dropdownItem}
                                 onClick={() => { setMenuAberto(null); handleVerVenda(); }}
                               >
-                                <List size={14} color="#94a3b8" /> Ver Detalhes da Venda
+                                <List size={14} color="#94a3b8" /> Ver Venda (PDV)
                               </div>
                               <div
                                 style={{
@@ -295,14 +333,16 @@ const styles = {
   leftActions: { display: 'flex' },
   rightActions: { display: 'flex' },
   erro: { color: '#ef4444', fontSize: '13px', marginTop: '12px' },
+  policyBanner: { display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px', padding: '12px 16px', backgroundColor: 'rgba(56, 189, 248, 0.06)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '8px', color: '#94a3b8', fontSize: '13px' },
+  linkBtn: { background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontSize: '13px', padding: 0, textDecoration: 'underline' },
   btnRefresh: { backgroundColor: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '500' },
   btnOutline: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
-  alertBanner: { display: 'flex', alignItems: 'center', gap: '20px', padding: '20px', backgroundColor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', marginTop: '20px' },
-  alertIcon: { width: '45px', height: '45px', backgroundColor: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  alertBanner: { display: 'flex', alignItems: 'center', gap: '20px', padding: '20px', backgroundColor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', marginTop: '12px' },
+  alertIcon: { width: '45px', height: '45px', backgroundColor: '#ef4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   alertContent: { flex: 1 },
   alertTitle: { color: '#ef4444', fontSize: '15px', fontWeight: 'bold', margin: 0, marginBottom: '4px' },
   alertText: { color: '#94a3b8', fontSize: '13px', margin: 0 },
-  impactBadge: { display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', padding: '6px 12px', borderRadius: '20px', color: '#fbbf24', fontSize: '12px', fontWeight: '600' },
+  impactBadge: { display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', padding: '6px 12px', borderRadius: '20px', color: '#fbbf24', fontSize: '12px', fontWeight: '600', flexShrink: 0 },
   tableWrapper: { overflow: 'visible', marginTop: '20px', paddingBottom: '150px' },
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
   th: { padding: '12px 10px', color: '#a1a1aa', fontSize: '12px', fontWeight: '500', borderBottom: '1px solid #1f2233', whiteSpace: 'nowrap' },
@@ -319,4 +359,4 @@ const styles = {
   dropdownItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', fontSize: '12px', color: '#e2e8f0', cursor: 'pointer', transition: 'background-color 0.2s' },
 };
 
-export default VendidosSemEstoque;
+export default RupturaEstoque;

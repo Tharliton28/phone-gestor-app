@@ -53,7 +53,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
       name: 'Compras / Estoque',
       icon: <Package size={20} />,
       key: 'estoque',
-      subItems: ['Estoque Atual', 'Ordem de Compra', 'Movimentações', 'Inventário', 'Vendidos sem Estoque'],
+      subItems: ['Estoque Atual', 'Ordem de Compra', 'Movimentações', 'Inventário', 'Ruptura de Estoque'],
     },
     {
       name: 'Assistência Técnica',
@@ -113,7 +113,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
         'nova-ordem-compra',
         'movimentacoes',
         'inventario',
-        'vendidos-sem-estoque',
+        'ruptura-estoque',
       ].includes(telaAtiva)
     )
       return true;
@@ -147,7 +147,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
     if (label === 'Ordem de Compra' && aoMudarTela) aoMudarTela('ordem-compra');
     if (label === 'Movimentações' && aoMudarTela) aoMudarTela('movimentacoes');
     if (label === 'Inventário' && aoMudarTela) aoMudarTela('inventario');
-    if (label === 'Vendidos sem Estoque' && aoMudarTela) aoMudarTela('vendidos-sem-estoque');
+    if (label === 'Ruptura de Estoque' && aoMudarTela) aoMudarTela('ruptura-estoque');
     if (label === 'Contas a Receber' && aoMudarTela) aoMudarTela('contas-receber');
     if (label === 'Contas a Pagar' && aoMudarTela) aoMudarTela('contas-pagar');
     if (label === 'Novo Lançamento' && aoMudarTela) aoMudarTela('novo-lancamento');
@@ -171,7 +171,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
         (telaAtiva === 'ordem-compra' || telaAtiva === 'nova-ordem-compra')) ||
       (label === 'Movimentações' && telaAtiva === 'movimentacoes') ||
       (label === 'Inventário' && telaAtiva === 'inventario') ||
-      (label === 'Vendidos sem Estoque' && telaAtiva === 'vendidos-sem-estoque') ||
+      (label === 'Ruptura de Estoque' && telaAtiva === 'ruptura-estoque') ||
       (label === 'Contas a Receber' && telaAtiva === 'contas-receber') ||
       (label === 'Contas a Pagar' && telaAtiva === 'contas-pagar') ||
       (label === 'Novo Lançamento' && telaAtiva === 'novo-lancamento') ||
