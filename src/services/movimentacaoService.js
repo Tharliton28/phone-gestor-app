@@ -11,6 +11,7 @@ export const ORIGEM_LABEL = {
   venda: 'Venda',
   ordem_compra: 'Ordem de Compra',
   inventario: 'Inventário',
+  ordem_servico: 'Ordem de Serviço',
   devolucao: 'Devolução',
   estorno: 'Estorno',
   troca: 'Troca',

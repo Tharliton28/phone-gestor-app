@@ -388,7 +388,7 @@ export default function ErpContent() {
               Gestão de Ordens de Serviço
             </h2>
           </div>
-          <OSList aoClicarEmNova={() => mudarTela('nova-os')} />
+          <OSList aoClicarEmNova={() => mudarTela('nova-os')} aoMudarTela={mudarTela} />
         </>
       );
 
@@ -398,7 +398,10 @@ export default function ErpContent() {
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
             <span style={{ color: '#3b82f6' }}>Assistência Técnica</span> {'>'} Nova OS / Entrada
           </div>
-          <OSForm aoVoltar={() => mudarTela('listagem-os')} />
+          <OSForm
+            osId={dadosNavegacao?.osId ?? null}
+            aoVoltar={() => mudarTela('listagem-os')}
+          />
         </>
       );
 
