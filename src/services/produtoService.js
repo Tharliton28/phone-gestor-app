@@ -52,6 +52,8 @@ export function mapFormToProduto(formData, { tipoItem }) {
     data_entrada: formData.dataEntrada || null,
     dias_garantia: formData.diasGarantia ? Number(formData.diasGarantia) : 90,
     observacoes: formData.observacoes || null,
+    fornecedor_id: formData.fornecedorId || null,
+    numero_nfe_entrada: formData.numeroNfeEntrada || null,
   };
 }
 
@@ -63,7 +65,7 @@ export function mapProdutoToForm(produto) {
     ean: produto.ean ?? '',
     disponibilidade: DISPONIBILIDADE_DB_TO_UI[produto.disponibilidade] ?? 'Disponível para venda',
     cor: produto.cor ?? '',
-    capacidadeGb: produto.capacidade_gb ?? '',
+    capacidadeGb: produto.capacidade_gb != null ? String(produto.capacidade_gb) : '',
     estadoAparelho: produto.estado_aparelho ?? '',
     imei1: produto.imei1 ?? '',
     imei2: produto.imei2 ?? '',
@@ -81,6 +83,8 @@ export function mapProdutoToForm(produto) {
     dataEntrada: produto.data_entrada ?? '',
     diasGarantia: produto.dias_garantia ?? 90,
     observacoes: produto.observacoes ?? '',
+    fornecedorId: produto.fornecedor_id ?? '',
+    numeroNfeEntrada: produto.numero_nfe_entrada ?? '',
   };
 }
 

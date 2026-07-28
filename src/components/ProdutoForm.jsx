@@ -4,6 +4,8 @@ import {
   Hash, Battery, CheckCircle, Calendar, FileText
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
+import { formatBRL, parseMoney } from '../utils/formatters';
+import { listPessoasResumo } from '../services/pessoaService';
 import {
   createProduto,
   getProdutoById,
@@ -37,6 +39,8 @@ const EMPTY_FORM = {
   dataEntrada: '',
   diasGarantia: '90',
   observacoes: '',
+  fornecedorId: '',
+  numeroNfeEntrada: '',
 };
 
 const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
@@ -47,6 +51,16 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
   const [abaAtiva, setAbaAtiva] = useState('gerais');
   const [tipoItem, setTipoItem] = useState('aparelho');
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [codigo, setCodigo] = useState(null);
+  const [pessoas, setPessoas] = useState([]);
+
+  useEffect(() => {
+    if (!lojaAtivaId) return;
+
+    listPessoasResumo(lojaAtivaId).then(({ data, error }) => {
+      if (!error && data) setPessoas(data);
+    });
+  }, [lojaAtivaId]);
 
   useEffect(() => {
     if (!produtoId || !lojaAtivaId) return;
@@ -62,6 +76,7 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
       }
 
       setTipoItem(data.tipo ?? 'aparelho');
+      setCodigo(data.codigo ?? null);
       setFormData(mapProdutoToForm(data));
       setCarregando(false);
     };
@@ -72,6 +87,11 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
+
+  const lucroEstimado =
+    parseMoney(formData.valorVenda) -
+    parseMoney(formData.valorCusto) -
+    parseMoney(formData.custosExtras);
 
   const salvarProduto = async () => {
     if (!formData.nome.trim() || !formData.marca.trim() || !formData.categoria.trim()) {
@@ -163,7 +183,12 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
               <div style={styles.column}>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Código (SKU):</label>
-                  <input style={styles.input} placeholder="Gerado automaticamente" disabled />
+                  <input
+                    style={styles.input}
+                    placeholder="Gerado automaticamente"
+                    value={codigo ?? ''}
+                    disabled
+                  />
                 </div>
 
                 {/* Campo Dinâmico: Categoria */}
@@ -218,33 +243,34 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                     <div style={styles.grid2Inner}>
                       <div style={styles.inputGroup}>
                         <label style={styles.label}>Cor:</label>
-                        <select style={styles.input}>
-                          <option>Selecionar</option>
-                          <option>Preto</option>
-                          <option>Branco</option>
-                          <option>Azul Sierra</option>
-                          <option>Ouro</option>
+                        <select style={styles.input} name="cor" value={formData.cor} onChange={handleChange}>
+                          <option value="">Selecionar</option>
+                          <option value="Preto">Preto</option>
+                          <option value="Branco">Branco</option>
+                          <option value="Azul Sierra">Azul Sierra</option>
+                          <option value="Ouro">Ouro</option>
                         </select>
                       </div>
                       <div style={styles.inputGroup}>
                         <label style={styles.label}>Capacidade (GB):</label>
-                        <select style={styles.input}>
-                          <option>Selecionar</option>
-                          <option>64 GB</option>
-                          <option>128 GB</option>
-                          <option>256 GB</option>
-                          <option>512 GB</option>
+                        <select style={styles.input} name="capacidadeGb" value={formData.capacidadeGb} onChange={handleChange}>
+                          <option value="">Selecionar</option>
+                          <option value="64">64 GB</option>
+                          <option value="128">128 GB</option>
+                          <option value="256">256 GB</option>
+                          <option value="512">512 GB</option>
                         </select>
                       </div>
                     </div>
 
                     <div style={styles.inputGroup}>
                       <label style={styles.label}><span style={styles.required}>*</span> Estado do Aparelho:</label>
-                      <select style={styles.input}>
-                        <option>Novo (Lacrado)</option>
-                        <option>Seminovo (Vitrine)</option>
-                        <option>Usado (Comprado de Cliente)</option>
-                        <option>Com Defeito</option>
+                      <select style={styles.input} name="estadoAparelho" value={formData.estadoAparelho} onChange={handleChange}>
+                        <option value="">Selecionar...</option>
+                        <option value="Novo (Lacrado)">Novo (Lacrado)</option>
+                        <option value="Seminovo (Vitrine)">Seminovo (Vitrine)</option>
+                        <option value="Usado (Comprado de Cliente)">Usado (Comprado de Cliente)</option>
+                        <option value="Com Defeito">Com Defeito</option>
                       </select>
                     </div>
                   </>
@@ -254,18 +280,25 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                 {(tipoItem === 'acessorio' || tipoItem === 'peca') && (
                   <div style={styles.inputGroup}>
                     <label style={styles.label}><span style={styles.required}>*</span> Aparelhos Compatíveis:</label>
-                    <input style={styles.input} placeholder="Ex: iPhone 13, iPhone 13 Pro..." />
+                    <input
+                      style={styles.input}
+                      name="aparelhosCompativeis"
+                      value={formData.aparelhosCompativeis}
+                      onChange={handleChange}
+                      placeholder="Ex: iPhone 13, iPhone 13 Pro..."
+                    />
                   </div>
                 )}
 
                 {tipoItem === 'peca' && (
                   <div style={styles.inputGroup}>
                     <label style={styles.label}><span style={styles.required}>*</span> Qualidade da Peça:</label>
-                    <select style={styles.input}>
-                      <option>Original Nacional / Retirada</option>
-                      <option>Premium (Incell / OLED)</option>
-                      <option>Primeira Linha (AAA)</option>
-                      <option>Paralela</option>
+                    <select style={styles.input} name="qualidadePeca" value={formData.qualidadePeca} onChange={handleChange}>
+                      <option value="">Selecionar...</option>
+                      <option value="Original Nacional / Retirada">Original Nacional / Retirada</option>
+                      <option value="Premium (Incell / OLED)">Premium (Incell / OLED)</option>
+                      <option value="Primeira Linha (AAA)">Primeira Linha (AAA)</option>
+                      <option value="Paralela">Paralela</option>
                     </select>
                   </div>
                 )}
@@ -273,7 +306,13 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                 {tipoItem === 'acessorio' && (
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Cor / Estilo:</label>
-                    <input style={styles.input} placeholder="Ex: Transparente, Preto..." />
+                    <input
+                      style={styles.input}
+                      name="corEstilo"
+                      value={formData.corEstilo}
+                      onChange={handleChange}
+                      placeholder="Ex: Transparente, Preto..."
+                    />
                   </div>
                 )}
               </div>
@@ -283,7 +322,13 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Código de Barras (EAN):</label>
                   <div style={styles.inputWithIcon}>
-                    <input style={styles.input} placeholder="Bipar código..." />
+                    <input
+                      style={styles.input}
+                      name="ean"
+                      value={formData.ean}
+                      onChange={handleChange}
+                      placeholder="Bipar código..."
+                    />
                     <Hash size={16} style={styles.innerIcon} />
                   </div>
                 </div>
@@ -303,7 +348,14 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                     <div style={styles.inputGroup}>
                       <label style={styles.label}>IMEI 1:</label>
                       <div style={styles.inputWithIcon}>
-                        <input style={styles.input} placeholder="Digite o IMEI principal" />
+                        <input
+                          style={styles.input}
+                          name="imei1"
+                          value={formData.imei1}
+                          onChange={handleChange}
+                          placeholder="Digite o IMEI principal"
+                          maxLength={15}
+                        />
                         <Hash size={16} style={styles.innerIcon} />
                       </div>
                     </div>
@@ -311,7 +363,14 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                     <div style={styles.inputGroup}>
                       <label style={styles.label}>IMEI 2 (Opcional):</label>
                       <div style={styles.inputWithIcon}>
-                        <input style={styles.input} placeholder="Digite o IMEI secundário" />
+                        <input
+                          style={styles.input}
+                          name="imei2"
+                          value={formData.imei2}
+                          onChange={handleChange}
+                          placeholder="Digite o IMEI secundário"
+                          maxLength={15}
+                        />
                         <Hash size={16} style={styles.innerIcon} />
                       </div>
                     </div>
@@ -320,13 +379,30 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                       <div style={styles.inputGroup}>
                         <label style={styles.label}>Saúde Bateria (%):</label>
                         <div style={styles.inputWithIcon}>
-                          <input style={styles.input} placeholder="Ex: 85" type="number" />
+                          <input
+                            style={styles.input}
+                            name="saudeBateria"
+                            value={formData.saudeBateria}
+                            onChange={handleChange}
+                            placeholder="Ex: 85"
+                            type="number"
+                            min="0"
+                            max="100"
+                          />
                           <Battery size={16} style={styles.innerIcon} />
                         </div>
                       </div>
                       <div style={styles.inputGroup}>
                         <label style={styles.label}>Ciclos:</label>
-                        <input style={styles.input} placeholder="Ex: 342" type="number" />
+                        <input
+                          style={styles.input}
+                          name="ciclosBateria"
+                          value={formData.ciclosBateria}
+                          onChange={handleChange}
+                          placeholder="Ex: 342"
+                          type="number"
+                          min="0"
+                        />
                       </div>
                     </div>
                   </>
@@ -336,12 +412,26 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Data de Entrada:</label>
                     <div style={styles.inputWithIcon}>
-                      <input style={styles.input} type="date" />
+                      <input
+                        style={styles.input}
+                        type="date"
+                        name="dataEntrada"
+                        value={formData.dataEntrada}
+                        onChange={handleChange}
+                      />
                     </div>
                   </div>
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Dias de Garantia:</label>
-                    <input style={styles.input} placeholder="Ex: 90" type="number" />
+                    <input
+                      style={styles.input}
+                      name="diasGarantia"
+                      value={formData.diasGarantia}
+                      onChange={handleChange}
+                      placeholder="Ex: 90"
+                      type="number"
+                      min="0"
+                    />
                   </div>
                 </div>
 
@@ -387,11 +477,23 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
               <div style={styles.grid2Inner}>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Margem de Lucro (%):</label>
-                  <input style={styles.input} placeholder="Ex: 30%" />
+                  <input
+                    style={styles.input}
+                    name="margemLucro"
+                    value={formData.margemLucro}
+                    onChange={handleChange}
+                    placeholder="Ex: 30"
+                    type="number"
+                    min="0"
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Lucro Estimado (R$):</label>
-                  <input style={{...styles.input, color: '#4ade80'}} placeholder="0,00" disabled />
+                  <input
+                    style={{...styles.input, color: '#4ade80'}}
+                    value={formatBRL(lucroEstimado)}
+                    disabled
+                  />
                 </div>
               </div>
 
@@ -409,15 +511,24 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
              <h3 style={styles.sectionSubtitle}>Dados de Origem da Mercadoria</h3>
              <div style={styles.inputGroup}>
                 <label style={styles.label}>Fornecedor / Cliente (Quem vendeu pra loja):</label>
-                <select style={styles.input}>
-                  <option>Buscar fornecedor na lista de contatos...</option>
-                  <option>Apple Brasil LTDA</option>
-                  <option>Cliente Pessoa Física (Aparelho pego na Troca)</option>
+                <select style={styles.input} name="fornecedorId" value={formData.fornecedorId} onChange={handleChange}>
+                  <option value="">Buscar fornecedor na lista de contatos...</option>
+                  {pessoas.map((pessoa) => (
+                    <option key={pessoa.id} value={pessoa.id}>
+                      {pessoa.nome}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Nº da Nota Fiscal ou Recibo de Entrada:</label>
-                <input style={styles.input} placeholder="Ex: 12543" />
+                <input
+                  style={styles.input}
+                  name="numeroNfeEntrada"
+                  value={formData.numeroNfeEntrada}
+                  onChange={handleChange}
+                  placeholder="Ex: 12543"
+                />
               </div>
           </div>
         )}
