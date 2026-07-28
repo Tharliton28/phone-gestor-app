@@ -99,7 +99,14 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
 
     setSalvando(true);
 
-    const payload = mapFormToPessoa(formData, { tipoPessoa, categoria });
+    let payload;
+    try {
+      payload = mapFormToPessoa(formData, { tipoPessoa, categoria });
+    } catch (err) {
+      setSalvando(false);
+      return mostrarAviso('Atenção', err.message, 'erro');
+    }
+
     const { error } = isEdicao
       ? await updatePessoa(lojaAtivaId, pessoaId, payload)
       : await createPessoa(lojaAtivaId, payload);

@@ -283,7 +283,10 @@ export default function ErpContent() {
               Ordens de Compra
             </h2>
           </div>
-          <OrdemCompraList aoClicarEmNova={() => mudarTela('nova-ordem-compra')} />
+          <OrdemCompraList
+            aoClicarEmNova={() => mudarTela('nova-ordem-compra')}
+            aoMudarTela={mudarTela}
+          />
         </>
       );
 
@@ -294,7 +297,10 @@ export default function ErpContent() {
             <span style={{ color: '#3b82f6' }}>Compras / Estoque</span> {'>'} Ordem de Compra {'>'}{' '}
             Nova
           </div>
-          <OrdemCompraForm aoVoltar={() => mudarTela('ordem-compra')} />
+          <OrdemCompraForm
+            ordemCompraId={dadosNavegacao?.ordemCompraId ?? null}
+            aoVoltar={() => mudarTela('ordem-compra')}
+          />
         </>
       );
 

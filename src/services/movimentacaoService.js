@@ -57,9 +57,9 @@ export async function listMovimentacoes(lojaId) {
     .order('created_at', { ascending: false });
 }
 
-export async function createMovimentacaoManual(
+export async function registrarMovimentacao(
   lojaId,
-  { produtoId, tipo, quantidade, motivo, operadorId }
+  { produtoId, tipo, quantidade, origem = 'manual', motivo, referenciaId, operadorId }
 ) {
   const { data: produto, error: prodError } = await supabase
     .from('produtos')
@@ -101,8 +101,9 @@ export async function createMovimentacaoManual(
       quantidade: qtd,
       quantidade_anterior: anterior,
       quantidade_posterior: posterior,
-      origem: 'manual',
+      origem,
       motivo: motivo?.trim() || null,
+      referencia_id: referenciaId || null,
       operador_id: operadorId || null,
     })
     .select()
@@ -123,6 +124,20 @@ export async function createMovimentacaoManual(
   }
 
   return { data: movimentacao, error: null };
+}
+
+export async function createMovimentacaoManual(
+  lojaId,
+  { produtoId, tipo, quantidade, motivo, operadorId }
+) {
+  return registrarMovimentacao(lojaId, {
+    produtoId,
+    tipo,
+    quantidade,
+    origem: 'manual',
+    motivo,
+    operadorId,
+  });
 }
 
 export async function estornarMovimentacao(lojaId, movimentacaoId, operadorId) {

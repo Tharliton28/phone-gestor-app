@@ -1,40 +1,211 @@
-import React from 'react';
-import { 
-  ArrowLeft, Save, Plus, Trash2, Calendar, ShoppingCart, Edit, ChevronDown 
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  ArrowLeft, Save, Plus, Trash2, Calendar, ShoppingCart,
 } from 'lucide-react';
+import { useLoja } from '../contexts/LojaContext';
+import { listPessoasResumo } from '../services/pessoaService';
+import { listProdutos } from '../services/produtoService';
+import {
+  calcItemTotal,
+  calcOrdemTotais,
+  createOrdemCompra,
+  getOrdemCompraById,
+  updateOrdemCompra,
+} from '../services/ordemCompraService';
+import { formatBRL } from '../utils/formatters';
 
-const OrdemCompraForm = ({ aoVoltar }) => {
+const EMPTY_ITEM_DRAFT = {
+  produtoId: '',
+  quantidade: '1',
+  custoUnitario: '',
+  desconto: '',
+};
+
+function hojeISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+const OrdemCompraForm = ({ aoVoltar, ordemCompraId = null }) => {
+  const { lojaAtivaId, perfil } = useLoja();
+  const isEdicao = Boolean(ordemCompraId);
+  const [carregando, setCarregando] = useState(isEdicao);
+  const [salvando, setSalvando] = useState(false);
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
+  const [fornecedores, setFornecedores] = useState([]);
+  const [produtos, setProdutos] = useState([]);
+  const [itemDraft, setItemDraft] = useState(EMPTY_ITEM_DRAFT);
+  const [itens, setItens] = useState([]);
+  const [form, setForm] = useState({
+    fornecedorId: '',
+    condicaoPagamento: 'À Vista (PIX/Dinheiro)',
+    dataEmissao: hojeISO(),
+    previsaoEntrega: '',
+    observacoes: '',
+  });
+
+  useEffect(() => {
+    if (!lojaAtivaId) return;
+
+    Promise.all([
+      listPessoasResumo(lojaAtivaId, { categoria: 'fornecedor' }),
+      listProdutos(lojaAtivaId),
+    ]).then(([fornecedoresResult, produtosResult]) => {
+      if (!fornecedoresResult.error && fornecedoresResult.data?.length) {
+        setFornecedores(fornecedoresResult.data);
+      } else {
+        listPessoasResumo(lojaAtivaId).then(({ data }) => setFornecedores(data ?? []));
+      }
+      if (!produtosResult.error) setProdutos(produtosResult.data ?? []);
+    });
+  }, [lojaAtivaId]);
+
+  useEffect(() => {
+    if (!ordemCompraId || !lojaAtivaId) return;
+
+    const carregar = async () => {
+      setCarregando(true);
+      const { data, error } = await getOrdemCompraById(lojaAtivaId, ordemCompraId);
+
+      if (error || !data) {
+        alert(error?.message ?? 'Não foi possível carregar a ordem de compra.');
+        aoVoltar();
+        return;
+      }
+
+      setSomenteLeitura(data.status !== 'pendente');
+      setForm({
+        fornecedorId: data.fornecedor_id ?? '',
+        condicaoPagamento: data.condicao_pagamento ?? '',
+        dataEmissao: data.data_emissao ?? hojeISO(),
+        previsaoEntrega: data.previsao_entrega ?? '',
+        observacoes: data.observacoes ?? '',
+      });
+      setItens(
+        (data.itens ?? []).map((item) => ({
+          produtoId: item.produto_id,
+          descricao: item.descricao,
+          quantidade: String(item.quantidade),
+          custoUnitario: item.custo_unitario,
+          desconto: item.desconto,
+        }))
+      );
+      setCarregando(false);
+    };
+
+    carregar();
+  }, [ordemCompraId, lojaAtivaId, aoVoltar]);
+
+  const totais = useMemo(() => calcOrdemTotais(itens), [itens]);
+
+  const handleChange = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const adicionarItem = () => {
+    const produto = produtos.find((p) => p.id === itemDraft.produtoId);
+    if (!produto) {
+      alert('Selecione um produto.');
+      return;
+    }
+    if (!itemDraft.quantidade || Number(itemDraft.quantidade) <= 0) {
+      alert('Informe uma quantidade válida.');
+      return;
+    }
+    if (!itemDraft.custoUnitario) {
+      alert('Informe o preço de custo unitário.');
+      return;
+    }
+
+    setItens((prev) => [
+      ...prev,
+      {
+        produtoId: produto.id,
+        descricao: produto.nome,
+        quantidade: itemDraft.quantidade,
+        custoUnitario: itemDraft.custoUnitario,
+        desconto: itemDraft.desconto || '0',
+      },
+    ]);
+    setItemDraft(EMPTY_ITEM_DRAFT);
+  };
+
+  const removerItem = (index) => {
+    setItens((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const salvar = async () => {
+    if (!lojaAtivaId) return;
+    if (!form.fornecedorId) {
+      alert('Selecione um fornecedor.');
+      return;
+    }
+
+    setSalvando(true);
+    const { error } = isEdicao
+      ? await updateOrdemCompra(lojaAtivaId, ordemCompraId, form, itens)
+      : await createOrdemCompra(lojaAtivaId, form, itens, perfil?.id);
+    setSalvando(false);
+
+    if (error) {
+      alert(error.message ?? 'Não foi possível salvar a ordem de compra.');
+      return;
+    }
+
+    aoVoltar();
+  };
+
+  if (carregando) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+        Carregando ordem de compra...
+      </div>
+    );
+  }
+
   return (
     <div style={styles.container}>
-      
-      {/* Cabeçalho */}
       <div style={styles.header}>
-        <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-            <button onClick={aoVoltar} style={styles.btnBack}>
-                <ArrowLeft size={16} /> Voltar
-            </button>
-            <h2 style={styles.title}>Nova Ordem de Compra</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <button onClick={aoVoltar} style={styles.btnBack}>
+            <ArrowLeft size={16} /> Voltar
+          </button>
+          <h2 style={styles.title}>
+            {isEdicao ? 'Editar Ordem de Compra' : 'Nova Ordem de Compra'}
+          </h2>
         </div>
-        <button style={styles.btnLogs}>Ver Logs</button>
+        {somenteLeitura && (
+          <span style={styles.readonlyBadge}>Somente leitura — ordem finalizada</span>
+        )}
       </div>
 
       <div style={styles.contentScroll}>
-        
-        {/* --- DADOS DO PEDIDO / FORNECEDOR --- */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>Dados do Fornecedor e Emissão</h3>
           <div style={styles.grid3}>
-            <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
+            <div style={{ ...styles.inputGroup, gridColumn: 'span 2' }}>
               <label style={styles.label}><span style={styles.required}>*</span> Fornecedor:</label>
-              <div style={{display: 'flex', gap: '5px'}}>
-                  <input type="text" placeholder="Buscar Fornecedor..." style={{...styles.input, flex: 1}} />
-                  <button style={styles.btnSmallOutline}><Edit size={14}/></button>
-                  <button style={styles.btnSmallSuccess}><Plus size={14}/></button>
-              </div>
+              <select
+                style={styles.input}
+                name="fornecedorId"
+                value={form.fornecedorId}
+                onChange={handleChange}
+                disabled={somenteLeitura}
+              >
+                <option value="">Selecionar fornecedor...</option>
+                {fornecedores.map((pessoa) => (
+                  <option key={pessoa.id} value={pessoa.id}>{pessoa.nome}</option>
+                ))}
+              </select>
             </div>
             <div style={styles.inputGroup}>
-              <label style={styles.label}><span style={styles.required}>*</span> Condição de Pagamento:</label>
-              <select style={styles.input}>
+              <label style={styles.label}>Condição de Pagamento:</label>
+              <select
+                style={styles.input}
+                name="condicaoPagamento"
+                value={form.condicaoPagamento}
+                onChange={handleChange}
+                disabled={somenteLeitura}
+              >
                 <option>À Vista (PIX/Dinheiro)</option>
                 <option>Boleto Bancário 30 dias</option>
                 <option>Cartão de Crédito Corporativo</option>
@@ -43,89 +214,162 @@ const OrdemCompraForm = ({ aoVoltar }) => {
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Data de Emissão:</label>
-              <div style={styles.inputWithIcon}>
-                  <input type="text" defaultValue="05/07/2026" style={styles.input} />
-                  <Calendar size={16} style={styles.innerIcon} />
-              </div>
+              <input
+                type="date"
+                style={styles.input}
+                name="dataEmissao"
+                value={form.dataEmissao}
+                onChange={handleChange}
+                disabled={somenteLeitura}
+              />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Previsão de Entrega:</label>
-              <div style={styles.inputWithIcon}>
-                  <input type="text" placeholder="DD/MM/AAAA" style={styles.input} />
-                  <Calendar size={16} style={styles.innerIcon} />
-              </div>
+              <input
+                type="date"
+                style={styles.input}
+                name="previsaoEntrega"
+                value={form.previsaoEntrega}
+                onChange={handleChange}
+                disabled={somenteLeitura}
+              />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Comprador Responsável:</label>
-              <select style={styles.input}><option>Wesley de Sousa Viana</option></select>
+              <input style={styles.input} value={perfil?.nome ?? '—'} disabled />
             </div>
           </div>
         </div>
 
-        {/* --- PRODUTOS A COMPRAR --- */}
         <div style={styles.section}>
-          <h3 style={styles.sectionTitle}><ShoppingCart size={16} color="#38bdf8" /> Itens do Pedido de Compra</h3>
-          <div style={styles.grid3}>
-              <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
+          <h3 style={styles.sectionTitle}>
+            <ShoppingCart size={16} color="#38bdf8" /> Itens do Pedido de Compra
+          </h3>
+
+          {!somenteLeitura && (
+            <>
+              <div style={styles.grid3}>
+                <div style={{ ...styles.inputGroup, gridColumn: 'span 2' }}>
                   <label style={styles.label}><span style={styles.required}>*</span> Selecionar Produto:</label>
-                  <div style={{display: 'flex', gap: '5px'}}>
-                      <select style={{...styles.input, flex: 1}}><option>Selecionar do Estoque...</option></select>
-                      <button style={styles.btnSmallSuccess}><Plus size={14}/></button>
-                  </div>
+                  <select
+                    style={styles.input}
+                    value={itemDraft.produtoId}
+                    onChange={(e) => setItemDraft((prev) => ({ ...prev, produtoId: e.target.value }))}
+                  >
+                    <option value="">Selecionar do estoque...</option>
+                    {produtos.map((produto) => (
+                      <option key={produto.id} value={produto.id}>
+                        #{produto.codigo} — {produto.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}><span style={styles.required}>*</span> Quantidade:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    style={styles.input}
+                    value={itemDraft.quantidade}
+                    onChange={(e) => setItemDraft((prev) => ({ ...prev, quantidade: e.target.value }))}
+                  />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}><span style={styles.required}>*</span> Custo Unitário (R$):</label>
+                  <input
+                    style={styles.input}
+                    value={itemDraft.custoUnitario}
+                    onChange={(e) => setItemDraft((prev) => ({ ...prev, custoUnitario: e.target.value }))}
+                    placeholder="0,00"
+                  />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Desconto (R$):</label>
+                  <input
+                    style={styles.input}
+                    value={itemDraft.desconto}
+                    onChange={(e) => setItemDraft((prev) => ({ ...prev, desconto: e.target.value }))}
+                    placeholder="0,00"
+                  />
+                </div>
               </div>
-              <div style={styles.inputGroup}>
-                  <label style={styles.label}><span style={styles.required}>*</span> Quantidade a Comprar:</label>
-                  <input type="number" defaultValue="1" style={styles.input} />
-              </div>
-              <div style={styles.inputGroup}>
-                  <label style={styles.label}><span style={styles.required}>*</span> Preço de Custo Unitário (R$):</label>
-                  <input type="text" placeholder="0,00" style={styles.input} />
-              </div>
-              <div style={styles.inputGroup}>
-                  <label style={styles.label}>Desconto do Fornecedor (R$):</label>
-                  <input type="text" placeholder="0,00" style={styles.input} />
-              </div>
-          </div>
-          
-          <button style={styles.btnAddItem}><Plus size={16} /> Adicionar Item ao Pedido</button>
-          
+              <button style={styles.btnAddItem} onClick={adicionarItem}>
+                <Plus size={16} /> Adicionar Item ao Pedido
+              </button>
+            </>
+          )}
+
           <table style={styles.miniTable}>
-              <thead>
-                  <tr>
-                      <th style={styles.th}>Produto</th>
-                      <th style={{...styles.th, textAlign: 'center'}}>Qtd.</th>
-                      <th style={{...styles.th, textAlign: 'right'}}>Custo Un. (R$)</th>
-                      <th style={{...styles.th, textAlign: 'right'}}>Desconto (R$)</th>
-                      <th style={{...styles.th, textAlign: 'right'}}>Total (R$)</th>
+            <thead>
+              <tr>
+                <th style={styles.th}>Produto</th>
+                <th style={{ ...styles.th, textAlign: 'center' }}>Qtd.</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Custo Un. (R$)</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Desconto (R$)</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Total (R$)</th>
+                {!somenteLeitura && <th style={{ ...styles.th, width: '40px' }}></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {itens.length === 0 ? (
+                <tr>
+                  <td colSpan={somenteLeitura ? 5 : 6} style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                    Nenhum produto adicionado à ordem de compra
+                  </td>
+                </tr>
+              ) : (
+                itens.map((item, index) => (
+                  <tr key={`${item.produtoId}-${index}`}>
+                    <td style={styles.tdItem}>{item.descricao}</td>
+                    <td style={{ ...styles.tdItem, textAlign: 'center' }}>{item.quantidade}</td>
+                    <td style={{ ...styles.tdItem, textAlign: 'right' }}>{formatBRL(item.custoUnitario)}</td>
+                    <td style={{ ...styles.tdItem, textAlign: 'right' }}>{formatBRL(item.desconto)}</td>
+                    <td style={{ ...styles.tdItem, textAlign: 'right', fontWeight: 'bold' }}>
+                      {formatBRL(calcItemTotal(item.quantidade, item.custoUnitario, item.desconto))}
+                    </td>
+                    {!somenteLeitura && (
+                      <td style={styles.tdItem}>
+                        <button style={styles.btnRemove} onClick={() => removerItem(index)}>
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
-              </thead>
-              <tbody>
-                  <tr>
-                      <td colSpan="5" style={{textAlign: 'center', padding: '30px', color: '#64748b'}}>Nenhum produto adicionado à ordem de compra</td>
-                  </tr>
-              </tbody>
+                ))
+              )}
+            </tbody>
           </table>
 
-          <div style={{marginTop: '20px'}}>
-             <label style={styles.label}>Observações / Instruções de Entrega:</label>
-             <textarea style={{...styles.input, height: '70px', resize: 'none', marginTop: '8px'}} placeholder="Ex: Entregar preferencialmente no período da tarde..."></textarea>
+          <div style={{ marginTop: '20px' }}>
+            <label style={styles.label}>Observações / Instruções de Entrega:</label>
+            <textarea
+              style={{ ...styles.input, height: '70px', resize: 'none', marginTop: '8px' }}
+              name="observacoes"
+              value={form.observacoes}
+              onChange={handleChange}
+              disabled={somenteLeitura}
+              placeholder="Ex: Entregar preferencialmente no período da tarde..."
+            />
           </div>
         </div>
-
       </div>
 
-      {/* --- RODAPÉ FINANCEIRO --- */}
       <div style={styles.footer}>
         <div style={styles.summaryBox}>
-          <span style={{color: '#94a3b8', fontSize: '14px'}}>Investimento Total da Compra:</span>
-          <span style={{color: '#22c55e', fontSize: '24px', fontWeight: 'bold'}}>R$ 0,00</span>
+          <span style={{ color: '#94a3b8', fontSize: '14px' }}>Investimento Total da Compra:</span>
+          <span style={{ color: '#22c55e', fontSize: '24px', fontWeight: 'bold' }}>
+            R$ {formatBRL(totais.valorTotal)}
+          </span>
         </div>
-        <div style={{display: 'flex', gap: '15px'}}>
-           <button onClick={aoVoltar} style={styles.btnCancel}>Cancelar</button>
-           <button style={styles.btnFinalize}><Save size={18} /> Salvar Ordem de Compra</button>
+        <div style={{ display: 'flex', gap: '15px' }}>
+          <button onClick={aoVoltar} style={styles.btnCancel}>Voltar</button>
+          {!somenteLeitura && (
+            <button style={styles.btnFinalize} onClick={salvar} disabled={salvando}>
+              <Save size={18} /> {salvando ? 'Salvando...' : 'Salvar Ordem de Compra'}
+            </button>
+          )}
         </div>
       </div>
-
     </div>
   );
 };
@@ -134,33 +378,25 @@ const styles = {
   container: { backgroundColor: '#11131c', borderRadius: '8px', border: '1px solid #1f2233', display: 'flex', flexDirection: 'column', flex: 1, maxHeight: '85vh' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', borderBottom: '1px solid #1f2233', backgroundColor: '#161925', borderRadius: '8px 8px 0 0' },
   btnBack: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#94a3b8', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' },
-  title: { color: '#fff', fontSize: '18px', fontWeight: '600' },
-  btnLogs: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '6px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
-  
+  title: { color: '#fff', fontSize: '18px', fontWeight: '600', margin: 0 },
+  readonlyBadge: { color: '#fbbf24', fontSize: '12px', backgroundColor: 'rgba(251, 191, 36, 0.1)', padding: '6px 12px', borderRadius: '12px' },
   contentScroll: { padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' },
-  
   section: { backgroundColor: '#161925', border: '1px solid #1f2233', borderRadius: '8px', padding: '20px' },
-  sectionTitle: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#e2e8f0', marginBottom: '20px', borderBottom: '1px solid #1f2233', paddingBottom: '12px', fontWeight: '500' },
-  
+  sectionTitle: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: '#e2e8f0', marginBottom: '20px', borderBottom: '1px solid #1f2233', paddingBottom: '12px', fontWeight: '500', marginTop: 0 },
   grid3: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
   label: { fontSize: '12px', color: '#a1a1aa' },
   required: { color: '#ef4444' },
-  input: { backgroundColor: '#0b0c10', border: '1px solid #2a2e3f', borderRadius: '4px', padding: '10px 12px', color: '#fff', fontSize: '13px', width: '100%' },
-  inputWithIcon: { position: 'relative', display: 'flex', alignItems: 'center' },
-  innerIcon: { position: 'absolute', right: '12px', color: '#64748b' },
-  
-  btnSmallOutline: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#3b82f6', borderRadius: '4px', padding: '0 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  btnSmallSuccess: { backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e', color: '#22c55e', borderRadius: '4px', padding: '0 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  input: { backgroundColor: '#0b0c10', border: '1px solid #2a2e3f', borderRadius: '4px', padding: '10px 12px', color: '#fff', fontSize: '13px', width: '100%', outline: 'none' },
   btnAddItem: { backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', marginTop: '15px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '500' },
-  
   miniTable: { width: '100%', marginTop: '20px', borderCollapse: 'collapse', fontSize: '12px' },
   th: { padding: '10px 0', color: '#a1a1aa', fontWeight: '500', borderBottom: '1px solid #1f2233' },
-  
+  tdItem: { padding: '12px 0', color: '#e2e8f0', borderBottom: '1px solid #1f2233' },
+  btnRemove: { background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' },
   footer: { padding: '20px', borderTop: '1px solid #1f2233', backgroundColor: '#161925', borderRadius: '0 0 8px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   summaryBox: { display: 'flex', alignItems: 'center', gap: '15px' },
   btnCancel: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' },
-  btnFinalize: { backgroundColor: '#22c55e', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }
+  btnFinalize: { backgroundColor: '#22c55e', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' },
 };
 
 export default OrdemCompraForm;

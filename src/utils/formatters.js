@@ -24,6 +24,20 @@ export function onlyDigits(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
+/** Valida CPF (11) ou CNPJ (14). Vazio é permitido. */
+export function validateCpfCnpj(value) {
+  const digits = onlyDigits(value);
+  if (!digits) return { valid: true, digits: null, message: null };
+  if (digits.length === 11 || digits.length === 14) {
+    return { valid: true, digits, message: null };
+  }
+  return {
+    valid: false,
+    digits,
+    message: 'CPF deve ter 11 dígitos ou CNPJ 14 dígitos.',
+  };
+}
+
 /** Iniciais do nome (máx. 2 letras) */
 export function getInitials(nome) {
   if (!nome) return '?';

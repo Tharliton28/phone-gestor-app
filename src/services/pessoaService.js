@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { formatCpfCnpj, onlyDigits } from '../utils/formatters';
+import { formatCpfCnpj, onlyDigits, validateCpfCnpj } from '../utils/formatters';
 
 const CATEGORIA_UI_TO_DB = {
   Cliente: 'cliente',
@@ -13,7 +13,12 @@ const CATEGORIA_DB_TO_UI = Object.fromEntries(
 );
 
 export function mapFormToPessoa(formData, { tipoPessoa, categoria }) {
-  const cpfCnpj = onlyDigits(formData.cpf);
+  const cpfValidation = validateCpfCnpj(formData.cpf);
+  if (!cpfValidation.valid) {
+    throw new Error(cpfValidation.message);
+  }
+
+  const cpfCnpj = cpfValidation.digits;
   const cep = onlyDigits(formData.cep);
 
   return {
