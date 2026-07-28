@@ -63,6 +63,7 @@ export default function ErpContent() {
           <VendasList
             aoClicarEmNovaVenda={() => mudarTela('nova-venda')}
             aoMudarTela={mudarTela}
+            mensagemFlash={dadosNavegacao?.mensagemSucesso ?? null}
           />
         </>
       );
@@ -74,7 +75,7 @@ export default function ErpContent() {
             <span style={{ color: '#3b82f6' }}>Venda</span> {'>'} Listagem de Vendas {'>'} Nova
             Venda / Edição
           </div>
-          <VendaForm aoVoltar={() => mudarTela('listagem')} />
+          <VendaForm aoVoltar={(opts) => mudarTela('listagem', 'nova-venda', opts)} />
         </>
       );
 
@@ -85,6 +86,7 @@ export default function ErpContent() {
             <span style={{ color: '#3b82f6' }}>Venda</span> {'>'} Detalhes da Venda
           </div>
           <VendaDetalhes
+            vendaId={dadosNavegacao?.vendaId ?? null}
             aoVoltar={() => voltarTelaAnterior('listagem')}
             aoMudarTela={mudarTela}
           />

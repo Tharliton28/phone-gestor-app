@@ -115,7 +115,7 @@ export async function listProdutos(lojaId, { tipo = null } = {}) {
   let query = supabase
     .from('produtos')
     .select(
-      'id, codigo, nome, tipo, categoria, marca, quantidade_atual, valor_custo, valor_venda, status'
+      'id, codigo, nome, tipo, categoria, marca, quantidade_atual, valor_custo, valor_venda, status, imei1'
     )
     .eq('loja_id', lojaId)
     .neq('status', 'inativo')

@@ -4,6 +4,7 @@ import {
   FileText, Package, Edit, Calculator, X, Printer, Phone, Smartphone,
   AlertCircle, CheckCircle, Info, Search
 } from 'lucide-react';
+import { parseMoney } from '../utils/formatters';
 
 const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
   const orcamentoInicial = dadosNavegacao?.orcamentoSelecionado || null;
@@ -114,7 +115,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
   };
 
   const confirmarAparelhoEntrada = () => {
-    const valorNum = parseFloat(aparelhoEntrada.valor.replace(',', '.'));
+    const valorNum = parseMoney(aparelhoEntrada.valor);
     if (!aparelhoEntrada.modelo || isNaN(valorNum) || valorNum <= 0) {
       return mostrarAviso('Atenção', 'Preencha o modelo e um valor de avaliação válido.', 'erro');
     }

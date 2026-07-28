@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Eraser, Download, ChevronDown, 
   Phone, List, FilePen, Search,
@@ -6,15 +6,49 @@ import {
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
+import { useLoja } from '../contexts/LojaContext';
+import { formatBRL, formatCpfCnpj } from '../utils/formatters';
+import { listVendas, resumoProdutoVenda, STATUS_LABEL } from '../services/vendaService';
+
+function formatDataHora(isoDate, createdAt) {
+  const base = createdAt ? new Date(createdAt) : new Date(`${isoDate}T12:00:00`);
+  return {
+    data: base.toLocaleDateString('pt-BR'),
+    hora: base.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+  };
+}
 
 const HistoricoVendas = ({ aoMudarTela }) => {
+  const { lojaAtivaId } = useLoja();
   const { alert } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
   const [menuExportarAberto, setMenuExportarAberto] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [vendas, setVendas] = useState([]);
   
   const [filtros, setFiltros] = useState({
     codigo: '', cliente: '', produto: '', data: ''
   });
+
+  const carregar = useCallback(async () => {
+    if (!lojaAtivaId) return;
+
+    setLoading(true);
+    const { data, error } = await listVendas(lojaAtivaId, { status: 'concluido' });
+
+    if (error) {
+      await alert(error.message ?? 'Erro ao carregar histórico.', { type: 'error', title: 'Erro' });
+      setVendas([]);
+    } else {
+      setVendas(data ?? []);
+    }
+
+    setLoading(false);
+  }, [lojaAtivaId, alert]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
 
   useEffect(() => {
     const handleClickFora = () => {
@@ -41,25 +75,19 @@ const HistoricoVendas = ({ aoMudarTela }) => {
     setFiltros({ codigo: '', cliente: '', produto: '', data: '' });
   };
 
-  // MOCK: Estruturado como o banco de dados retornaria (JSON)
-  const bancoDeDados = [
-    { id: '6349496', cliente: 'EVERTON SOUSA DE LIMA', cpf: '000.000.000-00', data: '03/07/2026', hora: '12:11', status: 'Concluído', aparelho: 'iPhone 14 Plus', valor: '2.800,00' },
-    { id: '6347117', cliente: 'MANOEL MESSIAS DOS SANTOS', cpf: '062.493.715-16', data: '03/07/2026', hora: '10:30', status: 'Concluído', aparelho: 'iPhone 13', valor: '2.300,00' },
-    { id: '6334201', cliente: 'OTONIEL BARBOSA', cpf: '111.222.333-44', data: '02/07/2026', hora: '09:15', status: 'Pré-Venda', aparelho: 'iPhone 11 64GB', valor: '2.100,00' }, 
-    { id: '6328609', cliente: 'ANA CAROLINE FURTADO', cpf: '555.444.333-22', data: '01/07/2026', hora: '14:20', status: 'Cancelada', aparelho: 'Samsung Galaxy S23', valor: '2.700,00' }
-  ];
+  const vendasFiltradas = useMemo(() => {
+    return vendas.filter((venda) => {
+      const { data } = formatDataHora(venda.data_venda, venda.created_at);
+      const matchCodigo = venda.codigo.includes(filtros.codigo);
+      const matchCliente =
+        (venda.cliente?.nome ?? '').toLowerCase().includes(filtros.cliente.toLowerCase()) ||
+        formatCpfCnpj(venda.cliente?.cpf_cnpj).includes(filtros.cliente);
+      const matchProduto = resumoProdutoVenda(venda).toLowerCase().includes(filtros.produto.toLowerCase());
+      const matchData = !filtros.data || venda.data_venda === filtros.data;
 
-  // Filtrando os concluídos e aplicando buscas
-  const vendasFiltradas = bancoDeDados.filter(venda => {
-    if (venda.status !== 'Concluído') return false;
-
-    const matchCodigo = venda.id.includes(filtros.codigo);
-    const matchCliente = venda.cliente.toLowerCase().includes(filtros.cliente.toLowerCase()) || venda.cpf.includes(filtros.cliente);
-    const matchProduto = venda.aparelho.toLowerCase().includes(filtros.produto.toLowerCase());
-    const matchData = filtros.data === '' || venda.data === filtros.data.split('-').reverse().join('/'); 
-
-    return matchCodigo && matchCliente && matchProduto && matchData;
-  });
+      return matchCodigo && matchCliente && matchProduto && matchData;
+    });
+  }, [vendas, filtros]);
 
   const qtdFiltrosAtivos = Object.values(filtros).filter(val => val !== '').length;
 
@@ -122,6 +150,9 @@ const HistoricoVendas = ({ aoMudarTela }) => {
       </div>
 
       <div style={styles.tableWrapper}>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Carregando histórico...</div>
+        ) : (
         <table style={styles.table}>
           <thead>
             <tr>
@@ -138,7 +169,9 @@ const HistoricoVendas = ({ aoMudarTela }) => {
             {vendasFiltradas.length === 0 ? (
               <tr><td colSpan="7" style={{textAlign: 'center', padding: '40px', color: '#64748b'}}>Nenhuma venda concluída encontrada com estes filtros.</td></tr>
             ) : (
-              vendasFiltradas.map((item, index) => (
+              vendasFiltradas.map((item, index) => {
+                const { data, hora } = formatDataHora(item.data_venda, item.created_at);
+                return (
                 <tr key={item.id} style={styles.tr}>
                   <td style={styles.td}>
                     <div style={{display: 'flex', alignItems: 'center', position: 'relative'}}>
@@ -148,28 +181,29 @@ const HistoricoVendas = ({ aoMudarTela }) => {
 
                       {menuAberto === index && (
                         <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                          <div style={styles.dropdownItem} onClick={() => alert('Abrindo WhatsApp Web para envio de recibo...', { type: 'info', title: 'WhatsApp' })}>
+                          <div style={styles.dropdownItem} onClick={() => alert('Integração WhatsApp em breve.', { type: 'info', title: 'Em breve' })}>
                             <Phone size={14} color="#22c55e" /> Whatsapp Recibo da venda
                           </div>
                           
-                          <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); aoMudarTela('venda-detalhes', 'historico'); }}>
+                          <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); aoMudarTela('venda-detalhes', 'historico', { vendaId: item.id }); }}>
                             <List size={14} color="#e2e8f0" /> Detalhes da Venda
                           </div>
                         </div>
                       )}
                     </div>
                   </td>
-                  <td style={{...styles.td, color: '#e2e8f0'}}>{item.id}</td>
-                  <td style={{...styles.td, whiteSpace: 'normal', minWidth: '150px', fontWeight: 'bold'}}>{item.cliente}</td>
-                  <td style={styles.td}>{item.data} {item.hora}</td>
-                  <td style={styles.td}><span style={styles.statusPill}>{item.status}</span></td>
-                  <td style={{...styles.td, color: '#93c5fd'}}>{item.aparelho}</td>
-                  <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#e2e8f0'}}>{item.valor}</td>
+                  <td style={{...styles.td, color: '#e2e8f0'}}>{item.codigo}</td>
+                  <td style={{...styles.td, whiteSpace: 'normal', minWidth: '150px', fontWeight: 'bold'}}>{item.cliente?.nome ?? 'Consumidor Final'}</td>
+                  <td style={styles.td}>{data} {hora}</td>
+                  <td style={styles.td}><span style={styles.statusPill}>{STATUS_LABEL[item.status] ?? item.status}</span></td>
+                  <td style={{...styles.td, color: '#93c5fd'}}>{resumoProdutoVenda(item)}</td>
+                  <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#e2e8f0'}}>{formatBRL(item.valor_total)}</td>
                 </tr>
-              ))
+              );})
             )}
           </tbody>
         </table>
+        )}
       </div>
 
       {/* CONTAGEM DE REGISTROS E PAGINAÇÃO */}

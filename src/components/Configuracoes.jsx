@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building, ShoppingCart, Package, DollarSign, FileText, 
   BarChart2, Save, UploadCloud, ToggleRight, ToggleLeft,
@@ -345,7 +345,6 @@ const Configuracoes = () => {
                   <p style={styles.toggleDesc}>
                     Desativado: o PDV bloqueará vendas quando o saldo for zero ou negativo.
                     Ativado: permite concluir a venda e o produto aparecerá em Ruptura de Estoque.
-                    A regra será aplicada automaticamente quando o módulo de Vendas/PDV estiver conectado.
                   </p>
                 </div>
                 <Switch ativo={toggles.vendaSemEstoque} onClick={() => handleToggle('vendaSemEstoque')} />

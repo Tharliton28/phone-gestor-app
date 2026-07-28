@@ -1,9 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   ArrowLeft, Save, Plus, Search, X, Trash2, 
   DollarSign, Percent, Eraser, CreditCard, Calculator, 
   AlertCircle, CheckCircle, Smartphone, Info, ChevronDown
 } from 'lucide-react';
+import { useLoja } from '../contexts/LojaContext';
+import { listPessoasResumo } from '../services/pessoaService';
+import { listProdutos, TIPO_LABEL } from '../services/produtoService';
+import { formatFormaPagamentoLabel, listFormasPagamento, opcoesParcelasPorForma } from '../services/formaPagamentoService';
+import { getLojaConfig, permiteVendaSemEstoque } from '../services/lojaConfigService';
+import { createVenda, STATUS_UI_TO_DB } from '../services/vendaService';
+import { formatCpfCnpj, formatBRL } from '../utils/formatters';
+import CurrencyInput from './CurrencyInput';
+import {
+  calcItemTotal,
+  calcVendaTotais,
+  calcTotalPago,
+  calcValorRestante,
+  calcTroco,
+  pagamentoCompleto,
+  calcDescontoFromInput,
+  aplicarRepassarTaxa,
+  removerRepassarTaxa,
+  podeAgruparCarrinho,
+  parseNumeroParcelas,
+  calcValorParcela,
+} from '../domain/vendaCalculos';
+
+const CONSUMIDOR_FINAL = 'Consumidor Final (Padrão)';
 
 // ============================================================================
 // COMPONENTE CUSTOMIZADO: SELECT PESQUISÁVEL
@@ -85,35 +109,47 @@ const SelectPesquisavel = ({ opcoes, valorSelecionado, aoMudar, placeholder }) =
 // TELA PRINCIPAL: VENDA FORM
 // ============================================================================
 const VendaForm = ({ aoVoltar }) => {
+  const { lojaAtivaId, perfil } = useLoja();
+
   // ==========================================
   // ESTADOS GERAIS E CADASTROS
   // ==========================================
-  const [cliente, setCliente] = useState('Consumidor Final (Padrão)');
-  const [vendedor, setVendedor] = useState('Wesley de Sousa Viana');
+  const [clienteLabel, setClienteLabel] = useState(CONSUMIDOR_FINAL);
+  const [clienteId, setClienteId] = useState(null);
+  const [clientes, setClientes] = useState([]);
+  const [produtos, setProdutos] = useState([]);
+  const [formasPagamento, setFormasPagamento] = useState([]);
+  const [permiteRuptura, setPermiteRuptura] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [dataVenda, setDataVenda] = useState(new Date().toISOString().slice(0, 10));
 
-  const listaClientes = [
-    'Consumidor Final (Padrão)',
-    'THAIS LOPES - 111.222.333-44',
-    'EVERTON SOUSA DE LIMA - 000.000.000-00',
-    'NATAN COVIDEIRA - 555.444.333-22',
-    'MANOEL MESSIAS DOS SANTOS - 062.493.715-16',
-    'ANTONIA DEBORA FELIPE - 777.888.999-00'
-  ];
+  const vendedor = perfil?.nome ?? 'Vendedor';
 
-  const listaVendedores = [
-    'Wesley de Sousa Viana',
-    'João Silva',
-    'Maria Oliveira'
-  ];
+  const { listaClientes, clienteMap } = useMemo(() => {
+    const map = { [CONSUMIDOR_FINAL]: null };
+    const opcoes = [CONSUMIDOR_FINAL];
+    clientes.forEach((pessoa) => {
+      const label = pessoa.cpf_cnpj
+        ? `${pessoa.nome} - ${formatCpfCnpj(pessoa.cpf_cnpj)}`
+        : pessoa.nome;
+      map[label] = pessoa.id;
+      opcoes.push(label);
+    });
+    return { listaClientes: opcoes, clienteMap: map };
+  }, [clientes]);
 
-  const listaPagamentos = [
-    'PIX (Taxa: 0.00%)',
-    'Dinheiro (Taxa: 0.00%)',
-    'Crédito à Vista Stone (Taxa: 3.49%)',
-    'Crédito Parcelado 12x Stone (Taxa: 12.99%)',
-    'Débito PagSeguro (Taxa: 1.99%)',
-    'Aparelho Usado (Entrada)'
-  ];
+  const { listaPagamentos, formaMap } = useMemo(() => {
+    const map = {};
+    const opcoes = formasPagamento.map((forma) => {
+      const label = formatFormaPagamentoLabel(forma);
+      map[label] = forma;
+      return label;
+    });
+    if (!opcoes.includes('Aparelho Usado (Entrada)')) {
+      opcoes.push('Aparelho Usado (Entrada)');
+    }
+    return { listaPagamentos: opcoes, formaMap: map };
+  }, [formasPagamento]);
 
   // ==========================================
   // ESTADOS DO CARRINHO E VALORES GERAIS
@@ -123,7 +159,6 @@ const VendaForm = ({ aoVoltar }) => {
   const [buscaProduto, setBuscaProduto] = useState('');
   
   const [descontoGlobal, setDescontoGlobal] = useState(0);
-  const [acrescimoGlobal, setAcrescimoGlobal] = useState(0); 
   const [statusVenda, setStatusVenda] = useState('Concluído');
 
   // ==========================================
@@ -131,43 +166,120 @@ const VendaForm = ({ aoVoltar }) => {
   // ==========================================
   const [modalDescontoAberto, setModalDescontoAberto] = useState(false);
   const [tipoDesconto, setTipoDesconto] = useState('rs'); 
-  const [valorDescontoInput, setValorDescontoInput] = useState('');
+  const [valorDescontoInput, setValorDescontoInput] = useState(0);
 
   const [modalTrocoAberto, setModalTrocoAberto] = useState(false);
-  const [valorEntregueTroco, setValorEntregueTroco] = useState('');
+  const [valorEntregueTroco, setValorEntregueTroco] = useState(0);
 
   const [modalExcluirPagamento, setModalExcluirPagamento] = useState({ aberto: false, id: null });
   
   const [modalAviso, setModalAviso] = useState({ aberto: false, titulo: '', mensagem: '', tipo: 'info', acaoOk: null });
 
   const [modalAparelhoAberto, setModalAparelhoAberto] = useState(false);
-  const [aparelhoEntrada, setAparelhoEntrada] = useState({ modelo: '', imei: '', valor: '' });
+  const [aparelhoEntrada, setAparelhoEntrada] = useState({ modelo: '', imei: '', valor: 0 });
 
   // ==========================================
   // ESTADOS DE PAGAMENTO
   // ==========================================
-  const [pagamentos, setPagamentos] = useState([
-    { id: Date.now(), forma: '', valor: '', parcelas: 'À vista', detalhes: '', taxa: 0, taxaRepassada: false }
-  ]);
+  const criarLinhaPagamento = (valor = 0, autoPreenchido = false) => ({
+    id: Date.now() + Math.random(),
+    forma: '',
+    formaPagamentoId: null,
+    formaNome: '',
+    formaTipo: null,
+    valor,
+    valorBase: valor,
+    valorTaxa: 0,
+    parcelas: 'À vista',
+    detalhes: '',
+    taxa: 0,
+    taxaRepassada: false,
+    autoPreenchido,
+    aparelhoEntrada: null,
+  });
 
-  const estoqueMock = [
-    { id: '5181678', nome: 'iPhone 13 Pro Max - 128GB - AZUL PACÍFICO', imei: '353967815666840', preco: 4500.00, tipo: 'Aparelho' },
-    { id: '9845123', nome: 'Capa MagSafe Transparente - iPhone 13 Pro Max', imei: null, preco: 150.00, tipo: 'Acessório' },
-    { id: '7412589', nome: 'Película de Vidro 3D', imei: null, preco: 50.00, tipo: 'Acessório' },
-    { id: '8523697', nome: 'Carregador Turbo 20W Original', imei: null, preco: 199.00, tipo: 'Acessório' },
-    { id: 'AVULSO', nome: 'Produto Avulso (Fora do Estoque)', imei: null, preco: 0.00, tipo: 'Avulso' }
-  ];
+  const acaoAvisoRef = useRef(null);
+
+  const [pagamentos, setPagamentos] = useState([criarLinhaPagamento()]);
+
+  const carregarDados = useCallback(async () => {
+    if (!lojaAtivaId) return;
+
+    const [clientesResult, produtosResult, formasResult, configResult] = await Promise.all([
+      listPessoasResumo(lojaAtivaId, { categoria: 'cliente' }),
+      listProdutos(lojaAtivaId),
+      listFormasPagamento(lojaAtivaId),
+      getLojaConfig(lojaAtivaId),
+    ]);
+
+    if (!clientesResult.error && clientesResult.data?.length) {
+      setClientes(clientesResult.data);
+    } else {
+      const fallback = await listPessoasResumo(lojaAtivaId);
+      setClientes(fallback.data ?? []);
+    }
+
+    if (!produtosResult.error) setProdutos(produtosResult.data ?? []);
+    if (!formasResult.error) setFormasPagamento(formasResult.data ?? []);
+    if (!configResult.error && configResult.data) {
+      setPermiteRuptura(permiteVendaSemEstoque(configResult.data));
+    }
+  }, [lojaAtivaId]);
+
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
+
+  const produtosDisponiveis = useMemo(() => {
+    return (produtos ?? []).map((produto) => ({
+      id: produto.id,
+      produtoId: produto.id,
+      codigo: produto.codigo,
+      nome: produto.nome,
+      imei: produto.imei1 ?? null,
+      preco: Number(produto.valor_venda) || 0,
+      tipo: TIPO_LABEL[produto.tipo] ?? produto.tipo,
+      estoque: produto.quantidade_atual ?? 0,
+    }));
+  }, [produtos]);
 
   const mostrarAviso = (titulo, mensagem, tipo = 'info', acaoOk = null) => {
-    setModalAviso({ aberto: true, titulo, mensagem, tipo, acaoOk });
+    acaoAvisoRef.current = acaoOk;
+    setModalAviso({ aberto: true, titulo, mensagem, tipo });
   };
 
   // ==========================================
   // LÓGICA DO CARRINHO
   // ==========================================
   const adicionarAoCarrinho = (produto) => {
-    const item = { ...produto, idCarrinho: Date.now(), quantidade: 1 };
-    setCarrinho([...carrinho, item]);
+    if (!permiteRuptura && produto.estoque <= 0) {
+      return mostrarAviso(
+        'Sem estoque',
+        `"${produto.nome}" está sem saldo. Ative a ruptura em Configurações ou faça uma entrada de estoque.`,
+        'erro'
+      );
+    }
+
+    const existente = carrinho.find((item) => podeAgruparCarrinho(produto, item));
+    if (existente) {
+      const novaQtd = existente.quantidade + 1;
+      if (!permiteRuptura && novaQtd > produto.estoque) {
+        return mostrarAviso(
+          'Estoque insuficiente',
+          `Saldo disponível: ${produto.estoque} un.`,
+          'erro'
+        );
+      }
+      setCarrinho(carrinho.map((item) =>
+        item.idCarrinho === existente.idCarrinho ? { ...item, quantidade: novaQtd } : item
+      ));
+    } else if (produto.imei && carrinho.some((item) => item.produtoId === produto.id)) {
+      return mostrarAviso('Aparelho duplicado', 'Este aparelho já está no carrinho.', 'erro');
+    } else {
+      const item = { ...produto, idCarrinho: Date.now(), quantidade: 1, precoEditavel: produto.preco };
+      setCarrinho([...carrinho, item]);
+    }
+
     setModalProdutoAberto(false);
     setBuscaProduto('');
   };
@@ -175,23 +287,37 @@ const VendaForm = ({ aoVoltar }) => {
   const removerDoCarrinho = (idCarrinho) => setCarrinho(carrinho.filter(i => i.idCarrinho !== idCarrinho));
 
   const atualizarItem = (idCarrinho, campo, valor) => {
-    setCarrinho(carrinho.map(item => item.idCarrinho === idCarrinho ? { ...item, [campo]: Number(valor) || 0 } : item));
+    setCarrinho(carrinho.map((item) => {
+      if (item.idCarrinho !== idCarrinho) return item;
+      if (campo === 'preco') {
+        return { ...item, preco: Math.max(0, Number(valor) || 0) };
+      }
+      const qtd = Math.max(1, Number(valor) || 1);
+      if (!permiteRuptura && qtd > item.estoque) {
+        mostrarAviso('Estoque insuficiente', `Saldo disponível: ${item.estoque} un.`, 'erro');
+        return item;
+      }
+      return { ...item, quantidade: qtd };
+    }));
   };
 
-  const subtotalItens = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
-  const totalGeral = Math.max(0, subtotalItens - descontoGlobal + acrescimoGlobal);
+  const totais = calcVendaTotais(carrinho, descontoGlobal, pagamentos);
+  const { valorSubtotal: subtotalItens, valorTotal: totalGeral, valorTaxas, valorAcrescimo } = totais;
+  const totalPago = calcTotalPago(pagamentos);
+  const valorRestante = calcValorRestante(totalGeral, pagamentos);
+  const trocoCalculado = calcTroco(totalGeral, pagamentos);
+  const pagamentoOk = pagamentoCompleto(totalGeral, pagamentos);
 
   const abrirModalDesconto = (tipo) => {
     setTipoDesconto(tipo);
-    setValorDescontoInput('');
+    setValorDescontoInput(0);
     setModalDescontoAberto(true);
   };
 
   const confirmarDesconto = () => {
-    const valorNum = parseFloat(valorDescontoInput.replace(',', '.'));
-    if (!isNaN(valorNum) && valorNum >= 0) {
-      if (tipoDesconto === 'rs') setDescontoGlobal(valorNum);
-      else setDescontoGlobal(subtotalItens * (valorNum / 100));
+    const valorCalculado = calcDescontoFromInput(tipoDesconto, valorDescontoInput, subtotalItens);
+    if (valorCalculado >= 0) {
+      setDescontoGlobal(valorCalculado);
     }
     setModalDescontoAberto(false);
   };
@@ -202,117 +328,167 @@ const VendaForm = ({ aoVoltar }) => {
 
   const limparValoresExtras = () => {
     setDescontoGlobal(0);
-    setAcrescimoGlobal(0);
-    setPagamentos(pagamentos.map(p => ({ ...p, taxaRepassada: false })));
+    setPagamentos(pagamentos.map((p) => ({
+      ...p,
+      taxaRepassada: false,
+      valorTaxa: 0,
+      valorBase: p.valor,
+    })));
   };
 
-  // ==========================================
-  // LÓGICA DE PAGAMENTOS E TAXAS
-  // ==========================================
-  const totalPago = pagamentos.reduce((acc, pag) => acc + (parseFloat(pag.valor) || 0), 0);
-  const valorRestante = totalGeral - totalPago;
-  const trocoCalculado = totalPago > totalGeral ? totalPago - totalGeral : 0;
-
   const adicionarLinhaPagamento = () => {
-    const valorSugerido = valorRestante > 0 ? valorRestante.toFixed(2) : '';
-    setPagamentos([...pagamentos, { id: Date.now(), forma: '', valor: valorSugerido, parcelas: 'À vista', detalhes: '', taxa: 0, taxaRepassada: false }]);
+    const valorSugerido = valorRestante > 0 ? valorRestante : 0;
+    setPagamentos([...pagamentos, criarLinhaPagamento(valorSugerido)]);
   };
 
   const mudarFormaPagamento = (id, novaForma) => {
+    const forma = formaMap[novaForma];
     const match = novaForma.match(/Taxa: ([\d.]+)%/);
-    const taxaExtraida = match ? parseFloat(match[1]) : 0;
-    setPagamentos(pagamentos.map(pag => pag.id === id ? { ...pag, forma: novaForma, taxa: taxaExtraida, taxaRepassada: false } : pag));
+    const taxaExtraida = forma ? Number(forma.taxa_percentual) : match ? parseFloat(match[1]) : 0;
+    const opcoes = opcoesParcelasPorForma(forma);
+    setPagamentos(pagamentos.map((pag) => (
+      pag.id === id
+        ? {
+            ...pag,
+            forma: novaForma,
+            formaPagamentoId: forma?.id ?? null,
+            formaNome: forma?.nome ?? novaForma,
+            formaTipo: forma?.tipo ?? null,
+            taxa: taxaExtraida,
+            taxaRepassada: false,
+            valorTaxa: 0,
+            parcelas: opcoes.includes(pag.parcelas) ? pag.parcelas : 'À vista',
+          }
+        : pag
+    )));
   };
 
   const atualizarPagamento = (id, campo, valor) => {
-    setPagamentos(pagamentos.map(pag => pag.id === id ? { ...pag, [campo]: valor } : pag));
+    setPagamentos(pagamentos.map((pag) => {
+      if (pag.id !== id) return pag;
+      const atualizado = { ...pag, [campo]: valor, autoPreenchido: campo === 'valor' ? false : pag.autoPreenchido };
+      if (campo === 'valor') {
+        atualizado.valorBase = valor;
+        if (!atualizado.taxaRepassada) atualizado.valorTaxa = 0;
+      }
+      return atualizado;
+    }));
   };
 
-  const repassarTaxaAoCliente = (idPagamento, valorAtual, taxaPercentual) => {
-    const baseCalculo = parseFloat(valorAtual);
-    if (isNaN(baseCalculo) || baseCalculo <= 0) return mostrarAviso('Atenção', 'Informe um valor de pagamento válido.', 'erro');
-
-    const valorTaxa = baseCalculo * (taxaPercentual / 100);
-    setAcrescimoGlobal(prev => prev + valorTaxa);
-    
-    setPagamentos(pagamentos.map(pag => 
-      pag.id === idPagamento ? { ...pag, valor: (baseCalculo + valorTaxa).toFixed(2), taxaRepassada: true } : pag
-    ));
+  const repassarTaxaAoCliente = (idPagamento) => {
+    const pag = pagamentos.find((p) => p.id === idPagamento);
+    if (!pag) return;
+    const atualizado = aplicarRepassarTaxa(pag, pag.taxa);
+    if (!atualizado) {
+      return mostrarAviso('Atenção', 'Informe um valor de pagamento válido.', 'erro');
+    }
+    setPagamentos(pagamentos.map((p) => (p.id === idPagamento ? { ...atualizado, autoPreenchido: false } : p)));
   };
 
-  const removerTaxaAoCliente = (idPagamento, valorComTaxa, taxaPercentual) => {
-    const baseCalculo = parseFloat(valorComTaxa) / (1 + (taxaPercentual / 100));
-    const valorTaxa = parseFloat(valorComTaxa) - baseCalculo;
-    
-    setAcrescimoGlobal(prev => Math.max(0, prev - valorTaxa));
-    
-    setPagamentos(pagamentos.map(pag => 
-      pag.id === idPagamento ? { ...pag, valor: baseCalculo.toFixed(2), taxaRepassada: false } : pag
-    ));
+  const removerTaxaAoCliente = (idPagamento) => {
+    const pag = pagamentos.find((p) => p.id === idPagamento);
+    if (!pag) return;
+    const { pagamento } = removerRepassarTaxa(pag, pag.taxa);
+    setPagamentos(pagamentos.map((p) => (p.id === idPagamento ? { ...pagamento, autoPreenchido: false } : p)));
   };
 
   const confirmarRemocaoPagamento = () => {
-    const pagToRemove = pagamentos.find(p => p.id === modalExcluirPagamento.id);
-    
-    if (pagToRemove && pagToRemove.taxaRepassada) {
-      const baseCalculo = parseFloat(pagToRemove.valor) / (1 + (pagToRemove.taxa / 100));
-      const valorTaxa = parseFloat(pagToRemove.valor) - baseCalculo;
-      setAcrescimoGlobal(prev => Math.max(0, prev - valorTaxa));
-    }
-
     setPagamentos(pagamentos.filter(pag => pag.id !== modalExcluirPagamento.id));
     setModalExcluirPagamento({ aberto: false, id: null });
   };
 
   const confirmarAparelhoEntrada = () => {
-    const valorNum = parseFloat(aparelhoEntrada.valor.replace(',', '.'));
-    if (!aparelhoEntrada.modelo || isNaN(valorNum) || valorNum <= 0) {
+    const valorNum = Number(aparelhoEntrada.valor) || 0;
+    if (!aparelhoEntrada.modelo.trim() || valorNum <= 0) {
       return mostrarAviso('Atenção', 'Preencha o modelo e um valor de avaliação válido.', 'erro');
     }
 
-    const detalhesStr = `${aparelhoEntrada.modelo} ${aparelhoEntrada.imei ? `(IMEI: ${aparelhoEntrada.imei})` : ''}`;
+    const detalhesStr = `${aparelhoEntrada.modelo.trim()}${aparelhoEntrada.imei ? ` (IMEI: ${aparelhoEntrada.imei})` : ''}`;
 
-    setPagamentos([...pagamentos, { 
-      id: Date.now(), 
-      forma: 'Aparelho Usado (Entrada)', 
-      valor: valorNum.toFixed(2), 
-      parcelas: 'À vista', 
-      detalhes: detalhesStr, 
-      taxa: 0, 
-      taxaRepassada: false 
+    setPagamentos([...pagamentos, {
+      ...criarLinhaPagamento(valorNum),
+      forma: 'Aparelho Usado (Entrada)',
+      formaNome: 'Aparelho Usado (Entrada)',
+      detalhes: detalhesStr,
+      aparelhoEntrada: {
+        modelo: aparelhoEntrada.modelo.trim(),
+        imei: aparelhoEntrada.imei.trim(),
+        valor: valorNum,
+      },
     }]);
 
     setModalAparelhoAberto(false);
-    
     mostrarAviso(
-      'Aparelho Adicionado!', 
-      `O ${aparelhoEntrada.modelo} foi lançado como forma de pagamento e inserido com sucesso no módulo de Estoque (Seminovos).`, 
+      'Aparelho adicionado',
+      `${aparelhoEntrada.modelo} foi incluído como forma de pagamento. O produto será cadastrado no estoque ao finalizar a venda.`,
       'sucesso'
     );
-    
-    setAparelhoEntrada({ modelo: '', imei: '', valor: '' });
+    setAparelhoEntrada({ modelo: '', imei: '', valor: 0 });
   };
 
-  const finalizarVenda = () => {
+  const finalizarVenda = async () => {
+    if (!lojaAtivaId) return;
     if (carrinho.length === 0) return mostrarAviso('Atenção', 'Adicione produtos ao carrinho para vender.', 'erro');
-    if (valorRestante > 0.05) return mostrarAviso('Pagamento Incompleto', 'O valor total ainda não foi totalmente pago.', 'erro');
-    
-    mostrarAviso('Sucesso!', 'A venda foi finalizada e salva no banco de dados com sucesso.', 'sucesso', () => aoVoltar());
+    if (!pagamentoOk) {
+      return mostrarAviso('Pagamento Incompleto', 'O valor total ainda não foi totalmente pago.', 'erro');
+    }
+
+    setSalvando(true);
+    const { error } = await createVenda(
+      lojaAtivaId,
+      {
+        clienteId,
+        vendedorId: perfil?.id,
+        status: STATUS_UI_TO_DB[statusVenda] ?? 'concluido',
+        dataVenda,
+        itens: carrinho,
+        pagamentos,
+        descontoGlobal,
+      },
+      perfil?.id
+    );
+    setSalvando(false);
+
+    if (error) {
+      return mostrarAviso('Erro', error.message ?? 'Não foi possível finalizar a venda.', 'erro');
+    }
+
+    const mensagemSucesso = statusVenda === 'Pré-Venda'
+      ? 'Pré-venda registrada. O estoque será baixado ao concluir.'
+      : 'A venda foi finalizada e salva com sucesso.';
+
+    if (typeof aoVoltar === 'function') {
+      aoVoltar({ mensagemSucesso });
+      return;
+    }
+
+    mostrarAviso('Sucesso!', mensagemSucesso, 'sucesso');
   };
 
   useEffect(() => {
     if (carrinho.length === 0) {
-      setPagamentos([{ id: Date.now(), forma: '', valor: '', parcelas: 'À vista', detalhes: '', taxa: 0, taxaRepassada: false }]);
+      setPagamentos([criarLinhaPagamento()]);
       setDescontoGlobal(0);
-      setAcrescimoGlobal(0);
-    } else if (pagamentos.length === 1 && !pagamentos[0].valor && totalGeral > 0) {
-      atualizarPagamento(pagamentos[0].id, 'valor', totalGeral.toFixed(2));
+      return;
+    }
+
+    if (pagamentos.length === 1 && totalGeral > 0) {
+      const unico = pagamentos[0];
+      if (!unico.valor || unico.autoPreenchido) {
+        setPagamentos([{
+          ...unico,
+          valor: totalGeral,
+          valorBase: totalGeral,
+          autoPreenchido: true,
+        }]);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carrinho.length, totalGeral]);
 
-  const produtosFiltrados = estoqueMock.filter(p => 
-    p.nome.toLowerCase().includes(buscaProduto.toLowerCase()) || 
+  const produtosFiltrados = produtosDisponiveis.filter((p) =>
+    p.nome.toLowerCase().includes(buscaProduto.toLowerCase()) ||
+    String(p.codigo).includes(buscaProduto) ||
     (p.imei && p.imei.includes(buscaProduto))
   );
 
@@ -328,10 +504,11 @@ const VendaForm = ({ aoVoltar }) => {
         </div>
         <div style={styles.headerActions}>
           <button 
-            style={{...styles.btnSave, opacity: (valorRestante > 0.05 || carrinho.length === 0) ? 0.5 : 1}} 
+            style={{...styles.btnSave, opacity: (!pagamentoOk || carrinho.length === 0 || salvando) ? 0.5 : 1}} 
             onClick={finalizarVenda}
+            disabled={salvando || !pagamentoOk || carrinho.length === 0}
           >
-            <Save size={16} /> Finalizar Venda
+            <Save size={16} /> {salvando ? 'Salvando...' : 'Finalizar Venda'}
           </button>
         </div>
       </div>
@@ -346,24 +523,21 @@ const VendaForm = ({ aoVoltar }) => {
               {/* SELECT PESQUISÁVEL: CLIENTE */}
               <SelectPesquisavel 
                 opcoes={listaClientes}
-                valorSelecionado={cliente}
-                aoMudar={setCliente}
+                valorSelecionado={clienteLabel}
+                aoMudar={(label) => {
+                  setClienteLabel(label);
+                  setClienteId(clienteMap[label] ?? null);
+                }}
                 placeholder="Buscar cliente..."
               />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Vendedor:</label>
-              {/* SELECT PESQUISÁVEL: VENDEDOR */}
-              <SelectPesquisavel 
-                opcoes={listaVendedores}
-                valorSelecionado={vendedor}
-                aoMudar={setVendedor}
-                placeholder="Selecionar vendedor..."
-              />
+              <input style={styles.input} value={vendedor} readOnly />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Data da Venda:</label>
-              <input style={styles.input} type="date" defaultValue="2026-07-10" />
+              <input style={styles.input} type="date" value={dataVenda} onChange={(e) => setDataVenda(e.target.value)} />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Status:</label>
@@ -417,8 +591,16 @@ const VendaForm = ({ aoVoltar }) => {
                       <td style={{...styles.td, textAlign: 'center'}}>
                         <input type="number" style={styles.inputMini} value={item.quantidade} min="1" onChange={(e) => atualizarItem(item.idCarrinho, 'quantidade', e.target.value)} />
                       </td>
-                      <td style={{...styles.td, textAlign: 'right'}}>{item.preco.toFixed(2)}</td>
-                      <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#4ade80'}}>{(item.preco * item.quantidade).toFixed(2)}</td>
+                      <td style={{...styles.td, textAlign: 'right'}}>
+                        <CurrencyInput
+                          style={{...styles.inputMini, width: '110px', textAlign: 'right'}}
+                          value={item.preco}
+                          onChange={(valor) => atualizarItem(item.idCarrinho, 'preco', valor)}
+                        />
+                      </td>
+                      <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#4ade80'}}>
+                        {formatBRL(calcItemTotal(item.quantidade, item.preco))}
+                      </td>
                       <td style={{...styles.td, textAlign: 'center'}}>
                         <button style={styles.btnRemove} onClick={() => removerDoCarrinho(item.idCarrinho)}><Trash2 size={14} /></button>
                       </td>
@@ -440,10 +622,11 @@ const VendaForm = ({ aoVoltar }) => {
               )}
             </div>
             <div style={styles.totalDisplay}>
-              <span style={styles.totalLabel}>Subtotal: R$ {subtotalItens.toFixed(2)}</span>
-              {descontoGlobal > 0 && <span style={{color: '#fbbf24', fontSize: '14px'}}>- Desconto: R$ {descontoGlobal.toFixed(2)}</span>}
-              {acrescimoGlobal > 0 && <span style={{color: '#ef4444', fontSize: '14px'}}>+ Acréscimo/Taxas: R$ {acrescimoGlobal.toFixed(2)}</span>}
-              <span style={styles.totalBig}>Total: R$ {totalGeral.toFixed(2)}</span>
+              <span style={styles.totalLabel}>Subtotal: R$ {formatBRL(subtotalItens)}</span>
+              {descontoGlobal > 0 && <span style={{color: '#fbbf24', fontSize: '14px'}}>- Desconto: R$ {formatBRL(descontoGlobal)}</span>}
+              {valorTaxas > 0 && <span style={{color: '#ef4444', fontSize: '14px'}}>+ Taxas repassadas: R$ {formatBRL(valorTaxas)}</span>}
+              {valorAcrescimo > valorTaxas && <span style={{color: '#ef4444', fontSize: '14px'}}>+ Acréscimos: R$ {formatBRL(valorAcrescimo - valorTaxas)}</span>}
+              <span style={styles.totalBig}>Total: R$ {formatBRL(totalGeral)}</span>
             </div>
           </div>
         </div>
@@ -454,10 +637,10 @@ const VendaForm = ({ aoVoltar }) => {
             <h3 style={styles.sectionTitle}>Dados do Pagamento</h3>
             {carrinho.length > 0 && (
               <div style={{display: 'flex', gap: '20px', alignItems: 'center'}}>
-                {valorRestante > 0.01 ? (
-                  <span style={{color: '#ef4444', fontWeight: 'bold', fontSize: '14px'}}>Falta pagar: R$ {valorRestante.toFixed(2)}</span>
-                ) : trocoCalculado > 0.01 ? (
-                  <span style={{color: '#4ade80', fontWeight: 'bold', fontSize: '14px'}}>Troco: R$ {trocoCalculado.toFixed(2)}</span>
+                {valorRestante > 0 ? (
+                  <span style={{color: '#ef4444', fontWeight: 'bold', fontSize: '14px'}}>Falta pagar: R$ {formatBRL(valorRestante)}</span>
+                ) : trocoCalculado > 0 ? (
+                  <span style={{color: '#4ade80', fontWeight: 'bold', fontSize: '14px'}}>Troco: R$ {formatBRL(trocoCalculado)}</span>
                 ) : (
                   <span style={{color: '#94a3b8', fontWeight: 'bold', fontSize: '14px'}}>Valor pago integralmente.</span>
                 )}
@@ -475,7 +658,13 @@ const VendaForm = ({ aoVoltar }) => {
             </div>
           ) : (
             <>
-              {pagamentos.map((pag, index) => (
+              {pagamentos.map((pag, index) => {
+                const formaAtual = formaMap[pag.forma];
+                const opcoesParcelas = opcoesParcelasPorForma(formaAtual);
+                const numParcelas = parseNumeroParcelas(pag.parcelas);
+                const valorParcela = calcValorParcela(pag.valor, pag.parcelas);
+
+                return (
                 <div key={pag.id} style={{...styles.grid4, marginBottom: '15px', paddingBottom: '15px', borderBottom: index < pagamentos.length - 1 ? '1px dashed #2a2e3f' : 'none', position: 'relative', zIndex: 10 - index }}>
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Forma de pagamento:</label>
@@ -490,15 +679,19 @@ const VendaForm = ({ aoVoltar }) => {
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Valor Pago (R$):</label>
                     <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                      <input style={{...styles.input, flex: 1}} type="number" value={pag.valor} onChange={(e) => atualizarPagamento(pag.id, 'valor', e.target.value)} />
+                      <CurrencyInput
+                        style={{...styles.input, flex: 1}}
+                        value={pag.valor}
+                        onChange={(valor) => atualizarPagamento(pag.id, 'valor', valor)}
+                      />
                       
                       {pag.taxa > 0 && !pag.taxaRepassada && (
-                        <button style={styles.btnRepassarTaxa} onClick={() => repassarTaxaAoCliente(pag.id, pag.valor, pag.taxa)}>
+                        <button style={styles.btnRepassarTaxa} onClick={() => repassarTaxaAoCliente(pag.id)}>
                           Repassar ({pag.taxa}%)
                         </button>
                       )}
                       {pag.taxaRepassada && (
-                        <button style={styles.btnRemoverTaxa} onClick={() => removerTaxaAoCliente(pag.id, pag.valor, pag.taxa)}>
+                        <button style={styles.btnRemoverTaxa} onClick={() => removerTaxaAoCliente(pag.id)}>
                           <X size={12}/> Remover Taxa
                         </button>
                       )}
@@ -506,9 +699,26 @@ const VendaForm = ({ aoVoltar }) => {
                   </div>
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Parcelas:</label>
-                    <select style={styles.input} value={pag.parcelas} onChange={(e) => atualizarPagamento(pag.id, 'parcelas', e.target.value)}>
-                      <option>À vista</option><option>2x</option><option>3x</option><option>10x</option><option>12x</option>
+                    <select
+                      style={styles.input}
+                      value={pag.parcelas}
+                      disabled={opcoesParcelas.length <= 1}
+                      onChange={(e) => atualizarPagamento(pag.id, 'parcelas', e.target.value)}
+                    >
+                      {opcoesParcelas.map((opcao) => (
+                        <option key={opcao} value={opcao}>{opcao}</option>
+                      ))}
                     </select>
+                    {numParcelas > 1 && pag.valor > 0 && (
+                      <span style={{ fontSize: '11px', color: '#4ade80', marginTop: '6px', display: 'block' }}>
+                        {numParcelas}x de R$ {formatBRL(valorParcela)}
+                      </span>
+                    )}
+                    {formaAtual?.tipo && (
+                      <span style={{ fontSize: '10px', color: '#64748b', marginTop: '4px', display: 'block', textTransform: 'capitalize' }}>
+                        Tipo: {formaAtual.tipo.replace('_', ' ')}
+                      </span>
+                    )}
                   </div>
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Detalhes:</label>
@@ -520,7 +730,8 @@ const VendaForm = ({ aoVoltar }) => {
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
 
               <div style={styles.paymentActions}>
                 <button style={styles.btnActionGreen} onClick={() => setModalTrocoAberto(true)}><Calculator size={14}/> Calculadora de Troco</button>
@@ -549,13 +760,17 @@ const VendaForm = ({ aoVoltar }) => {
                 <Search size={16} color="#64748b" style={{position: 'absolute', left: '12px'}} />
               </div>
               <div style={styles.modalProductList}>
-                {produtosFiltrados.map(p => (
+                {produtosFiltrados.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Nenhum produto encontrado.</div>
+                ) : produtosFiltrados.map((p) => (
                   <div key={p.id} style={styles.modalProductItem} onClick={() => adicionarAoCarrinho(p)}>
                     <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
                       <span style={{color: '#e2e8f0', fontSize: '13px', fontWeight: 'bold'}}>{p.nome}</span>
-                      <span style={{color: '#64748b', fontSize: '11px'}}>Cód: {p.id} {p.imei && `| IMEI: ${p.imei}`}</span>
+                      <span style={{color: '#64748b', fontSize: '11px'}}>
+                        Cód: {p.codigo} | Estoque: {p.estoque} {p.imei && `| IMEI: ${p.imei}`}
+                      </span>
                     </div>
-                    <div style={{color: '#4ade80', fontWeight: 'bold'}}>R$ {p.preco.toFixed(2)}</div>
+                    <div style={{color: '#4ade80', fontWeight: 'bold'}}>R$ {formatBRL(p.preco)}</div>
                   </div>
                 ))}
               </div>
@@ -582,8 +797,10 @@ const VendaForm = ({ aoVoltar }) => {
               <button 
                 style={{...styles.btnSaveModal, backgroundColor: modalAviso.tipo === 'erro' ? '#ef4444' : '#3b82f6', width: '100%'}} 
                 onClick={() => {
-                  setModalAviso({...modalAviso, aberto: false});
-                  if (modalAviso.acaoOk) modalAviso.acaoOk();
+                  const callback = acaoAvisoRef.current;
+                  acaoAvisoRef.current = null;
+                  setModalAviso({ aberto: false, titulo: '', mensagem: '', tipo: 'info' });
+                  if (callback) callback();
                 }}
               >
                 OK
@@ -611,7 +828,11 @@ const VendaForm = ({ aoVoltar }) => {
               </div>
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Valor de Avaliação (R$):</label>
-                <input style={styles.input} type="number" placeholder="0.00" value={aparelhoEntrada.valor} onChange={(e) => setAparelhoEntrada({...aparelhoEntrada, valor: e.target.value})} />
+                <CurrencyInput
+                  style={styles.input}
+                  value={aparelhoEntrada.valor}
+                  onChange={(valor) => setAparelhoEntrada({ ...aparelhoEntrada, valor })}
+                />
               </div>
             </div>
             <div style={styles.modalFooter}>
@@ -630,7 +851,26 @@ const VendaForm = ({ aoVoltar }) => {
               <button style={styles.btnClose} onClick={() => setModalDescontoAberto(false)}><X size={20} /></button>
             </div>
             <div style={{padding: '20px 0'}}>
-              <input style={{...styles.input, width: '100%'}} type="number" value={valorDescontoInput} onChange={(e) => setValorDescontoInput(e.target.value)} autoFocus />
+              {tipoDesconto === 'rs' ? (
+                <CurrencyInput
+                  style={{...styles.input, width: '100%'}}
+                  value={valorDescontoInput}
+                  onChange={setValorDescontoInput}
+                  autoFocus
+                />
+              ) : (
+                <input
+                  style={{...styles.input, width: '100%'}}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={valorDescontoInput || ''}
+                  onChange={(e) => setValorDescontoInput(Number(e.target.value) || 0)}
+                  autoFocus
+                  placeholder="Ex: 10"
+                />
+              )}
             </div>
             <div style={styles.modalFooter}>
               <button style={styles.btnCancel} onClick={() => setModalDescontoAberto(false)}>Cancelar</button>
@@ -649,10 +889,15 @@ const VendaForm = ({ aoVoltar }) => {
             </div>
             <div style={{padding: '20px 0'}}>
               <label style={styles.label}>Valor recebido (R$):</label>
-              <input style={{...styles.input, width: '100%', fontSize: '20px'}} type="number" value={valorEntregueTroco} onChange={(e) => setValorEntregueTroco(e.target.value)} autoFocus />
-              {valorEntregueTroco > totalGeral && (
+              <CurrencyInput
+                style={{...styles.input, width: '100%', fontSize: '20px'}}
+                value={Number(valorEntregueTroco) || 0}
+                onChange={(valor) => setValorEntregueTroco(valor)}
+                autoFocus
+              />
+              {Number(valorEntregueTroco) > totalGeral && (
                 <div style={{marginTop: '20px', padding: '15px', backgroundColor: 'rgba(74, 222, 128, 0.1)', borderRadius: '8px', textAlign: 'center'}}>
-                  <span style={{color: '#4ade80', fontSize: '28px', fontWeight: 'bold'}}>R$ {(valorEntregueTroco - totalGeral).toFixed(2)}</span>
+                  <span style={{color: '#4ade80', fontSize: '28px', fontWeight: 'bold'}}>R$ {formatBRL(Number(valorEntregueTroco) - totalGeral)}</span>
                 </div>
               )}
             </div>

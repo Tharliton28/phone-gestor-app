@@ -127,8 +127,30 @@ export function formatBRL(value) {
 /** Converte string de moeda pt-BR ou número para decimal */
 export function parseMoney(value) {
   if (value == null || value === '') return 0;
-  if (typeof value === 'number') return value;
-  const normalized = String(value).replace(/\./g, '').replace(',', '.');
-  const num = parseFloat(normalized);
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+
+  const str = String(value).trim().replace(/[R$\s]/g, '');
+  if (!str) return 0;
+
+  // Formato BR: 1.234,56 ou 3500,00
+  if (str.includes(',')) {
+    const normalized = str.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(normalized);
+    return Number.isNaN(num) ? 0 : num;
+  }
+
+  // Ponto decimal (ex.: 3500.00 gerado por toFixed)
+  const num = parseFloat(str);
   return Number.isNaN(num) ? 0 : num;
+}
+
+/** Arredonda valor monetário para 2 casas (evita erro de ponto flutuante) */
+export function roundMoney(value) {
+  const num = typeof value === 'number' ? value : parseMoney(value);
+  return Math.round(num * 100) / 100;
+}
+
+/** Converte para centavos inteiros — padrão de comparação em PDV/ERP */
+export function moneyToCents(value) {
+  return Math.round(roundMoney(value) * 100);
 }

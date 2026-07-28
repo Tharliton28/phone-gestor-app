@@ -1,73 +1,75 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ArrowLeft, Printer, FileText, ShoppingCart, 
   CreditCard, User, Calendar, MapPin, Tag 
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
+import { useLoja } from '../contexts/LojaContext';
+import { formatBRL, formatCpfCnpj } from '../utils/formatters';
+import { calcValorParcela } from '../domain/vendaCalculos';
+import { getVendaById, mapVendaToRecibo, STATUS_LABEL } from '../services/vendaService';
 
-const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
+function formatDataHora(isoDate, createdAt) {
+  if (!isoDate && !createdAt) return '—';
+  const base = createdAt ? new Date(createdAt) : new Date(`${isoDate}T12:00:00`);
+  return base.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
+  const { lojaAtivaId } = useLoja();
   const { alert } = useDialog();
-  // Mock dos dados de uma venda específica (ex: Venda 6349496)
-  const vendaMock = {
-    codigo: '6349496',
-    data: '03/07/2026 12:11',
-    status: 'Concluído',
-    vendedor: 'WESLEY DE SOUSA VIANA',
-    cliente: {
-      nome: 'EVERTON SOUSA DE LIMA',
-      cpf: '000.000.000-00',
-      telefone: '(85) 98857-8165',
-      endereco: 'Rua das Flores, 123 - Bairro Centro - Fortaleza, CE'
-    },
-    itens: [
-      { produto: 'Celular - iPhone 14 Plus - 128GB - Meia Noite', imei: '351906517594423', qtd: 1, valorUn: '2.800,00', desconto: '0,00', total: '2.800,00' }
-    ],
-    pagamentos: [
-      { metodo: 'Cartão de Crédito', parcelas: '10x', valor: '2.800,00', detalhes: 'Maquininha Stone' }
-    ],
-    resumo: {
-      subtotal: '2.800,00',
-      descontoTotal: '0,00',
-      totalFinal: '2.800,00'
-    },
-    observacoes: 'Cliente solicitou película de brinde, entregue no ato.'
-  };
+  const [venda, setVenda] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleImprimirRecibo = () => {
-    // Formata os dados da VendaDetalhes para o padrão que a tela ReciboGarantia espera
-    const vendaFormatada = {
-      id: vendaMock.codigo,
-      cliente: vendaMock.cliente.nome,
-      cpf: vendaMock.cliente.cpf,
-      telefone: vendaMock.cliente.telefone,
-      email: 'Não informado', 
-      endereco: vendaMock.cliente.endereco,
-      cidade: 'Fortaleza', 
-      uf: 'CE',
-      data: vendaMock.data.split(' ')[0], // Pega apenas a data, ignorando a hora
-      vendedor: vendaMock.vendedor,
-      valorTotal: vendaMock.resumo.totalFinal,
-      produtos: vendaMock.itens.map((item, index) => ({
-        id: index + 1,
-        descricao: item.produto,
-        imei: item.imei,
-        qtd: item.qtd,
-        valorUnitario: item.valorUn,
-        valorTotal: item.total
-      })),
-      pagamentos: vendaMock.pagamentos.map(pag => ({
-        forma: pag.metodo,
-        detalhes: pag.detalhes,
-        valor: pag.valor
-      }))
+  useEffect(() => {
+    if (!vendaId || !lojaAtivaId) {
+      setLoading(false);
+      return;
+    }
+
+    const carregar = async () => {
+      setLoading(true);
+      const { data, error } = await getVendaById(lojaAtivaId, vendaId);
+
+      if (error || !data) {
+        await alert(error?.message ?? 'Venda não encontrada.', { type: 'error', title: 'Erro' });
+        aoVoltar();
+        return;
+      }
+
+      setVenda(data);
+      setLoading(false);
     };
 
-    if (aoMudarTela) {
-      aoMudarTela('recibo-garantia', 'venda-detalhes', vendaFormatada);
-    } else {
-      alert('A função aoMudarTela não foi passada por prop no App.jsx.', { type: 'error', title: 'Erro de navegação' });
-    }
+    carregar();
+  }, [vendaId, lojaAtivaId, alert, aoVoltar]);
+
+  const handleImprimirRecibo = () => {
+    if (!venda || !aoMudarTela) return;
+    aoMudarTela('recibo-garantia', 'venda-detalhes', mapVendaToRecibo(venda));
   };
+
+  if (loading) {
+    return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Carregando venda...</div>;
+  }
+
+  if (!venda) {
+    return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Venda não encontrada.</div>;
+  }
+
+  const enderecoCliente = [
+    venda.cliente?.logradouro,
+    venda.cliente?.numero,
+    venda.cliente?.bairro,
+    venda.cliente?.cidade,
+    venda.cliente?.estado,
+  ].filter(Boolean).join(' - ');
 
   return (
     <div style={styles.container}>
@@ -78,8 +80,8 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
           <button onClick={aoVoltar} style={styles.btnBack}>
             <ArrowLeft size={16} /> Voltar para o Histórico
           </button>
-          <h2 style={styles.title}>Detalhes da Venda #{vendaMock.codigo}</h2>
-          <span style={styles.statusPill}>{vendaMock.status}</span>
+          <h2 style={styles.title}>Detalhes da Venda #{venda.codigo}</h2>
+          <span style={styles.statusPill}>{STATUS_LABEL[venda.status] ?? venda.status}</span>
         </div>
         <div style={styles.rightActions}>
           <button style={styles.btnOutline} onClick={() => alert('Geração de PDF em desenvolvimento (Requer biblioteca jsPDF)', { type: 'info', title: 'Em breve' })}>
@@ -102,9 +104,9 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
               <span style={styles.cardTitle}>Dados da Venda</span>
             </div>
             <div style={styles.cardBody}>
-              <div style={styles.infoRow}><span style={styles.infoLabel}>Data:</span> <span style={styles.infoValue}>{vendaMock.data}</span></div>
-              <div style={styles.infoRow}><span style={styles.infoLabel}>Vendedor:</span> <span style={styles.infoValue}>{vendaMock.vendedor}</span></div>
-              <div style={styles.infoRow}><span style={styles.infoLabel}>Canal:</span> <span style={styles.infoValue}>Loja Física</span></div>
+              <div style={styles.infoRow}><span style={styles.infoLabel}>Data:</span> <span style={styles.infoValue}>{formatDataHora(venda.data_venda, venda.created_at)}</span></div>
+              <div style={styles.infoRow}><span style={styles.infoLabel}>Vendedor:</span> <span style={styles.infoValue}>{venda.vendedor?.nome ?? '—'}</span></div>
+              <div style={styles.infoRow}><span style={styles.infoLabel}>Tipo:</span> <span style={styles.infoValue}>{venda.tipo_venda ?? '—'}</span></div>
             </div>
           </div>
 
@@ -115,9 +117,12 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
               <span style={styles.cardTitle}>Dados do Cliente</span>
             </div>
             <div style={styles.cardBody}>
-              <div style={styles.infoRow}><span style={styles.infoLabel}>Nome:</span> <span style={{...styles.infoValue, color: '#93c5fd', fontWeight: 'bold'}}>{vendaMock.cliente.nome}</span></div>
-              <div style={styles.infoRow}><span style={styles.infoLabel}>CPF:</span> <span style={styles.infoValue}>{vendaMock.cliente.cpf}</span></div>
-              <div style={styles.infoRow}><span style={styles.infoLabel}>Telefone:</span> <span style={styles.infoValue}>{vendaMock.cliente.telefone}</span></div>
+              <div style={styles.infoRow}><span style={styles.infoLabel}>Nome:</span> <span style={{...styles.infoValue, color: '#93c5fd', fontWeight: 'bold'}}>{venda.cliente?.nome ?? 'Consumidor Final'}</span></div>
+              <div style={styles.infoRow}><span style={styles.infoLabel}>CPF:</span> <span style={styles.infoValue}>{formatCpfCnpj(venda.cliente?.cpf_cnpj) || '—'}</span></div>
+              <div style={styles.infoRow}><span style={styles.infoLabel}>Telefone:</span> <span style={styles.infoValue}>{venda.cliente?.telefone ?? '—'}</span></div>
+              {enderecoCliente && (
+                <div style={styles.infoRow}><span style={styles.infoLabel}>Endereço:</span> <span style={styles.infoValue}>{enderecoCliente}</span></div>
+              )}
             </div>
           </div>
         </div>
@@ -137,16 +142,16 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
                 </tr>
               </thead>
               <tbody>
-                {vendaMock.itens.map((item, idx) => (
-                  <tr key={idx} style={styles.tr}>
+                {(venda.itens ?? []).map((item) => (
+                  <tr key={item.id} style={styles.tr}>
                     <td style={styles.td}>
-                      <div style={{fontWeight: '500', color: '#e2e8f0'}}>{item.produto}</div>
-                      <div style={{fontSize: '11px', color: '#64748b', marginTop: '4px'}}>IMEI: {item.imei}</div>
+                      <div style={{fontWeight: '500', color: '#e2e8f0'}}>{item.descricao}</div>
+                      {item.imei && <div style={{fontSize: '11px', color: '#64748b', marginTop: '4px'}}>IMEI: {item.imei}</div>}
                     </td>
-                    <td style={{...styles.td, textAlign: 'center'}}>{item.qtd}</td>
-                    <td style={{...styles.td, textAlign: 'right'}}>{item.valorUn}</td>
-                    <td style={{...styles.td, textAlign: 'right'}}>{item.desconto}</td>
-                    <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#38bdf8'}}>{item.total}</td>
+                    <td style={{...styles.td, textAlign: 'center'}}>{item.quantidade}</td>
+                    <td style={{...styles.td, textAlign: 'right'}}>{formatBRL(item.valor_unitario)}</td>
+                    <td style={{...styles.td, textAlign: 'right'}}>—</td>
+                    <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#38bdf8'}}>{formatBRL(item.valor_total)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -168,20 +173,38 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
                 </tr>
               </thead>
               <tbody>
-                {vendaMock.pagamentos.map((pag, idx) => (
-                  <tr key={idx} style={styles.tr}>
-                    <td style={styles.td}>{pag.metodo}<br/><span style={{fontSize: '10px', color: '#64748b'}}>{pag.detalhes}</span></td>
-                    <td style={styles.td}>{pag.parcelas}</td>
-                    <td style={{...styles.td, textAlign: 'right', color: '#22c55e', fontWeight: 'bold'}}>{pag.valor}</td>
+                {(venda.pagamentos ?? []).map((pag) => {
+                  const valorParcela = calcValorParcela(pag.valor, pag.parcelas);
+                  const parcelasLabel = pag.parcelas ?? 'À vista';
+                  const parcelado = parcelasLabel !== 'À vista';
+
+                  return (
+                  <tr key={pag.id} style={styles.tr}>
+                    <td style={styles.td}>{pag.forma_nome}<br/><span style={{fontSize: '10px', color: '#64748b'}}>{pag.detalhes}</span></td>
+                    <td style={styles.td}>
+                      {parcelasLabel}
+                      {parcelado && (
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>
+                          de R$ {formatBRL(valorParcela)}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{...styles.td, textAlign: 'right', color: '#22c55e', fontWeight: 'bold'}}>
+                      {formatBRL(pag.valor)}
+                      {Number(pag.valor_taxa) > 0 && (
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>Taxa: {formatBRL(pag.valor_taxa)}</div>
+                      )}
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
 
-            {vendaMock.observacoes && (
+            {venda.observacoes && (
                <div style={{marginTop: '20px', padding: '15px', backgroundColor: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '6px'}}>
                  <span style={{fontSize: '12px', color: '#38bdf8', fontWeight: '600', display: 'block', marginBottom: '4px'}}>Observações da Venda:</span>
-                 <p style={{fontSize: '12px', color: '#e2e8f0', lineHeight: '1.5'}}>{vendaMock.observacoes}</p>
+                 <p style={{fontSize: '12px', color: '#e2e8f0', lineHeight: '1.5'}}>{venda.observacoes}</p>
                </div>
             )}
           </div>
@@ -191,16 +214,28 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela }) => {
             <div style={styles.summaryBox}>
               <div style={styles.summaryRow}>
                 <span style={styles.summaryLabel}>Subtotal dos Produtos:</span>
-                <span style={styles.summaryValue}>R$ {vendaMock.resumo.subtotal}</span>
+                <span style={styles.summaryValue}>{formatBRL(venda.valor_subtotal)}</span>
               </div>
               <div style={styles.summaryRow}>
                 <span style={styles.summaryLabel}>Descontos Aplicados:</span>
-                <span style={{...styles.summaryValue, color: '#ef4444'}}>- R$ {vendaMock.resumo.descontoTotal}</span>
+                <span style={{...styles.summaryValue, color: '#ef4444'}}>- {formatBRL(venda.valor_desconto)}</span>
               </div>
+              {Number(venda.valor_acrescimo) > 0 && (
+                <div style={styles.summaryRow}>
+                  <span style={styles.summaryLabel}>Acréscimos/Taxas:</span>
+                  <span style={styles.summaryValue}>+ {formatBRL(venda.valor_acrescimo)}</span>
+                </div>
+              )}
+              {Number(venda.valor_troco) > 0 && (
+                <div style={styles.summaryRow}>
+                  <span style={styles.summaryLabel}>Troco:</span>
+                  <span style={{...styles.summaryValue, color: '#22c55e'}}>{formatBRL(venda.valor_troco)}</span>
+                </div>
+              )}
               <div style={styles.divider}></div>
               <div style={styles.summaryRowTotal}>
                 <span style={styles.summaryLabelTotal}>Total da Venda:</span>
-                <span style={styles.summaryValueTotal}>R$ {vendaMock.resumo.totalFinal}</span>
+                <span style={styles.summaryValueTotal}>{formatBRL(venda.valor_total)}</span>
               </div>
             </div>
           </div>
