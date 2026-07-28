@@ -111,9 +111,10 @@ export async function listProdutos(lojaId, { tipo = null } = {}) {
   let query = supabase
     .from('produtos')
     .select(
-      'id, codigo, nome, tipo, categoria, marca, quantidade_atual, valor_custo, valor_venda, status, ativo'
+      'id, codigo, nome, tipo, categoria, marca, quantidade_atual, valor_custo, valor_venda, status'
     )
     .eq('loja_id', lojaId)
+    .neq('status', 'inativo')
     .order('nome', { ascending: true });
 
   if (tipo) {
@@ -157,5 +158,5 @@ export async function updateProduto(lojaId, produtoId, payload) {
 }
 
 export async function desativarProduto(lojaId, produtoId) {
-  return updateProduto(lojaId, produtoId, { ativo: false, status: 'inativo' });
+  return updateProduto(lojaId, produtoId, { status: 'inativo' });
 }
