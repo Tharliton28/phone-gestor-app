@@ -1,13 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, Settings, List, Eraser, Download, ChevronDown, 
   Search, Package, Smartphone, Tags, FilePen, Edit, 
   PackagePlus, History, Trash2
 } from 'lucide-react';
+import { useLoja } from '../contexts/LojaContext';
+import { desativarProduto, listProdutos, STATUS_LABEL, TIPO_LABEL } from '../services/produtoService';
+import { formatBRL } from '../utils/formatters';
 
-const ConsultaEstoque = ({ aoClicarEmCadastrar }) => {
+const FILTRO_TIPO = {
+  Aparelhos: 'aparelho',
+  Acessórios: 'acessorio',
+  Peças: 'peca',
+  Serviços: 'servico',
+};
+
+const ConsultaEstoque = ({ aoClicarEmCadastrar, aoMudarTela }) => {
+  const { lojaAtivaId } = useLoja();
+  const [produtos, setProdutos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState(null);
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
   const [menuAberto, setMenuAberto] = useState(null);
+  const [filtros, setFiltros] = useState({ codigo: '', nome: '' });
 
   useEffect(() => {
     const handleClickFora = () => setMenuAberto(null);
@@ -20,13 +35,55 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar }) => {
     setMenuAberto(menuAberto === index ? null : index);
   };
 
-  const mockEstoque = [
-    { cod: '1001', nome: 'Apple iPhone 15 Pro Max 256GB Titânio', categoria: 'Aparelho', marca: 'Apple', qtd: 5, custo: '6.200,00', venda: '7.500,00', status: 'Ativo' },
-    { cod: '1002', nome: 'Apple iPhone 13 128GB Meia Noite', categoria: 'Aparelho', marca: 'Apple', qtd: 12, custo: '2.400,00', venda: '2.900,00', status: 'Ativo' },
-    { cod: '2050', nome: 'Capa de Silicone Transparente MagSafe', categoria: 'Acessório', marca: 'Genérica', qtd: 45, custo: '15,00', venda: '60,00', status: 'Ativo' },
-    { cod: '2051', nome: 'Cabo USB-C para Lightning 1m', categoria: 'Acessório', marca: 'Genérica', qtd: 100, custo: '10,00', venda: '35,00', status: 'Ativo' },
-    { cod: '3010', nome: 'Tela Display Frontal iPhone 11', categoria: 'Peça', marca: 'Prime', qtd: 2, custo: '150,00', venda: '350,00', status: 'Estoque Baixo' },
-  ];
+  const carregarProdutos = useCallback(async () => {
+    if (!lojaAtivaId) return;
+
+    setLoading(true);
+    setErro(null);
+
+    const tipoFiltro = FILTRO_TIPO[categoriaAtiva] ?? null;
+    const { data, error } = await listProdutos(lojaAtivaId, { tipo: tipoFiltro });
+
+    if (error) {
+      setErro(error.message ?? 'Erro ao carregar produtos.');
+      setProdutos([]);
+    } else {
+      setProdutos(data ?? []);
+    }
+
+    setLoading(false);
+  }, [lojaAtivaId, categoriaAtiva]);
+
+  useEffect(() => {
+    carregarProdutos();
+  }, [carregarProdutos]);
+
+  const limparFiltros = () => setFiltros({ codigo: '', nome: '' });
+
+  const editarProduto = (produto) => {
+    setMenuAberto(null);
+    if (aoMudarTela) {
+      aoMudarTela('novo-produto', 'consulta-estoque', { produtoId: produto.id });
+    }
+  };
+
+  const excluirProduto = async (produto) => {
+    setMenuAberto(null);
+    if (!lojaAtivaId) return;
+
+    const { error } = await desativarProduto(lojaAtivaId, produto.id);
+    if (error) {
+      alert(error.message ?? 'Não foi possível excluir o produto.');
+      return;
+    }
+    carregarProdutos();
+  };
+
+  const produtosFiltrados = produtos.filter((item) => {
+    const matchCodigo = String(item.codigo ?? '').includes(filtros.codigo);
+    const matchNome = (item.nome ?? '').toLowerCase().includes(filtros.nome.toLowerCase());
+    return matchCodigo && matchNome;
+  });
 
   const categorias = ['Todos', 'Aparelhos', 'Acessórios', 'Peças', 'Serviços'];
 
@@ -41,7 +98,7 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar }) => {
           </button>
           <button style={styles.btnOutline}><Settings size={14} /> Ferramentas <ChevronDown size={14} /></button>
           <button style={styles.btnOutline}><List size={14} /> Modelo de lista <ChevronDown size={14} /></button>
-          <button style={styles.btnOutlineWarning}><Eraser size={14} /> Limpar filtros</button>
+          <button style={styles.btnOutlineWarning} onClick={limparFiltros}><Eraser size={14} /> Limpar filtros</button>
         </div>
         
         <div style={styles.rightActions}>
@@ -70,6 +127,9 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar }) => {
 
       {/* Tabela de Estoque */}
       <div style={styles.tableWrapper}>
+        {erro && (
+          <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px' }}>{erro}</div>
+        )}
         <table style={styles.table}>
           <thead>
             <tr>
@@ -86,10 +146,10 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar }) => {
             {/* Linha de Busca Rápida */}
             <tr style={styles.filterRow}>
               <td style={styles.tdFilter}></td>
-              <td style={styles.tdFilter}><input type="text" style={styles.filterInput} placeholder="Cód..." /></td>
+              <td style={styles.tdFilter}><input type="text" style={styles.filterInput} placeholder="Cód..." value={filtros.codigo} onChange={(e) => setFiltros({ ...filtros, codigo: e.target.value.replace(/\D/g, '') })} /></td>
               <td style={styles.tdFilter}>
                 <div style={styles.inputWithIcon}>
-                  <input type="text" placeholder="Buscar produto..." style={styles.filterInput} />
+                  <input type="text" placeholder="Buscar produto..." style={styles.filterInput} value={filtros.nome} onChange={(e) => setFiltros({ ...filtros, nome: e.target.value })} />
                   <Search size={14} style={styles.innerIcon} />
                 </div>
               </td>
@@ -97,8 +157,25 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar }) => {
             </tr>
           </thead>
           <tbody>
-            {mockEstoque.map((item, index) => (
-              <tr key={index} style={styles.tr}>
+            {loading ? (
+              <tr>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                  Carregando produtos...
+                </td>
+              </tr>
+            ) : produtosFiltrados.length === 0 ? (
+              <tr>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                  Nenhum produto encontrado.
+                </td>
+              </tr>
+            ) : (
+            produtosFiltrados.map((item, index) => {
+              const statusLabel = STATUS_LABEL[item.status] ?? item.status;
+              const isBaixo = item.status === 'estoque_baixo' || item.quantidade_atual < 5;
+
+              return (
+              <tr key={item.id} style={styles.tr}>
                 {/* --- OPÇÕES DE REGISTRO --- */}
                 <td style={styles.td}>
                   <div style={{display: 'flex', alignItems: 'center', gap: '8px', position: 'relative'}}>
@@ -109,7 +186,7 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar }) => {
                     {menuAberto === index && (
                       <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
                         {/* Redireciona para o formulário simulando "Edição" */}
-                        <div style={styles.dropdownItem} onClick={() => aoClicarEmCadastrar()}>
+                        <div style={styles.dropdownItem} onClick={() => editarProduto(item)}>
                           <Edit size={14} color="#38bdf8" /> Editar Produto
                         </div>
                         <div style={styles.dropdownItem}>
@@ -118,25 +195,27 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar }) => {
                         <div style={styles.dropdownItem}>
                           <History size={14} color="#a855f7" /> Ver Histórico do Item
                         </div>
-                        <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px'}}>
+                        <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px'}} onClick={() => excluirProduto(item)}>
                           <Trash2 size={14} color="#ef4444" /> Excluir Registro
                         </div>
                       </div>
                     )}
                   </div>
                 </td>
-                <td style={styles.td}>{item.cod}</td>
+                <td style={styles.td}>{item.codigo}</td>
                 <td style={{...styles.td, fontWeight: '500', color: '#93c5fd'}}>{item.nome}</td>
-                <td style={styles.td}>{item.categoria}</td>
+                <td style={styles.td}>{TIPO_LABEL[item.tipo] ?? item.categoria}</td>
                 <td style={styles.td}>{item.marca}</td>
-                <td style={{...styles.td, textAlign: 'center', fontWeight: 'bold', color: item.qtd < 5 ? '#ef4444' : '#e2e8f0'}}>{item.qtd}</td>
-                <td style={{...styles.td, textAlign: 'right'}}>{item.custo}</td>
-                <td style={{...styles.td, textAlign: 'right', color: '#4ade80'}}>{item.venda}</td>
+                <td style={{...styles.td, textAlign: 'center', fontWeight: 'bold', color: isBaixo ? '#ef4444' : '#e2e8f0'}}>{item.quantidade_atual}</td>
+                <td style={{...styles.td, textAlign: 'right'}}>{formatBRL(item.valor_custo)}</td>
+                <td style={{...styles.td, textAlign: 'right', color: '#4ade80'}}>{formatBRL(item.valor_venda)}</td>
                 <td style={styles.td}>
-                  <span style={item.status === 'Ativo' ? styles.statusAtivo : styles.statusBaixo}>{item.status}</span>
+                  <span style={isBaixo ? styles.statusBaixo : styles.statusAtivo}>{statusLabel}</span>
                 </td>
               </tr>
-            ))}
+            );
+            })
+            )}
           </tbody>
         </table>
       </div>

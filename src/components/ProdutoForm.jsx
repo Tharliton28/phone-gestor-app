@@ -1,12 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Save, Smartphone, Headphones, PenTool, 
   Hash, Battery, CheckCircle, Calendar, FileText
 } from 'lucide-react';
+import { useLoja } from '../contexts/LojaContext';
+import {
+  createProduto,
+  getProdutoById,
+  mapFormToProduto,
+  mapProdutoToForm,
+  updateProduto,
+} from '../services/produtoService';
 
-const ProdutoForm = ({ aoVoltar }) => {
+const EMPTY_FORM = {
+  categoria: '',
+  marca: '',
+  nome: '',
+  ean: '',
+  disponibilidade: 'Disponível para venda',
+  cor: '',
+  capacidadeGb: '',
+  estadoAparelho: '',
+  imei1: '',
+  imei2: '',
+  saudeBateria: '',
+  ciclosBateria: '',
+  aparelhosCompativeis: '',
+  qualidadePeca: '',
+  corEstilo: '',
+  quantidadeAtual: '1',
+  quantidadeMinima: '0',
+  valorCusto: '',
+  custosExtras: '',
+  margemLucro: '',
+  valorVenda: '',
+  dataEntrada: '',
+  diasGarantia: '90',
+  observacoes: '',
+};
+
+const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
+  const { lojaAtivaId } = useLoja();
+  const isEdicao = Boolean(produtoId);
+  const [carregando, setCarregando] = useState(isEdicao);
+  const [salvando, setSalvando] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState('gerais');
-  const [tipoItem, setTipoItem] = useState('aparelho'); // 'aparelho', 'acessorio', 'peca'
+  const [tipoItem, setTipoItem] = useState('aparelho');
+  const [formData, setFormData] = useState(EMPTY_FORM);
+
+  useEffect(() => {
+    if (!produtoId || !lojaAtivaId) return;
+
+    const carregar = async () => {
+      setCarregando(true);
+      const { data, error } = await getProdutoById(lojaAtivaId, produtoId);
+
+      if (error || !data) {
+        alert(error?.message ?? 'Não foi possível carregar o produto.');
+        aoVoltar();
+        return;
+      }
+
+      setTipoItem(data.tipo ?? 'aparelho');
+      setFormData(mapProdutoToForm(data));
+      setCarregando(false);
+    };
+
+    carregar();
+  }, [produtoId, lojaAtivaId, aoVoltar]);
+
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const salvarProduto = async () => {
+    if (!formData.nome.trim() || !formData.marca.trim() || !formData.categoria.trim()) {
+      alert('Preencha categoria, marca e nome do produto.');
+      return;
+    }
+
+    if (!lojaAtivaId) {
+      alert('Nenhuma loja ativa selecionada.');
+      return;
+    }
+
+    setSalvando(true);
+    const payload = mapFormToProduto(formData, { tipoItem });
+    const { error } = isEdicao
+      ? await updateProduto(lojaAtivaId, produtoId, payload)
+      : await createProduto(lojaAtivaId, payload);
+
+    setSalvando(false);
+
+    if (error) {
+      alert(error.message ?? 'Não foi possível salvar o produto.');
+      return;
+    }
+
+    aoVoltar();
+  };
 
   return (
     <div style={styles.container}>
@@ -16,14 +108,21 @@ const ProdutoForm = ({ aoVoltar }) => {
           <button onClick={aoVoltar} style={styles.btnBack}>
             <ArrowLeft size={16} /> Voltar
           </button>
-          <h2 style={{color: '#fff', fontSize: '18px', margin: 0}}>Cadastrar Produto em Estoque</h2>
+          <h2 style={{color: '#fff', fontSize: '18px', margin: 0}}>
+            {isEdicao ? 'Editar Produto' : 'Cadastrar Produto em Estoque'}
+          </h2>
         </div>
         <div style={styles.headerActions}>
-          <button style={styles.btnSave} onClick={() => alert('Produto salvo com sucesso!')}>
-            <Save size={16} /> Salvar Produto
+          <button style={styles.btnSave} onClick={salvarProduto} disabled={salvando || carregando}>
+            <Save size={16} /> {salvando ? 'Salvando...' : 'Salvar Produto'}
           </button>
         </div>
       </div>
+
+      {carregando ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Carregando produto...</div>
+      ) : (
+      <>
 
       {/* Tabs */}
       <div style={styles.tabsContainer}>
@@ -73,29 +172,30 @@ const ProdutoForm = ({ aoVoltar }) => {
                     <span style={styles.required}>*</span> 
                     {tipoItem === 'aparelho' ? 'Categoria do Aparelho:' : tipoItem === 'acessorio' ? 'Tipo de Acessório:' : 'Tipo de Peça:'}
                   </label>
-                  <select style={styles.input}>
-                    <option>Selecionar...</option>
+                  <select style={styles.input} name="categoria" value={formData.categoria} onChange={handleChange}>
+                    <option value="">Selecionar...</option>
                     {tipoItem === 'aparelho' && (
-                      <><option>Smartphone</option><option>Tablet</option><option>Smartwatch</option></>
+                      <><option value="Smartphone">Smartphone</option><option value="Tablet">Tablet</option><option value="Smartwatch">Smartwatch</option></>
                     )}
                     {tipoItem === 'acessorio' && (
-                      <><option>Capa / Case</option><option>Película</option><option>Cabo USB</option><option>Carregador (Fonte)</option><option>Fone de Ouvido</option></>
+                      <><option value="Capa / Case">Capa / Case</option><option value="Película">Película</option><option value="Cabo USB">Cabo USB</option><option value="Carregador (Fonte)">Carregador (Fonte)</option><option value="Fone de Ouvido">Fone de Ouvido</option></>
                     )}
                     {tipoItem === 'peca' && (
-                      <><option>Tela / Display Frontal</option><option>Bateria</option><option>Conector de Carga</option><option>Câmera</option><option>Tampa Traseira</option></>
+                      <><option value="Tela / Display Frontal">Tela / Display Frontal</option><option value="Bateria">Bateria</option><option value="Conector de Carga">Conector de Carga</option><option value="Câmera">Câmera</option><option value="Tampa Traseira">Tampa Traseira</option></>
                     )}
                   </select>
                 </div>
 
                 <div style={styles.inputGroup}>
                   <label style={styles.label}><span style={styles.required}>*</span> Marca:</label>
-                  <select style={styles.input}>
-                    <option>Apple</option>
-                    <option>Samsung</option>
-                    <option>Motorola</option>
-                    <option>Xiaomi</option>
-                    {tipoItem !== 'aparelho' && <option>Genérica / Primeira Linha</option>}
-                    {tipoItem !== 'aparelho' && <option>Baseus / Hrebos / Foxconn</option>}
+                  <select style={styles.input} name="marca" value={formData.marca} onChange={handleChange}>
+                    <option value="">Selecionar...</option>
+                    <option value="Apple">Apple</option>
+                    <option value="Samsung">Samsung</option>
+                    <option value="Motorola">Motorola</option>
+                    <option value="Xiaomi">Xiaomi</option>
+                    {tipoItem !== 'aparelho' && <option value="Genérica / Primeira Linha">Genérica / Primeira Linha</option>}
+                    {tipoItem !== 'aparelho' && <option value="Baseus / Hrebos / Foxconn">Baseus / Hrebos / Foxconn</option>}
                   </select>
                 </div>
 
@@ -105,7 +205,7 @@ const ProdutoForm = ({ aoVoltar }) => {
                     <span style={styles.required}>*</span> 
                     {tipoItem === 'aparelho' ? 'Modelo do Aparelho:' : tipoItem === 'acessorio' ? 'Nome do Acessório:' : 'Nome da Peça:'}
                   </label>
-                  <input style={styles.input} placeholder={
+                  <input style={styles.input} name="nome" value={formData.nome} onChange={handleChange} placeholder={
                     tipoItem === 'aparelho' ? "Ex: iPhone 13 Pro Max" : 
                     tipoItem === 'acessorio' ? "Ex: Capa de Silicone MagSafe" : 
                     "Ex: Bateria Premium iPhone 11"
@@ -190,10 +290,10 @@ const ProdutoForm = ({ aoVoltar }) => {
 
                 <div style={styles.inputGroup}>
                   <label style={styles.label}><span style={styles.required}>*</span> Disponibilidade:</label>
-                  <select style={styles.input}>
-                    <option>Disponível para venda</option>
-                    <option>Uso Interno (Assistência)</option>
-                    <option>Aguardando Conserto</option>
+                  <select style={styles.input} name="disponibilidade" value={formData.disponibilidade} onChange={handleChange}>
+                    <option value="Disponível para venda">Disponível para venda</option>
+                    <option value="Uso Interno (Assistência)">Uso Interno (Assistência)</option>
+                    <option value="Aguardando Conserto">Aguardando Conserto</option>
                   </select>
                 </div>
 
@@ -250,7 +350,7 @@ const ProdutoForm = ({ aoVoltar }) => {
 
             <div style={{...styles.inputGroup, marginTop: '15px'}}>
               <label style={styles.label}>Observações / Descrição Completa:</label>
-              <textarea style={{...styles.input, height: '80px', resize: 'none'}} placeholder="Detalhes adicionais, marcas de uso, itens que acompanham na caixa..."></textarea>
+              <textarea style={{...styles.input, height: '80px', resize: 'none'}} name="observacoes" value={formData.observacoes} onChange={handleChange} placeholder="Detalhes adicionais, marcas de uso, itens que acompanham na caixa..."></textarea>
             </div>
           </>
         )}
@@ -262,11 +362,11 @@ const ProdutoForm = ({ aoVoltar }) => {
               <h3 style={styles.sectionSubtitle}>Controle de Estoque</h3>
               <div style={styles.inputGroup}>
                 <label style={styles.label}><span style={styles.required}>*</span> Quantidade Atual (Saldo):</label>
-                <input style={{...styles.input, fontSize: '16px', fontWeight: 'bold'}} defaultValue="1" type="number" />
+                <input style={{...styles.input, fontSize: '16px', fontWeight: 'bold'}} name="quantidadeAtual" value={formData.quantidadeAtual} onChange={handleChange} type="number" />
               </div>
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Quantidade Mínima (Alerta de Ruptura):</label>
-                <input style={styles.input} placeholder="Ex: 2" type="number" />
+                <input style={styles.input} name="quantidadeMinima" value={formData.quantidadeMinima} onChange={handleChange} placeholder="Ex: 2" type="number" />
               </div>
             </div>
 
@@ -276,11 +376,11 @@ const ProdutoForm = ({ aoVoltar }) => {
               <div style={styles.grid2Inner}>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}><span style={styles.required}>*</span> Valor de Custo (R$):</label>
-                  <input style={styles.input} placeholder="0,00" />
+                  <input style={styles.input} name="valorCusto" value={formData.valorCusto} onChange={handleChange} placeholder="0,00" />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Custos Extras (Frete/Taxa):</label>
-                  <input style={styles.input} placeholder="0,00" />
+                  <input style={styles.input} name="custosExtras" value={formData.custosExtras} onChange={handleChange} placeholder="0,00" />
                 </div>
               </div>
 
@@ -297,7 +397,7 @@ const ProdutoForm = ({ aoVoltar }) => {
 
               <div style={{...styles.inputGroup, marginTop: '10px'}}>
                 <label style={styles.label}><span style={styles.required}>*</span> Valor de Venda (R$):</label>
-                <input style={{...styles.input, fontSize: '18px', fontWeight: 'bold', color: '#38bdf8', borderColor: '#38bdf8'}} placeholder="0,00" />
+                <input style={{...styles.input, fontSize: '18px', fontWeight: 'bold', color: '#38bdf8', borderColor: '#38bdf8'}} name="valorVenda" value={formData.valorVenda} onChange={handleChange} placeholder="0,00" />
               </div>
             </div>
           </div>
@@ -323,6 +423,8 @@ const ProdutoForm = ({ aoVoltar }) => {
         )}
 
       </div>
+      </>
+      )}
     </div>
   );
 };

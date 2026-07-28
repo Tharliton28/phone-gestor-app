@@ -244,7 +244,10 @@ export default function ErpContent() {
               Consulta de Estoque
             </h2>
           </div>
-          <ConsultaEstoque aoClicarEmCadastrar={() => mudarTela('novo-produto')} />
+          <ConsultaEstoque
+            aoClicarEmCadastrar={() => mudarTela('novo-produto')}
+            aoMudarTela={mudarTela}
+          />
         </>
       );
 
@@ -252,9 +255,13 @@ export default function ErpContent() {
       return (
         <>
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
-            <span style={{ color: '#3b82f6' }}>Estoque</span> {'>'} Cadastro de Produto
+            <span style={{ color: '#3b82f6' }}>Estoque</span> {'>'}{' '}
+            {dadosNavegacao?.produtoId ? 'Editar Produto' : 'Cadastro de Produto'}
           </div>
-          <ProdutoForm aoVoltar={() => mudarTela('consulta-estoque')} />
+          <ProdutoForm
+            produtoId={dadosNavegacao?.produtoId ?? null}
+            aoVoltar={() => mudarTela('consulta-estoque')}
+          />
         </>
       );
 

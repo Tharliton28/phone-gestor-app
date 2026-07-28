@@ -37,3 +37,19 @@ export function truncate(text, max = 40) {
   if (!text || text.length <= max) return text ?? '';
   return `${text.slice(0, max)}…`;
 }
+
+/** Formata número como moeda BRL para exibição */
+export function formatBRL(value) {
+  const num = Number(value);
+  if (Number.isNaN(num)) return '0,00';
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Converte string de moeda pt-BR ou número para decimal */
+export function parseMoney(value) {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') return value;
+  const normalized = String(value).replace(/\./g, '').replace(',', '.');
+  const num = parseFloat(normalized);
+  return Number.isNaN(num) ? 0 : num;
+}
