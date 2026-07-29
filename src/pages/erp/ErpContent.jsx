@@ -16,6 +16,7 @@ import Inventario from '../../components/Inventario';
 import RupturaEstoque from '../../components/RupturaEstoque';
 import OSList from '../../components/OSList';
 import OSForm from '../../components/OSForm';
+import OSPainelTecnico from '../../components/OSPainelTecnico';
 import RecibosNotas from '../../components/RecibosNotas';
 import FinanceiroList from '../../components/FinanceiroList';
 import FinanceiroForm from '../../components/FinanceiroForm';
@@ -414,10 +415,7 @@ export default function ErpContent() {
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
             <span style={{ color: '#3b82f6' }}>Assistência Técnica</span> {'>'} Painel do Técnico
           </div>
-          <ComingSoon
-            title="Painel do Técnico"
-            description="Visualize OS por status em formato kanban, atribua técnicos e acompanhe o andamento dos reparos em tempo real."
-          />
+          <OSPainelTecnico aoMudarTela={mudarTela} />
         </>
       );
 

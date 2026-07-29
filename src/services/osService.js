@@ -90,7 +90,7 @@ export async function listOrdensServico(lojaId) {
     .select(
       `
       id, codigo, aparelho_modelo, relato_cliente, status,
-      valor_total, data_entrada, created_at,
+      valor_total, data_entrada, data_previsao, created_at,
       cliente:pessoas!ordens_servico_cliente_id_fkey (id, nome, telefone),
       tecnico:pessoas!ordens_servico_tecnico_id_fkey (id, nome)
     `
