@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Building, ShoppingCart, Package, DollarSign, FileText, 
   BarChart2, Save, UploadCloud, ToggleRight, ToggleLeft,
@@ -94,7 +94,13 @@ const Configuracoes = () => {
   });
 
   const [taxasCredito, setTaxasCredito] = useState(cloneDefaultTaxas());
+  const [maquininhaTaxasId, setMaquininhaTaxasId] = useState('');
   const [salvandoTaxas, setSalvandoTaxas] = useState(false);
+
+  const formasCredito = useMemo(
+    () => formasPagamento.filter((f) => f.tipoDb === 'credito' && f.ativo !== false),
+    [formasPagamento]
+  );
 
   // === ESTADOS DOS DOCUMENTOS ===
   const [termoGarantia, setTermoGarantia] = useState(`TERMO DE GARANTIA E CONDIÇÕES DE COMPRA\n\nCláusula 1ª: O comprador [NOME_CLIENTE], inscrito sob o CPF [CPF_CLIENTE], está adquirindo o produto descrito acima em plenas condições de uso, mediante valor e forma de pagamento ajustados com a empresa [NOME_EMPRESA].\n\nCláusula 2ª: Por tratar-se de um aparelho seminovo, todas as informações foram repassadas pelo vendedor [NOME_VENDEDOR] na data [DATA_VENDA].\n\nCláusula 3ª (DO PRAZO): A garantia será de 90 dias para defeitos de fabricação (placa), contados a partir da data de recebimento do produto. A [NOME_EMPRESA] não garante a vedação contra água do aparelho.\n\nCláusula 4ª (PERDA DE GARANTIA): A garantia cessará imediatamente em caso de danos físicos, contato com líquidos, ou rompimento do selo de garantia.`);
@@ -122,9 +128,8 @@ const Configuracoes = () => {
 
     const carregar = async () => {
       setCarregandoConfig(true);
-      const [configResult, taxasResult] = await Promise.all([
+      const [configResult] = await Promise.all([
         getLojaConfig(lojaAtivaId),
-        listTaxasCreditoParcela(lojaAtivaId),
         carregarFormas(),
       ]);
 
@@ -132,15 +137,25 @@ const Configuracoes = () => {
         setToggles(mapConfigToToggles(configResult.data));
       }
 
-      if (!taxasResult.error && taxasResult.data) {
-        setTaxasCredito(taxasResult.data);
-      }
-
       setCarregandoConfig(false);
     };
 
     carregar();
   }, [lojaAtivaId]);
+
+  const carregarTaxasCredito = useCallback(async (formaId = null) => {
+    if (!lojaAtivaId) return;
+
+    const { data, error } = await listTaxasCreditoParcela(lojaAtivaId, formaId);
+
+    if (!error && data) {
+      setTaxasCredito(data);
+    }
+  }, [lojaAtivaId]);
+
+  useEffect(() => {
+    carregarTaxasCredito(maquininhaTaxasId || null);
+  }, [carregarTaxasCredito, maquininhaTaxasId]);
 
   const salvarAlteracoes = async () => {
     if (!lojaAtivaId) {
@@ -297,18 +312,26 @@ const Configuracoes = () => {
     }
 
     setSalvandoTaxas(true);
-    const { error } = await saveTaxasCreditoParcela(lojaAtivaId, taxasCredito);
+    const { error } = await saveTaxasCreditoParcela(
+      lojaAtivaId,
+      taxasCredito,
+      maquininhaTaxasId || null
+    );
     setSalvandoTaxas(false);
 
     if (error) {
       await alert(
-        error.message ?? 'Não foi possível salvar as taxas. Verifique se a migration 010 foi aplicada no Supabase.',
+        error.message ?? 'Não foi possível salvar as taxas. Verifique se as migrations 010/012 foram aplicadas no Supabase.',
         { type: 'error', title: 'Erro' }
       );
       return;
     }
 
-    await alert('Taxas de crédito por parcela salvas! Orçamentos e PDV usarão estes valores.', {
+    const alvo = maquininhaTaxasId
+      ? formasCredito.find((f) => f.id === maquininhaTaxasId)?.nome ?? 'maquininha'
+      : 'padrão da loja';
+
+    await alert(`Taxas de crédito (${alvo}) salvas! Orçamentos usarão estes valores na simulação.`, {
       type: 'success',
       title: 'Sucesso',
     });
@@ -679,9 +702,23 @@ const Configuracoes = () => {
 
               <h3 style={{...styles.sectionTitle, marginTop: '40px'}}>Taxas de Crédito por Parcela</h3>
               <p style={{color: '#94a3b8', fontSize: '13px', marginBottom: '16px', lineHeight: '1.5'}}>
-                Usadas no <strong>simulador de orçamento</strong> e na conversão para o PDV.
-                Informe a taxa da maquininha/adquirente para cada quantidade de parcelas (repasse ao cliente).
+                Configure a grade 1x–12x por maquininha de crédito. O <strong>padrão da loja</strong> é usado
+                como fallback quando a maquininha não tiver grade própria.
               </p>
+
+              <div style={{ marginBottom: '16px', maxWidth: '420px' }}>
+                <label style={styles.label}>Maquininha / adquirente</label>
+                <select
+                  style={styles.input}
+                  value={maquininhaTaxasId}
+                  onChange={(e) => setMaquininhaTaxasId(e.target.value)}
+                >
+                  <option value="">Padrão da loja (fallback)</option>
+                  {formasCredito.map((forma) => (
+                    <option key={forma.id} value={forma.id}>{forma.nome}</option>
+                  ))}
+                </select>
+              </div>
 
               <div style={styles.tableWrapper}>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '10px' }}>

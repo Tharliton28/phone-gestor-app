@@ -297,7 +297,10 @@ export function buildPagamentosPdvFromOrcamento(orcamento, formasPagamento = [],
     let forma = null;
 
     if (tipo === FORMA_SIM.CREDITO) {
-      forma = findFormaCredito(formasPagamento, sim.parcelas);
+      forma = orcamento.forma_pagamento_credito_id
+        ? formasPagamento.find((f) => f.id === orcamento.forma_pagamento_credito_id)
+        : null;
+      forma = forma ?? findFormaCredito(formasPagamento, sim.parcelas);
     } else if (tipo === FORMA_SIM.DEBITO) {
       forma = findFormaByTipo(formasPagamento, 'debito');
     } else {

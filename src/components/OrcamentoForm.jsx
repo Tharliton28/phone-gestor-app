@@ -10,6 +10,7 @@ import { listProdutos } from '../services/produtoService';
 import { listFormasPagamento } from '../services/formaPagamentoService';
 import {
   listTaxasCreditoParcela,
+  listFormasCredito,
   opcoesParcelasCredito,
   resolveTaxaPercentualSim,
 } from '../services/taxaCreditoService';
@@ -59,7 +60,8 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
 
   // ESTADOS DO SIMULADOR FINANCEIRO E DADOS GERAIS
   const [entrada, setEntrada] = useState('');
-  const [formaPagamento, setFormaPagamento] = useState('pix'); 
+  const [formaPagamento, setFormaPagamento] = useState('pix');
+  const [formaPagamentoCreditoId, setFormaPagamentoCreditoId] = useState(null);
   const [parcelas, setParcelas] = useState(1);
   const [adicionarTaxa, setAdicionarTaxa] = useState(true);
   const [taxaVisivel, setTaxaVisivel] = useState(true);
@@ -95,14 +97,20 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
     }))
   ), [produtos]);
 
+  const formasCredito = useMemo(
+    () => listFormasCredito(formasPagamento),
+    [formasPagamento]
+  );
+
   const taxaPercentual = useMemo(
     () => resolveTaxaPercentualSim({
       formaPagamentoSim: formaPagamento,
       parcelas,
       formasPagamento,
       taxasCreditoParcela,
+      formaPagamentoCreditoId,
     }),
-    [formaPagamento, parcelas, formasPagamento, taxasCreditoParcela]
+    [formaPagamento, parcelas, formasPagamento, taxasCreditoParcela, formaPagamentoCreditoId]
   );
 
   const opcoesParcelas = useMemo(
@@ -162,6 +170,21 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
     }
   }, [lojaAtivaId]);
 
+  useEffect(() => {
+    if (!lojaAtivaId || formaPagamento !== 'credito') return;
+
+    listTaxasCreditoParcela(lojaAtivaId, formaPagamentoCreditoId).then(({ data, error }) => {
+      if (!error && data) {
+        setTaxasCreditoParcela(data);
+      }
+    });
+  }, [lojaAtivaId, formaPagamento, formaPagamentoCreditoId]);
+
+  useEffect(() => {
+    if (formaPagamento !== 'credito' || formaPagamentoCreditoId || !formasCredito.length) return;
+    setFormaPagamentoCreditoId(formasCredito[0].id);
+  }, [formaPagamento, formaPagamentoCreditoId, formasCredito]);
+
   const aplicarEstadoOrcamento = useCallback((estado) => {
     setOrcamentoId(estado.orcamentoId);
     setCodigoOrcamento(estado.codigo);
@@ -170,6 +193,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
     setItems(estado.itens ?? []);
     setEntrada(String(estado.entrada ?? ''));
     setFormaPagamento(estado.formaPagamento ?? 'pix');
+    setFormaPagamentoCreditoId(estado.formaPagamentoCreditoId ?? null);
     setParcelas(estado.parcelas ?? 1);
     setAdicionarTaxa(estado.adicionarTaxa !== false);
     setObservacoes(estado.observacoes ?? '');
@@ -304,6 +328,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
       observacoes,
       entrada,
       formaPagamento,
+      formaPagamentoCreditoId: formaPagamento === 'credito' ? formaPagamentoCreditoId : null,
       parcelas,
       adicionarTaxa,
       taxaPercentual,
@@ -621,12 +646,38 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
                 
                 <div style={styles.summaryRow}>
                   <span style={styles.summaryLabel}>Pagamento do Restante:</span>
-                  <select style={styles.selectSmall} value={formaPagamento} onChange={(e) => { setFormaPagamento(e.target.value); if(e.target.value !== 'credito') setParcelas(1); }}>
+                  <select
+                    style={styles.selectSmall}
+                    value={formaPagamento}
+                    onChange={(e) => {
+                      const valor = e.target.value;
+                      setFormaPagamento(valor);
+                      if (valor !== 'credito') {
+                        setParcelas(1);
+                        setFormaPagamentoCreditoId(null);
+                      }
+                    }}
+                  >
                     <option value="pix">Dinheiro / Pix</option>
                     <option value="debito">Cartão de Débito</option>
                     <option value="credito">Cartão de Crédito</option>
                   </select>
                 </div>
+
+                {formaPagamento === 'credito' && formasCredito.length > 0 && (
+                  <div style={styles.summaryRow}>
+                    <span style={styles.summaryLabel}>Maquininha:</span>
+                    <select
+                      style={styles.selectSmall}
+                      value={formaPagamentoCreditoId ?? ''}
+                      onChange={(e) => setFormaPagamentoCreditoId(e.target.value || null)}
+                    >
+                      {formasCredito.map((forma) => (
+                        <option key={forma.id} value={forma.id}>{forma.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {formaPagamento === 'credito' && (
                   <div style={styles.summaryRow}>
