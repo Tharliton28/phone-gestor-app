@@ -33,6 +33,36 @@ export function getOrcamentoValidadeDias(config) {
   return Number.isFinite(dias) && dias >= 1 ? dias : 15;
 }
 
+export function mapConfigOs(config) {
+  return {
+    termoOS: config?.termo_os ?? null,
+    exigirTermoEntrada: config?.os_exigir_termo_entrada ?? true,
+    exigirFotoEntrada: config?.os_exigir_foto_entrada ?? true,
+  };
+}
+
+export async function getLojaConfigAssistencia(lojaId) {
+  return supabase
+    .from('loja_configuracoes')
+    .select('termo_os, termo_garantia, os_exigir_termo_entrada, os_exigir_foto_entrada')
+    .eq('loja_id', lojaId)
+    .maybeSingle();
+}
+
+export async function updateLojaConfigDocumentos(lojaId, documentos) {
+  return supabase
+    .from('loja_configuracoes')
+    .update({
+      termo_garantia: documentos.termoGarantia,
+      termo_os: documentos.termoOS,
+      os_exigir_termo_entrada: documentos.exigirTermoEntrada ?? true,
+      os_exigir_foto_entrada: documentos.exigirFotoEntrada ?? true,
+    })
+    .eq('loja_id', lojaId)
+    .select('termo_garantia, termo_os, os_exigir_termo_entrada, os_exigir_foto_entrada')
+    .single();
+}
+
 /** Usado pelo PDV: retorna se a loja permite concluir venda com saldo insuficiente. */
 export function permiteVendaSemEstoque(config) {
   return Boolean(config?.venda_sem_estoque);

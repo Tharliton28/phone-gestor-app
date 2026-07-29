@@ -10,7 +10,10 @@ import {
   getLojaConfig,
   mapConfigToToggles,
   updateLojaConfigToggles,
+  getLojaConfigAssistencia,
+  updateLojaConfigDocumentos,
 } from '../services/lojaConfigService';
+import { TERMO_OS_PADRAO } from '../services/osEvidenciaService';
 import {
   cloneDefaultTaxas,
   listTaxasCreditoParcela,
@@ -105,7 +108,9 @@ const Configuracoes = () => {
 
   // === ESTADOS DOS DOCUMENTOS ===
   const [termoGarantia, setTermoGarantia] = useState(`TERMO DE GARANTIA E CONDIÇÕES DE COMPRA\n\nCláusula 1ª: O comprador [NOME_CLIENTE], inscrito sob o CPF [CPF_CLIENTE], está adquirindo o produto descrito acima em plenas condições de uso, mediante valor e forma de pagamento ajustados com a empresa [NOME_EMPRESA].\n\nCláusula 2ª: Por tratar-se de um aparelho seminovo, todas as informações foram repassadas pelo vendedor [NOME_VENDEDOR] na data [DATA_VENDA].\n\nCláusula 3ª (DO PRAZO): A garantia será de 90 dias para defeitos de fabricação (placa), contados a partir da data de recebimento do produto. A [NOME_EMPRESA] não garante a vedação contra água do aparelho.\n\nCláusula 4ª (PERDA DE GARANTIA): A garantia cessará imediatamente em caso de danos físicos, contato com líquidos, ou rompimento do selo de garantia.`);
-  const [termoOS, setTermoOS] = useState(`Cláusula 1ª: Autorizo a [NOME_EMPRESA] a realizar o diagnóstico do equipamento descrito nesta OS.\n\nCláusula 2ª: A loja não se responsabiliza por dados perdidos (fotos, contatos). É dever do cliente [NOME_CLIENTE] realizar backup prévio.`);
+  const [termoOS, setTermoOS] = useState(TERMO_OS_PADRAO);
+  const [exigirTermoEntrada, setExigirTermoEntrada] = useState(true);
+  const [exigirFotoEntrada, setExigirFotoEntrada] = useState(true);
   
   const [previewGarantia, setPreviewGarantia] = useState(false);
   const [previewOS, setPreviewOS] = useState(false);
@@ -129,13 +134,21 @@ const Configuracoes = () => {
 
     const carregar = async () => {
       setCarregandoConfig(true);
-      const [configResult] = await Promise.all([
+      const [configResult, docResult] = await Promise.all([
         getLojaConfig(lojaAtivaId),
+        getLojaConfigAssistencia(lojaAtivaId),
         carregarFormas(),
       ]);
 
       if (!configResult.error && configResult.data) {
         setToggles(mapConfigToToggles(configResult.data));
+      }
+
+      if (!docResult.error && docResult.data) {
+        if (docResult.data.termo_garantia) setTermoGarantia(docResult.data.termo_garantia);
+        if (docResult.data.termo_os) setTermoOS(docResult.data.termo_os);
+        setExigirTermoEntrada(docResult.data.os_exigir_termo_entrada !== false);
+        setExigirFotoEntrada(docResult.data.os_exigir_foto_entrada !== false);
       }
 
       setCarregandoConfig(false);
@@ -165,11 +178,22 @@ const Configuracoes = () => {
     }
 
     setSalvando(true);
-    const { error } = await updateLojaConfigToggles(lojaAtivaId, toggles);
+    const [toggleResult, docResult] = await Promise.all([
+      updateLojaConfigToggles(lojaAtivaId, toggles),
+      updateLojaConfigDocumentos(lojaAtivaId, {
+        termoGarantia,
+        termoOS,
+        exigirTermoEntrada,
+        exigirFotoEntrada,
+      }),
+    ]);
     setSalvando(false);
 
-    if (error) {
-      await alert(error.message ?? 'Não foi possível salvar as configurações.', { type: 'error', title: 'Erro' });
+    if (toggleResult.error || docResult.error) {
+      await alert(
+        toggleResult.error?.message ?? docResult.error?.message ?? 'Não foi possível salvar as configurações.',
+        { type: 'error', title: 'Erro' }
+      );
       return;
     }
 
@@ -809,7 +833,7 @@ const Configuracoes = () => {
               <div style={{backgroundColor: '#11131c', border: '1px solid #1f2233', borderRadius: '8px', padding: '20px', marginBottom: '20px'}}>
                 <span style={{fontSize: '12px', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>VARIÁVEIS DISPONÍVEIS (Clique para copiar):</span>
                 <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
-                  {['[NOME_EMPRESA]', '[CNPJ_EMPRESA]', '[NOME_CLIENTE]', '[CPF_CLIENTE]', '[DATA_VENDA]', '[NOME_VENDEDOR]', '[PRAZO_GARANTIA]', '[NUMERO_RECIBO]'].map(tag => (
+                  {['[NOME_EMPRESA]', '[CNPJ_EMPRESA]', '[NOME_CLIENTE]', '[CPF_CLIENTE]', '[DATA_VENDA]', '[NOME_VENDEDOR]', '[PRAZO_GARANTIA]', '[NUMERO_RECIBO]', '[CODIGO_OS]', '[MODELO_APARELHO]', '[IMEI]', '[DATA_ENTRADA]'].map(tag => (
                     <span key={tag} style={styles.varTag} onClick={() => navigator.clipboard.writeText(tag)}>
                       {tag}
                     </span>
@@ -865,6 +889,22 @@ const Configuracoes = () => {
                     onChange={(e) => setTermoOS(e.target.value)}
                   />
                 )}
+              </div>
+
+              <div style={styles.toggleRow}>
+                <div>
+                  <h4 style={styles.toggleTitle}>Exigir termo de entrada na OS</h4>
+                  <p style={styles.toggleDesc}>Cliente deve aceitar o termo e assinar antes de concluir a entrada do aparelho.</p>
+                </div>
+                <Switch ativo={exigirTermoEntrada} onClick={() => setExigirTermoEntrada((v) => !v)} />
+              </div>
+
+              <div style={styles.toggleRow}>
+                <div>
+                  <h4 style={styles.toggleTitle}>Exigir foto na entrada</h4>
+                  <p style={styles.toggleDesc}>Ao menos uma foto do aparelho no estado de entrada.</p>
+                </div>
+                <Switch ativo={exigirFotoEntrada} onClick={() => setExigirFotoEntrada((v) => !v)} />
               </div>
 
             </div>

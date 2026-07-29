@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Save, User, Smartphone, AlertCircle, DollarSign, Wrench } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { listPessoasResumo } from '../services/pessoaService';
 import { formatBRL, parseMoney } from '../utils/formatters';
+import { getLojaConfigAssistencia, mapConfigOs } from '../services/lojaConfigService';
+import OSTermoEntrada from './OSTermoEntrada';
 import {
   createOrdemServico,
   getOrdemServicoById,
@@ -29,9 +31,11 @@ const EMPTY_FORM = {
 };
 
 const OSForm = ({ aoVoltar, osId = null }) => {
-  const { lojaAtivaId, perfil } = useLoja();
+  const { lojaAtivaId, lojaAtiva, perfil } = useLoja();
   const { alert } = useDialog();
   const isEdicao = Boolean(osId);
+  const [osIdLocal, setOsIdLocal] = useState(null);
+  const osIdEfetivo = osId ?? osIdLocal;
   const [carregando, setCarregando] = useState(isEdicao);
   const [salvando, setSalvando] = useState(false);
   const [somenteLeitura, setSomenteLeitura] = useState(false);
@@ -39,6 +43,7 @@ const OSForm = ({ aoVoltar, osId = null }) => {
   const [clientes, setClientes] = useState([]);
   const [tecnicos, setTecnicos] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [configOs, setConfigOs] = useState(mapConfigOs(null));
 
   useEffect(() => {
     if (!lojaAtivaId) return;
@@ -46,13 +51,17 @@ const OSForm = ({ aoVoltar, osId = null }) => {
     Promise.all([
       listPessoasResumo(lojaAtivaId, { categoria: 'cliente' }),
       listPessoasResumo(lojaAtivaId, { categoria: 'tecnico' }),
-    ]).then(([clientesResult, tecnicosResult]) => {
+      getLojaConfigAssistencia(lojaAtivaId),
+    ]).then(([clientesResult, tecnicosResult, configResult]) => {
       if (!clientesResult.error && clientesResult.data?.length) {
         setClientes(clientesResult.data);
       } else {
         listPessoasResumo(lojaAtivaId).then(({ data }) => setClientes(data ?? []));
       }
       if (!tecnicosResult.error) setTecnicos(tecnicosResult.data ?? []);
+      if (!configResult.error && configResult.data) {
+        setConfigOs(mapConfigOs(configResult.data));
+      }
     });
   }, [lojaAtivaId]);
 
@@ -85,6 +94,13 @@ const OSForm = ({ aoVoltar, osId = null }) => {
   const valorTotal =
     parseMoney(form.valorServico) + parseMoney(form.valorPecas);
 
+  const clienteNome = useMemo(
+    () => clientes.find((c) => c.id === form.clienteId)?.nome ?? '',
+    [clientes, form.clienteId]
+  );
+
+  const nomeEmpresa = lojaAtiva?.nome_fantasia ?? lojaAtiva?.razao_social ?? 'Loja';
+
   const salvar = async () => {
     if (!lojaAtivaId) return;
 
@@ -98,17 +114,27 @@ const OSForm = ({ aoVoltar, osId = null }) => {
     }
 
     setSalvando(true);
-    const { error } = isEdicao
-      ? await updateOrdemServico(lojaAtivaId, osId, form)
+    const result = isEdicao || osIdLocal
+      ? await updateOrdemServico(lojaAtivaId, osIdEfetivo, form)
       : await createOrdemServico(lojaAtivaId, form, perfil?.id);
     setSalvando(false);
 
-    if (error) {
-      await alert(error.message ?? 'Não foi possível salvar a OS.', { type: 'error', title: 'Erro' });
+    if (result.error) {
+      await alert(result.error.message ?? 'Não foi possível salvar a OS.', { type: 'error', title: 'Erro' });
       return;
     }
 
-    aoVoltar();
+    if (!isEdicao && !osIdLocal && result.data) {
+      setOsIdLocal(result.data.id);
+      setCodigo(result.data.codigo);
+      await alert(
+        'OS criada. Registre o termo de entrada e as fotos do aparelho na seção abaixo.',
+        { type: 'success', title: 'OS salva' }
+      );
+      return;
+    }
+
+    await alert('OS atualizada com sucesso!', { type: 'success', title: 'Sucesso' });
   };
 
   if (carregando) {
@@ -127,7 +153,7 @@ const OSForm = ({ aoVoltar, osId = null }) => {
             <ArrowLeft size={16} /> Voltar
           </button>
           <h2 style={{ color: '#fff', fontSize: '18px', margin: 0 }}>
-            {isEdicao ? `Editar OS ${codigo ?? ''}` : 'Abertura de Ordem de Serviço'}
+            {isEdicao ? `Editar OS ${codigo ?? ''}` : osIdLocal ? `OS ${codigo ?? ''} — Termo de entrada` : 'Abertura de Ordem de Serviço'}
           </h2>
         </div>
         {somenteLeitura && (
@@ -272,7 +298,7 @@ const OSForm = ({ aoVoltar, osId = null }) => {
                 disabled={somenteLeitura}
               />
             </div>
-            {isEdicao && (
+            {(isEdicao || osIdLocal) && (
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Status</label>
                 <select
@@ -290,6 +316,20 @@ const OSForm = ({ aoVoltar, osId = null }) => {
             )}
           </div>
         </div>
+
+        <OSTermoEntrada
+          lojaId={lojaAtivaId}
+          osId={osIdEfetivo}
+          codigo={codigo}
+          form={form}
+          clienteNome={clienteNome}
+          nomeEmpresa={nomeEmpresa}
+          termoTemplate={configOs.termoOS}
+          exigirTermo={configOs.exigirTermoEntrada}
+          exigirFoto={configOs.exigirFotoEntrada}
+          somenteLeitura={somenteLeitura}
+          operadorId={perfil?.id}
+        />
       </div>
 
       <div style={styles.footer}>
