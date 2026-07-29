@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { formatBRL } from '../utils/formatters';
+import { downloadCsv } from '../utils/csvExport';
 import {
   aprovarOrcamento,
   excluirOrcamento,
@@ -153,6 +154,30 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
     }
   };
 
+  const handleExportCsv = () => {
+    setMenuExportarAberto(false);
+
+    if (orcamentosFiltrados.length === 0) {
+      setErro('Nenhum orçamento para exportar com os filtros atuais.');
+      return;
+    }
+
+    const hoje = new Date().toISOString().slice(0, 10);
+    downloadCsv({
+      headers: ['Código', 'Cliente', 'Vendedor', 'Emissão', 'Validade', 'Valor Total', 'Status'],
+      rows: orcamentosFiltrados.map((orc) => [
+        orc.cod,
+        orc.cliente,
+        orc.vendedor,
+        orc.data,
+        orc.validade,
+        formatBRL(orc.valor),
+        orc.status,
+      ]),
+      filename: `orcamentos-${hoje}.csv`,
+    });
+  };
+
   const orcamentosFiltrados = orcamentos.filter(orc => {
     const matchCodigo = String(orc.cod).includes(filtros.codigo);
     const matchCliente = orc.cliente.toLowerCase().includes(filtros.cliente.toLowerCase());
@@ -187,13 +212,13 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             </button>
             {menuExportarAberto && (
               <div style={styles.dropdownExport} onClick={(e) => e.stopPropagation()}>
-                <div style={styles.dropdownItem}>
+                <div style={{ ...styles.dropdownItem, opacity: 0.5, cursor: 'not-allowed' }}>
                   <FileText size={14} color="#ef4444" /> Exportar para PDF
                 </div>
-                <div style={styles.dropdownItem}>
+                <div style={{ ...styles.dropdownItem, opacity: 0.5, cursor: 'not-allowed' }}>
                   <FileSpreadsheet size={14} color="#22c55e" /> Exportar para Excel
                 </div>
-                <div style={styles.dropdownItem}>
+                <div style={styles.dropdownItem} onClick={handleExportCsv}>
                   <TableProperties size={14} color="#38bdf8" /> Exportar para CSV
                 </div>
               </div>

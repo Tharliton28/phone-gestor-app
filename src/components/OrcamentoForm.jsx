@@ -24,7 +24,10 @@ import {
   getOrcamentoById,
   mapOrcamentoToFormState,
   updateOrcamento,
+  addDays,
+  diffDays,
 } from '../services/orcamentoService';
+import { getLojaConfig, getOrcamentoValidadeDias } from '../services/lojaConfigService';
 import { podeEditarOrcamento } from '../domain/orcamentoStatus';
 import { parseMoney, formatBRL, roundMoney } from '../utils/formatters';
 
@@ -40,6 +43,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
   const [salvando, setSalvando] = useState(false);
   const [dataEmissao, setDataEmissao] = useState(new Date().toISOString().slice(0, 10));
   const [dataValidade, setDataValidade] = useState(null);
+  const [diasValidade, setDiasValidade] = useState(15);
 
   const [itens, setItems] = useState([]);
   
@@ -143,11 +147,12 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
   const carregarCatalogos = useCallback(async () => {
     if (!lojaAtivaId) return;
 
-    const [clientesResult, produtosResult, formasResult, taxasResult] = await Promise.all([
+    const [clientesResult, produtosResult, formasResult, taxasResult, configResult] = await Promise.all([
       listPessoasResumo(lojaAtivaId, { categoria: 'cliente' }),
       listProdutos(lojaAtivaId),
       listFormasPagamento(lojaAtivaId),
       listTaxasCreditoParcela(lojaAtivaId),
+      getLojaConfig(lojaAtivaId),
     ]);
 
     if (!clientesResult.error && clientesResult.data?.length) {
@@ -168,7 +173,13 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
     if (!taxasResult.error) {
       setTaxasCreditoParcela(taxasResult.data ?? {});
     }
-  }, [lojaAtivaId]);
+
+    const diasPadrao = getOrcamentoValidadeDias(configResult.data);
+    if (!orcamentoIdInicial) {
+      setDiasValidade(diasPadrao);
+      setDataValidade((prev) => prev ?? addDays(new Date().toISOString().slice(0, 10), diasPadrao));
+    }
+  }, [lojaAtivaId, orcamentoIdInicial]);
 
   useEffect(() => {
     if (!lojaAtivaId || formaPagamento !== 'credito') return;
@@ -190,6 +201,8 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
     setCodigoOrcamento(estado.codigo);
     setDataEmissao(estado.dataEmissao ?? new Date().toISOString().slice(0, 10));
     setDataValidade(estado.dataValidade ?? null);
+    const dias = diffDays(estado.dataEmissao, estado.dataValidade);
+    setDiasValidade(dias != null && dias > 0 ? dias : 15);
     setItems(estado.itens ?? []);
     setEntrada(String(estado.entrada ?? ''));
     setFormaPagamento(estado.formaPagamento ?? 'pix');
@@ -484,11 +497,33 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
             
             <div style={styles.inputGroup}>
               <label style={styles.label}>Data do orçamento:</label>
-              <input style={styles.input} type="datetime-local" defaultValue="2026-07-08T10:46" />
+              <input
+                style={styles.input}
+                type="date"
+                value={dataEmissao}
+                disabled={somenteLeitura}
+                onChange={(e) => {
+                  const novaData = e.target.value;
+                  setDataEmissao(novaData);
+                  setDataValidade(addDays(novaData, diasValidade));
+                }}
+              />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Validade (Dias):</label>
-              <input style={styles.input} type="number" defaultValue="15" />
+              <input
+                style={styles.input}
+                type="number"
+                min={1}
+                max={365}
+                value={diasValidade}
+                disabled={somenteLeitura}
+                onChange={(e) => {
+                  const dias = Math.min(365, Math.max(1, Number(e.target.value) || 15));
+                  setDiasValidade(dias);
+                  setDataValidade(addDays(dataEmissao, dias));
+                }}
+              />
             </div>
             <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
               <label style={styles.label}>Previsão de Entrega/Retirada (Opcional):</label>
@@ -862,7 +897,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
               </div>
               <div style={{textAlign: 'right'}}>
                 <h2 style={{margin: '0 0 5px 0', fontSize: '20px', color: '#3b82f6'}}>ORÇAMENTO #{codigoOrcamento ?? 'NOVO'}</h2>
-                <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>Data: {formatDataBR(dataEmissao)}<br/>Validade: {formatDataBR(dataValidade) || '15 dias'}</p>
+                <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>Data: {formatDataBR(dataEmissao)}<br/>Validade: {formatDataBR(dataValidade) || `${diasValidade} dias`}</p>
               </div>
             </div>
 
@@ -941,7 +976,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
                    <span>{observacoes}</span>
                  ) : (
                    <>
-                     1. Este orçamento tem validade de 15 dias corridos.<br/>
+                     1. Este orçamento tem validade de {diasValidade} dias corridos.<br/>
                      2. Valores sujeitos a alteração caso o pagamento seja feito de forma diferente da simulada acima.<br/>
                      3. Produtos sujeitos à disponibilidade em estoque.
                    </>

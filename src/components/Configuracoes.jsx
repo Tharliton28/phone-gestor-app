@@ -81,7 +81,8 @@ const Configuracoes = () => {
     vendaSemEstoque: false,
     alertaEstoque: true,
     jurosAuto: true,
-    resumoEmail: true
+    resumoEmail: true,
+    orcamentoValidadeDias: 15,
   });
 
   const [formasPagamento, setFormasPagamento] = useState([]);
@@ -526,6 +527,26 @@ const Configuracoes = () => {
                   </p>
                 </div>
                 <Switch ativo={toggles.vendaSemEstoque} onClick={() => handleToggle('vendaSemEstoque')} />
+              </div>
+
+              <div style={styles.toggleRow}>
+                <div>
+                  <h4 style={styles.toggleTitle}>Validade padrão de orçamentos (dias)</h4>
+                  <p style={styles.toggleDesc}>
+                    Dias corridos aplicados automaticamente ao criar um novo orçamento. Entre 1 e 365.
+                  </p>
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  style={styles.inputNumber}
+                  value={toggles.orcamentoValidadeDias}
+                  onChange={(e) => {
+                    const valor = Math.min(365, Math.max(1, Number(e.target.value) || 15));
+                    setToggles((prev) => ({ ...prev, orcamentoValidadeDias: valor }));
+                  }}
+                />
               </div>
 
               <div style={styles.grid2}>
@@ -1025,6 +1046,10 @@ const styles = {
   toggleRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#11131c', padding: '20px', borderRadius: '8px', border: '1px solid #1f2233', marginBottom: '20px' },
   toggleTitle: { color: '#e2e8f0', fontSize: '14px', fontWeight: 'bold', margin: '0 0 4px 0' },
   toggleDesc: { color: '#94a3b8', fontSize: '12px', margin: 0, maxWidth: '80%' },
+  inputNumber: {
+    width: '80px', backgroundColor: '#0b0c10', border: '1px solid #2a2e3f',
+    borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '14px', textAlign: 'center',
+  },
 
   /* Estilos do Gerenciador de Listas */
   listManagerCard: { backgroundColor: '#11131c', border: '1px solid #1f2233', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' },

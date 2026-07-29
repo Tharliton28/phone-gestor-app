@@ -57,10 +57,17 @@ function buildSimulacaoFromPayload(payload, itens, aparelhos) {
   });
 }
 
-function addDays(isoDate, days) {
+export function addDays(isoDate, days) {
   const base = isoDate ? new Date(`${isoDate}T12:00:00`) : new Date();
-  base.setDate(base.getDate() + days);
+  base.setDate(base.getDate() + Number(days) || 0);
   return base.toISOString().slice(0, 10);
+}
+
+export function diffDays(fromIso, toIso) {
+  if (!fromIso || !toIso) return null;
+  const from = new Date(`${fromIso}T12:00:00`);
+  const to = new Date(`${toIso}T12:00:00`);
+  return Math.round((to - from) / 86400000);
 }
 
 function formatDataBR(isoDate) {
