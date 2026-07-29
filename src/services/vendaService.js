@@ -9,6 +9,7 @@ import {
 } from '../domain/vendaCalculos';
 import { getLojaConfig, permiteVendaSemEstoque } from './lojaConfigService';
 import { registrarMovimentacao } from './movimentacaoService';
+import { gerarReceitasVenda, cancelarReceitasVenda } from './financeiroService';
 
 export const STATUS_LABEL = {
   concluido: 'Concluído',
@@ -208,6 +209,7 @@ async function createVendaLegacy(lojaId, payload, operadorId) {
   }
 
   if (status === 'concluido') {
+    await gerarReceitasVenda(lojaId, venda.id);
     const { error: baixaError } = await baixarEstoqueVenda(lojaId, venda, itensInseridos ?? [], operadorId);
     if (baixaError) {
       return { data: null, error: baixaError };
@@ -335,6 +337,10 @@ export async function cancelarVenda(lojaId, vendaId, operadorId) {
     return { error: new Error('Esta venda já está cancelada.') };
   }
 
+  if (venda.status === 'concluido') {
+    await cancelarReceitasVenda(lojaId, vendaId);
+  }
+
   if (venda.estoque_baixado) {
     for (const item of venda.itens ?? []) {
       if (!item.produto_id || !item.baixou_estoque) continue;
@@ -392,6 +398,8 @@ export async function concluirPreVenda(lojaId, vendaId, operadorId) {
   if (baixaError) {
     return { error: baixaError };
   }
+
+  await gerarReceitasVenda(lojaId, vendaId);
 
   return supabase
     .from('vendas')

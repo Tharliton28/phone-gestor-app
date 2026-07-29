@@ -503,7 +503,10 @@ export default function ErpContent() {
               Títulos a Receber (Receitas)
             </h2>
           </div>
-          <FinanceiroList tipo="receber" aoClicarEmNovo={() => mudarTela('novo-lancamento')} />
+          <FinanceiroList
+            tipo="receber"
+            aoClicarEmNovo={() => mudarTela('novo-lancamento', null, { tipo: 'receita', tipoVolta: 'contas-receber' })}
+          />
         </>
       );
 
@@ -525,7 +528,10 @@ export default function ErpContent() {
               Títulos a Pagar (Despesas)
             </h2>
           </div>
-          <FinanceiroList tipo="pagar" aoClicarEmNovo={() => mudarTela('novo-lancamento')} />
+          <FinanceiroList
+            tipo="pagar"
+            aoClicarEmNovo={() => mudarTela('novo-lancamento', null, { tipo: 'despesa', tipoVolta: 'contas-pagar' })}
+          />
         </>
       );
 
@@ -535,7 +541,10 @@ export default function ErpContent() {
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
             <span style={{ color: '#3b82f6' }}>Financeiro</span> {'>'} Novo Lançamento Avulso
           </div>
-          <FinanceiroForm aoVoltar={() => mudarTela('contas-receber')} />
+          <FinanceiroForm
+            tipoInicial={dadosNavegacao?.tipo ?? 'receita'}
+            aoVoltar={() => mudarTela(dadosNavegacao?.tipoVolta ?? 'contas-receber')}
+          />
         </>
       );
 
