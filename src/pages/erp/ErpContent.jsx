@@ -23,6 +23,7 @@ import PainelFiscal from '../../components/PainelFiscal';
 import ReciboGarantia from '../../components/ReciboGarantia';
 import Configuracoes from '../../components/Configuracoes';
 import ComingSoon from '../../components/ComingSoon';
+import Relatorios from '../../components/Relatorios';
 import { useErpNavigation } from '../../hooks/useErpNavigation';
 
 /**
@@ -452,10 +453,7 @@ export default function ErpContent() {
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
             <span style={{ color: '#3b82f6' }}>Relatórios</span>
           </div>
-          <ComingSoon
-            title="Relatórios"
-            description="Relatórios de vendas, estoque, financeiro e assistência técnica estarão disponíveis em breve."
-          />
+          <Relatorios />
         </>
       );
 
