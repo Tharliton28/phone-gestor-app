@@ -1,20 +1,44 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   ArrowLeft, Save, Plus, Trash2, 
   FileText, Package, Edit, Calculator, X, Printer, Phone, Smartphone,
   AlertCircle, CheckCircle, Info, Search
 } from 'lucide-react';
-import { parseMoney } from '../utils/formatters';
+import { useLoja } from '../contexts/LojaContext';
+import { listPessoasResumo } from '../services/pessoaService';
+import { listProdutos } from '../services/produtoService';
+import { listFormasPagamento } from '../services/formaPagamentoService';
+import {
+  listTaxasCreditoParcela,
+  opcoesParcelasCredito,
+  resolveTaxaPercentualSim,
+} from '../services/taxaCreditoService';
+import {
+  calcItemLinhaOrcamento,
+  calcSimulacaoOrcamento,
+} from '../domain/orcamentoCalculos';
+import {
+  createOrcamento,
+  formatDataBR,
+  getOrcamentoById,
+  mapOrcamentoToFormState,
+  updateOrcamento,
+} from '../services/orcamentoService';
+import { parseMoney, formatBRL, roundMoney } from '../utils/formatters';
 
 const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
-  const orcamentoInicial = dadosNavegacao?.orcamentoSelecionado || null;
+  const { lojaAtivaId, perfil } = useLoja();
+  const orcamentoIdInicial = dadosNavegacao?.orcamentoId ?? null;
   const autoImprimir = dadosNavegacao?.autoImprimir || false;
 
-  const [itens, setItems] = useState(
-    orcamentoInicial ? [
-      { id: '1', nome: 'Produto Referente ao Orçamento ' + orcamentoInicial.cod, preco: parseFloat(orcamentoInicial.valor.replace('.', '').replace(',', '.')), quantidade: 1, desconto: 0, idRow: Date.now() }
-    ] : []
-  );
+  const [orcamentoId, setOrcamentoId] = useState(orcamentoIdInicial);
+  const [codigoOrcamento, setCodigoOrcamento] = useState(null);
+  const [carregando, setCarregando] = useState(Boolean(orcamentoIdInicial));
+  const [salvando, setSalvando] = useState(false);
+  const [dataEmissao, setDataEmissao] = useState(new Date().toISOString().slice(0, 10));
+  const [dataValidade, setDataValidade] = useState(null);
+
+  const [itens, setItems] = useState([]);
   
   const [quantidade, setQuantidade] = useState(1);
   const [descontoItem, setDescontoItem] = useState('');
@@ -49,25 +73,50 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
   const [modalPDF, setModalPDF] = useState(autoImprimir);
   const [modalAviso, setModalAviso] = useState({ aberto: false, titulo: '', mensagem: '', tipo: 'info', acaoOk: null });
 
-  const [clientesMock, setClientesMock] = useState([
-    { id: '1', nome: 'THAIS LOPES', telefone: '(85) 99430-0841' },
-    { id: '2', nome: 'NATAN COVIDEIRA', telefone: '(85) 99999-8888' },
-    { id: '3', nome: 'ANTONIA DEBORA FELIPE', telefone: '(85) 97777-6666' }
-  ]);
+  const [clientes, setClientes] = useState([]);
+  const [produtos, setProdutos] = useState([]);
+  const [formasPagamento, setFormasPagamento] = useState([]);
+  const [taxasCreditoParcela, setTaxasCreditoParcela] = useState({});
 
-  const estoqueMock = [
-    { id: '1', nome: 'iPhone 13 Pro Max - 128GB - AZUL PACÍFICO', preco: 4500.00 },
-    { id: '2', nome: 'Capa MagSafe Transparente', preco: 150.00 },
-    { id: '3', nome: 'Película de Vidro 3D', preco: 50.00 },
-    { id: '4', nome: 'Carregador Turbo 20W Original', preco: 199.00 },
-  ];
+  const vendedorNome = perfil?.nome ?? 'Vendedor';
 
-  const taxasCredito = {
-    1: 0.035, 2: 0.045, 3: 0.050, 4: 0.060, 5: 0.070, 6: 0.080,
-    7: 0.090, 8: 0.100, 9: 0.110, 10: 0.120, 11: 0.130, 12: 0.150
-  };
+  const produtosCatalogo = useMemo(() => (
+    (produtos ?? []).map((produto) => ({
+      id: produto.id,
+      produtoId: produto.id,
+      nome: produto.nome,
+      preco: Number(produto.valor_venda) || 0,
+    }))
+  ), [produtos]);
 
-  // Fechar menus ao clicar fora
+  const taxaPercentual = useMemo(
+    () => resolveTaxaPercentualSim({
+      formaPagamentoSim: formaPagamento,
+      parcelas,
+      formasPagamento,
+      taxasCreditoParcela,
+    }),
+    [formaPagamento, parcelas, formasPagamento, taxasCreditoParcela]
+  );
+
+  const opcoesParcelas = useMemo(
+    () => opcoesParcelasCredito(taxasCreditoParcela),
+    [taxasCreditoParcela]
+  );
+
+  const simulacao = useMemo(
+    () => calcSimulacaoOrcamento({
+      itens,
+      entrada,
+      aparelhosTroca: aparelhosNaTroca,
+      formaPagamentoSim: formaPagamento,
+      parcelas,
+      adicionarTaxa,
+      taxaPercentual,
+    }),
+    [itens, entrada, aparelhosNaTroca, formaPagamento, parcelas, adicionarTaxa, taxaPercentual]
+  );
+
   useEffect(() => {
     const cliqueFora = (e) => {
       if (refCliente.current && !refCliente.current.contains(e.target)) setModalMostrarClientes(false);
@@ -77,17 +126,91 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
     return () => document.removeEventListener('mousedown', cliqueFora);
   }, []);
 
-  useEffect(() => {
-    if (orcamentoInicial) {
-      let cliente = clientesMock.find(c => c.nome === orcamentoInicial.cliente);
-      if (!cliente) {
-        cliente = { id: `MOCK_${Date.now()}`, nome: orcamentoInicial.cliente, telefone: 'Não informado' };
-        setClientesMock(prev => [...prev, cliente]);
-      }
-      setClienteSelecionadoObj(cliente);
-      setBuscaCliente(cliente.nome);
+  const carregarCatalogos = useCallback(async () => {
+    if (!lojaAtivaId) return;
+
+    const [clientesResult, produtosResult, formasResult, taxasResult] = await Promise.all([
+      listPessoasResumo(lojaAtivaId, { categoria: 'cliente' }),
+      listProdutos(lojaAtivaId),
+      listFormasPagamento(lojaAtivaId),
+      listTaxasCreditoParcela(lojaAtivaId),
+    ]);
+
+    if (!clientesResult.error && clientesResult.data?.length) {
+      setClientes(clientesResult.data);
+    } else {
+      const fallback = await listPessoasResumo(lojaAtivaId);
+      setClientes(fallback.data ?? []);
     }
-  }, [orcamentoInicial]);
+
+    if (!produtosResult.error) {
+      setProdutos(produtosResult.data ?? []);
+    }
+
+    if (!formasResult.error) {
+      setFormasPagamento(formasResult.data ?? []);
+    }
+
+    if (!taxasResult.error) {
+      setTaxasCreditoParcela(taxasResult.data ?? {});
+    }
+  }, [lojaAtivaId]);
+
+  const aplicarEstadoOrcamento = useCallback((estado) => {
+    setOrcamentoId(estado.orcamentoId);
+    setCodigoOrcamento(estado.codigo);
+    setDataEmissao(estado.dataEmissao ?? new Date().toISOString().slice(0, 10));
+    setDataValidade(estado.dataValidade ?? null);
+    setItems(estado.itens ?? []);
+    setEntrada(String(estado.entrada ?? ''));
+    setFormaPagamento(estado.formaPagamento ?? 'pix');
+    setParcelas(estado.parcelas ?? 1);
+    setAdicionarTaxa(estado.adicionarTaxa !== false);
+    setObservacoes(estado.observacoes ?? '');
+    setAparelhosNaTroca(estado.aparelhos ?? []);
+
+    if (estado.cliente) {
+      setClienteSelecionadoObj({
+        id: estado.cliente.id ?? estado.clienteId,
+        nome: estado.cliente.nome,
+        telefone: estado.cliente.telefone ?? '',
+      });
+      setBuscaCliente(estado.cliente.nome);
+    }
+  }, []);
+
+  const carregarOrcamento = useCallback(async () => {
+    if (!lojaAtivaId || !orcamentoIdInicial) {
+      setCarregando(false);
+      return;
+    }
+
+    setCarregando(true);
+    const { data, error } = await getOrcamentoById(lojaAtivaId, orcamentoIdInicial);
+
+    if (error || !data) {
+      setModalAviso({
+        aberto: true,
+        titulo: 'Erro',
+        mensagem: error?.message ?? 'Orçamento não encontrado.',
+        tipo: 'erro',
+        acaoOk: null,
+      });
+      setCarregando(false);
+      return;
+    }
+
+    aplicarEstadoOrcamento(mapOrcamentoToFormState(data));
+    setCarregando(false);
+  }, [lojaAtivaId, orcamentoIdInicial, aplicarEstadoOrcamento]);
+
+  useEffect(() => {
+    carregarCatalogos();
+  }, [carregarCatalogos]);
+
+  useEffect(() => {
+    carregarOrcamento();
+  }, [carregarOrcamento]);
 
   const mostrarAviso = (titulo, mensagem, tipo = 'info', acaoOk = null) => {
     setModalAviso({ aberto: true, titulo, mensagem, tipo, acaoOk });
@@ -96,12 +219,13 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
   const adicionarAoOrcamento = () => {
     if (!produtoSelecionadoObj) return mostrarAviso('Atenção', 'Selecione um produto utilizando a busca.', 'erro');
     
-    const descontoVal = Number(descontoItem) || 0;
+    const descontoVal = roundMoney(parseMoney(descontoItem));
     const novoItem = { 
       ...produtoSelecionadoObj, 
+      preco: roundMoney(produtoSelecionadoObj.preco),
       idRow: Date.now(), 
       quantidade: Number(quantidade),
-      desconto: descontoVal
+      desconto: descontoVal,
     };
     setItems([...itens, novoItem]);
     setProdutoSelecionadoObj(null);
@@ -137,19 +261,64 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
   const salvarCliente = () => {
     if (!novoCliente.nome) return mostrarAviso('Atenção', 'O nome é obrigatório.', 'erro');
     if (modalCliente.modo === 'novo') {
-      const novo = { id: `C${Date.now()}`, nome: novoCliente.nome, telefone: novoCliente.telefone };
-      setClientesMock([...clientesMock, novo]);
+      const novo = { id: `temp-${Date.now()}`, nome: novoCliente.nome, telefone: novoCliente.telefone };
+      setClientes([...clientes, novo]);
       setClienteSelecionadoObj(novo);
       setBuscaCliente(novo.nome);
     } else {
       const updated = { ...clienteSelecionadoObj, nome: novoCliente.nome, telefone: novoCliente.telefone };
-      setClientesMock(clientesMock.map(c => c.id === clienteSelecionadoObj.id ? updated : c));
+      setClientes(clientes.map(c => c.id === clienteSelecionadoObj.id ? updated : c));
       setClienteSelecionadoObj(updated);
       setBuscaCliente(updated.nome);
     }
     setModalCliente({ aberto: false, modo: 'novo' });
     setNovoCliente({ nome: '', telefone: '' });
-    mostrarAviso('Sucesso', 'Cliente salvo com sucesso!', 'sucesso');
+    mostrarAviso('Sucesso', 'Cliente atualizado localmente. Cadastre em Pessoas para persistir no sistema.', 'sucesso');
+  };
+
+  const salvarOrcamento = async () => {
+    if (!lojaAtivaId) return;
+    if (!clienteSelecionadoObj) {
+      return mostrarAviso('Atenção', 'Selecione um cliente para o orçamento.', 'erro');
+    }
+    if (!itens.length) {
+      return mostrarAviso('Atenção', 'Adicione pelo menos um produto ao orçamento.', 'erro');
+    }
+
+    const clienteId = String(clienteSelecionadoObj.id).startsWith('temp-')
+      ? null
+      : clienteSelecionadoObj.id;
+
+    const payload = {
+      clienteId,
+      observacoes,
+      entrada,
+      formaPagamento,
+      parcelas,
+      adicionarTaxa,
+      taxaPercentual,
+      dataEmissao,
+      dataValidade: dataValidade || undefined,
+    };
+
+    setSalvando(true);
+
+    const result = orcamentoId
+      ? await updateOrcamento(lojaAtivaId, orcamentoId, payload, itens, aparelhosNaTroca)
+      : await createOrcamento(lojaAtivaId, payload, itens, aparelhosNaTroca, perfil?.id);
+
+    setSalvando(false);
+
+    if (result.error) {
+      return mostrarAviso('Erro', result.error.message ?? 'Não foi possível salvar o orçamento.', 'erro');
+    }
+
+    if (!orcamentoId && result.data?.id) {
+      setOrcamentoId(result.data.id);
+      setCodigoOrcamento(result.data.codigo);
+    }
+
+    mostrarAviso('Sucesso!', 'O orçamento foi salvo com sucesso.', 'sucesso', () => aoVoltar());
   };
 
   const gerarPDF = () => {
@@ -164,28 +333,26 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
   }
 
   // Filtragem dos Autocompletes
-  const clientesFiltrados = clientesMock.filter(c => 
+  const clientesFiltrados = clientes.filter(c => 
     c.nome.toLowerCase().includes(buscaCliente.toLowerCase())
   );
 
-  const produtosFiltrados = estoqueMock.filter(p => 
+  const produtosFiltrados = produtosCatalogo.filter(p => 
     p.nome.toLowerCase().includes(buscaProduto.toLowerCase())
   );
 
-  // CÁLCULOS
-  const subtotal = itens.reduce((acc, item) => acc + ((item.preco * item.quantidade) - item.desconto), 0);
-  const valorEntradaDinheiro = Number(entrada) || 0;
-  const valorTotalAparelhos = aparelhosNaTroca.reduce((acc, ap) => acc + ap.valor, 0);
-  const valorRestante = Math.max(0, subtotal - valorEntradaDinheiro - valorTotalAparelhos);
+  // CÁLCULOS — delegados a domain/orcamentoCalculos.js (simulacao)
+  const {
+    valorSubtotalLiquido: subtotal,
+    valorEntrada: valorEntradaDinheiro,
+    valorAparelhos: valorTotalAparelhos,
+    valorRestanteBase: valorRestante,
+    valorTaxa: valorAcrescimo,
+    valorTotal: totalFinal,
+    parcelamento,
+  } = simulacao;
 
-  let taxaAplicada = 0;
-  if (formaPagamento === 'credito') taxaAplicada = taxasCredito[parcelas];
-  else if (formaPagamento === 'debito') taxaAplicada = 0.0199;
-
-  const valorAcrescimo = valorRestRestante = valorRestante * taxaAplicada;
-  const acrescimoReal = adicionarTaxa ? valorAcrescimo : 0;
-  const totalFinal = subtotal + acrescimoReal;
-  const valorDaParcela = (valorRestante + acrescimoReal) / parcelas;
+  const valorDaParcela = parcelamento.valorParcela;
 
   const getNomePagamento = () => {
     if(formaPagamento === 'pix') return 'Dinheiro / PIX';
@@ -195,14 +362,17 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
 
   return (
     <div style={styles.container} className="orcamento-container">
+      {carregando && (
+        <div style={{ color: '#94a3b8', padding: '20px', textAlign: 'center' }}>Carregando orçamento...</div>
+      )}
       
-      <div style={styles.header}>
+      <div style={{ ...styles.header, display: carregando ? 'none' : undefined }}>
         <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
           <button onClick={aoVoltar} style={styles.btnBack}>
             <ArrowLeft size={16} /> Voltar
           </button>
           <h2 style={{color: '#fff', fontSize: '18px', margin: 0}}>
-             {orcamentoInicial ? `Editando Orçamento #${orcamentoInicial.cod}` : 'Novo Orçamento de Venda'}
+             {orcamentoId ? `Editando Orçamento #${codigoOrcamento ?? '—'}` : 'Novo Orçamento de Venda'}
           </h2>
         </div>
       </div>
@@ -262,7 +432,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
             <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
               <label style={styles.label}><span style={styles.required}>*</span> Vendedor:</label>
               <select style={styles.input}>
-                <option>{orcamentoInicial ? orcamentoInicial.vendedor : 'Wesley de Sousa Viana'}</option>
+                <option>{vendedorNome}</option>
               </select>
             </div>
             
@@ -378,7 +548,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
                       <td style={{...styles.td, textAlign: 'right'}}>{item.preco.toFixed(2)}</td>
                       <td style={{...styles.td, textAlign: 'right', color: '#fbbf24'}}>{item.desconto > 0 ? `- ${item.desconto.toFixed(2)}` : '0.00'}</td>
                       <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#4ade80'}}>
-                        {((item.preco * item.quantidade) - item.desconto).toFixed(2)}
+                        {formatBRL(calcItemLinhaOrcamento(item.quantidade, item.preco, item.desconto))}
                       </td>
                       <td style={{...styles.td, textAlign: 'center'}}>
                         <button style={styles.btnRemove} onClick={() => removerDoOrcamento(item.idRow)}><Trash2 size={14} /></button>
@@ -398,7 +568,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
                 
                 <div style={styles.summaryRow}>
                   <span style={styles.summaryLabel}>Subtotal c/ descontos:</span>
-                  <span style={styles.summaryValue}>R$ {subtotal.toFixed(2)}</span>
+                  <span style={styles.summaryValue}>R$ {formatBRL(subtotal)}</span>
                 </div>
                 
                 <div style={styles.summaryRow}>
@@ -424,7 +594,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
                 {(valorEntradaDinheiro > 0 || valorTotalAparelhos > 0) && (
                   <div style={styles.summaryRow}>
                     <span style={styles.summaryLabel}>Restante a pagar:</span>
-                    <span style={{...styles.summaryValue, color: '#93c5fd'}}>R$ {valorRestante.toFixed(2)}</span>
+                    <span style={{...styles.summaryValue, color: '#93c5fd'}}>R$ {formatBRL(valorRestante)}</span>
                   </div>
                 )}
                 
@@ -441,7 +611,9 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
                   <div style={styles.summaryRow}>
                     <span style={styles.summaryLabel}>Parcelamento:</span>
                     <select style={styles.selectSmall} value={parcelas} onChange={(e) => setParcelas(Number(e.target.value))}>
-                      {[1,2,3,4,5,6,7,8,9,10,11,12].map(p => <option key={p} value={p}>{p}x - Juros: {(taxasCredito[p] * 100).toFixed(1)}%</option>)}
+                      {opcoesParcelas.map((opcao) => (
+                        <option key={opcao.parcelas} value={opcao.parcelas}>{opcao.label}</option>
+                      ))}
                     </select>
                   </div>
                 )}
@@ -465,7 +637,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
                   <div style={styles.summaryRow}>
                     <span style={{...styles.summaryLabel, color: '#ef4444'}}>Acréscimo do Cartão:</span>
                     <span style={{...styles.summaryValue, color: '#ef4444'}}>
-                      + R$ {valorAcrescimo.toFixed(2)}
+                      + R$ {formatBRL(valorAcrescimo)}
                       {!taxaVisivel && <span style={{fontSize: '10px', display: 'block', fontWeight: 'normal'}}>(Oculto no PDF)</span>}
                     </span>
                   </div>
@@ -473,14 +645,14 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
 
                 <div style={styles.summaryTotalRow}>
                   <span style={styles.summaryTotalLabel}>Total do Orçamento:</span>
-                  <span style={styles.summaryTotalValue}>R$ {totalFinal.toFixed(2)}</span>
+                  <span style={styles.summaryTotalValue}>R$ {formatBRL(totalFinal)}</span>
                 </div>
 
                 {formaPagamento === 'credito' && parcelas > 1 && (
                   <div style={{textAlign: 'right', marginTop: '8px', color: '#94a3b8', fontSize: '13px'}}>
-                    {valorEntradaDinheiro > 0 && <span>Entrada de R$ {valorEntradaDinheiro.toFixed(2)} + <br/></span>}
-                    {valorTotalAparelhos > 0 && <span>Aparelho na Troca R$ {valorTotalAparelhos.toFixed(2)} + <br/></span>}
-                    <strong style={{color: '#fff'}}>{parcelas}x de R$ {valorDaParcela.toFixed(2)}</strong>
+                    {valorEntradaDinheiro > 0 && <span>Entrada de R$ {formatBRL(valorEntradaDinheiro)} + <br/></span>}
+                    {valorTotalAparelhos > 0 && <span>Aparelho na Troca R$ {formatBRL(valorTotalAparelhos)} + <br/></span>}
+                    <strong style={{color: '#fff'}}>{parcelas}x de R$ {formatBRL(valorDaParcela)}</strong>
                   </div>
                 )}
 
@@ -494,14 +666,14 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
       <div style={styles.footer} className="no-print">
         <div style={styles.totalArea}>
           <span style={styles.totalLabel}>Total Final do Orçamento:</span>
-          <span style={styles.totalValue}>R$ {totalFinal.toFixed(2)}</span>
+          <span style={styles.totalValue}>R$ {formatBRL(totalFinal)}</span>
         </div>
         <div style={styles.footerActions}>
           <button style={styles.btnOutlineBlue} onClick={gerarPDF}>
             <FileText size={16} /> Salvar e Gerar PDF
           </button>
-          <button style={styles.btnSaveGreen} onClick={() => mostrarAviso('Sucesso!', 'O Orçamento foi salvo com sucesso.', 'sucesso', () => aoVoltar())}>
-            <Save size={16} /> Salvar Orçamento
+          <button style={styles.btnSaveGreen} onClick={salvarOrcamento} disabled={salvando}>
+            <Save size={16} /> {salvando ? 'Salvando...' : 'Salvar Orçamento'}
           </button>
         </div>
       </div>
@@ -615,15 +787,15 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
                 <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>CNPJ: 64.951.713/0001-13<br/>Avenida Narciso Pessoa de Araújo, 113<br/>Telefone: (85) 98589-2506</p>
               </div>
               <div style={{textAlign: 'right'}}>
-                <h2 style={{margin: '0 0 5px 0', fontSize: '20px', color: '#3b82f6'}}>ORÇAMENTO #{orcamentoInicial ? orcamentoInicial.cod : '9005'}</h2>
-                <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>Data: {orcamentoInicial ? orcamentoInicial.data : '08/07/2026'}<br/>Validade: {orcamentoInicial ? orcamentoInicial.validade : '15 Dias'}</p>
+                <h2 style={{margin: '0 0 5px 0', fontSize: '20px', color: '#3b82f6'}}>ORÇAMENTO #{codigoOrcamento ?? 'NOVO'}</h2>
+                <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>Data: {formatDataBR(dataEmissao)}<br/>Validade: {formatDataBR(dataValidade) || '15 dias'}</p>
               </div>
             </div>
 
             <div style={styles.pdfClientInfo}>
               <strong>Cliente:</strong> {clienteSelecionadoObj?.nome || 'Não informado'} <br/>
               <strong>Telefone:</strong> {clienteSelecionadoObj?.telefone || 'Não informado'} <br/>
-              <strong>Vendedor:</strong> {orcamentoInicial ? orcamentoInicial.vendedor : 'Wesley de Sousa Viana'}
+              <strong>Vendedor:</strong> {vendedorNome}
             </div>
 
             <table style={styles.pdfTable}>
@@ -643,7 +815,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
                     <td style={{...styles.pdfTd, textAlign: 'center'}}>{item.quantidade}</td>
                     <td style={{...styles.pdfTd, textAlign: 'right'}}>R$ {item.preco.toFixed(2)}</td>
                     <td style={{...styles.pdfTd, textAlign: 'right'}}>{item.desconto > 0 ? `- R$ ${item.desconto.toFixed(2)}` : '-'}</td>
-                    <td style={{...styles.pdfTd, textAlign: 'right', fontWeight: 'bold'}}>R$ {((item.preco * item.quantidade) - item.desconto).toFixed(2)}</td>
+                    <td style={{...styles.pdfTd, textAlign: 'right', fontWeight: 'bold'}}>R$ {formatBRL(calcItemLinhaOrcamento(item.quantidade, item.preco, item.desconto))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -652,7 +824,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
             <div style={styles.pdfSummary}>
               <div style={styles.pdfSummaryRow}>
                 <span>Subtotal dos Produtos:</span>
-                <span>R$ {subtotal.toFixed(2)}</span>
+                <span>R$ {formatBRL(subtotal)}</span>
               </div>
 
               {aparelhosNaTroca.map(ap => (
@@ -669,21 +841,21 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
                 </div>
               )}
 
-              {adicionarTaxa && acrescimoReal > 0 && taxaVisivel && (
+              {adicionarTaxa && valorAcrescimo > 0 && taxaVisivel && (
                 <div style={styles.pdfSummaryRow}>
-                  <span>Acréscimo ({getNomePagamento()}):</span>
-                  <span style={{color: '#dc2626'}}>+ R$ {acrescimoReal.toFixed(2)}</span>
+                  <span>Acréscimo ({getNomePagamento()} — {taxaPercentual.toFixed(1)}%):</span>
+                  <span style={{color: '#dc2626'}}>+ R$ {formatBRL(valorAcrescimo)}</span>
                 </div>
               )}
 
               <div style={styles.pdfTotalRow}>
                 <span>TOTAL DO ORÇAMENTO:</span>
-                <span>R$ {totalFinal.toFixed(2)}</span>
+                <span>R$ {formatBRL(totalFinal)}</span>
               </div>
 
               {formaPagamento === 'credito' && parcelas > 1 && (
                 <div style={{marginTop: '10px', fontSize: '14px', color: '#374151'}}>
-                  Condição simulada: Restante parcelado em <strong>{parcelas}x de R$ {valorDaParcela.toFixed(2)}</strong> no cartão de crédito.
+                  Condição simulada: Restante parcelado em <strong>{parcelas}x de R$ {formatBRL(valorDaParcela)}</strong> no cartão de crédito.
                 </div>
               )}
             </div>

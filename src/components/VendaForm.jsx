@@ -5,11 +5,13 @@ import {
   AlertCircle, CheckCircle, Smartphone, Info, ChevronDown
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
+import { useErpNavigation } from '../hooks/useErpNavigation';
 import { listPessoasResumo } from '../services/pessoaService';
 import { listProdutos, TIPO_LABEL } from '../services/produtoService';
 import { formatFormaPagamentoLabel, listFormasPagamento, opcoesParcelasPorForma } from '../services/formaPagamentoService';
 import { getLojaConfig, permiteVendaSemEstoque } from '../services/lojaConfigService';
 import { createVenda, STATUS_UI_TO_DB } from '../services/vendaService';
+import { getOrcamentoById, buildPdvPreloadFromOrcamento } from '../services/orcamentoService';
 import { formatCpfCnpj, formatBRL } from '../utils/formatters';
 import CurrencyInput from './CurrencyInput';
 import {
@@ -108,8 +110,10 @@ const SelectPesquisavel = ({ opcoes, valorSelecionado, aoMudar, placeholder }) =
 // ============================================================================
 // TELA PRINCIPAL: VENDA FORM
 // ============================================================================
-const VendaForm = ({ aoVoltar }) => {
+const VendaForm = ({ dadosNavegacao }) => {
+  const { irParaListagemVendas } = useErpNavigation();
   const { lojaAtivaId, perfil } = useLoja();
+  const orcamentoIdPreload = dadosNavegacao?.orcamentoId ?? null;
 
   // ==========================================
   // ESTADOS GERAIS E CADASTROS
@@ -201,6 +205,8 @@ const VendaForm = ({ aoVoltar }) => {
   const acaoAvisoRef = useRef(null);
 
   const [pagamentos, setPagamentos] = useState([criarLinhaPagamento()]);
+  const [orcamentoOrigemId, setOrcamentoOrigemId] = useState(orcamentoIdPreload);
+  const [preloadOrcamentoFeito, setPreloadOrcamentoFeito] = useState(false);
 
   const carregarDados = useCallback(async () => {
     if (!lojaAtivaId) return;
@@ -229,6 +235,57 @@ const VendaForm = ({ aoVoltar }) => {
   useEffect(() => {
     carregarDados();
   }, [carregarDados]);
+
+  useEffect(() => {
+    if (!lojaAtivaId || !orcamentoIdPreload || preloadOrcamentoFeito || !formasPagamento.length) {
+      return;
+    }
+
+    let cancelado = false;
+
+    (async () => {
+      const { data, error } = await getOrcamentoById(lojaAtivaId, orcamentoIdPreload);
+
+      if (cancelado) return;
+
+      if (error || !data) {
+        mostrarAviso('Orçamento', error?.message ?? 'Não foi possível carregar o orçamento.', 'erro');
+        setPreloadOrcamentoFeito(true);
+        return;
+      }
+
+      const preload = buildPdvPreloadFromOrcamento(data, formasPagamento);
+
+      if (preload.clienteId) {
+        setClienteId(preload.clienteId);
+        const pessoa = clientes.find((c) => c.id === preload.clienteId);
+        if (pessoa) {
+          const label = pessoa.cpf_cnpj
+            ? `${pessoa.nome} - ${formatCpfCnpj(pessoa.cpf_cnpj)}`
+            : pessoa.nome;
+          setClienteLabel(label);
+        } else if (data.cliente?.nome) {
+          setClienteLabel(data.cliente.nome);
+        }
+      }
+
+      setCarrinho(preload.carrinho);
+      setDescontoGlobal(preload.descontoGlobal);
+      setPagamentos(preload.pagamentos);
+      setOrcamentoOrigemId(preload.orcamentoId);
+      setPreloadOrcamentoFeito(true);
+
+      mostrarAviso(
+        'Orçamento carregado',
+        `Itens do orçamento #${data.codigo} foram transferidos para o PDV. Revise pagamentos e finalize a venda.`,
+        'info'
+      );
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [lojaAtivaId, orcamentoIdPreload, preloadOrcamentoFeito, formasPagamento, clientes]);
 
   const produtosDisponiveis = useMemo(() => {
     return (produtos ?? []).map((produto) => ({
@@ -444,6 +501,7 @@ const VendaForm = ({ aoVoltar }) => {
         itens: carrinho,
         pagamentos,
         descontoGlobal,
+        orcamentoId: orcamentoOrigemId,
       },
       perfil?.id
     );
@@ -457,12 +515,7 @@ const VendaForm = ({ aoVoltar }) => {
       ? 'Pré-venda registrada. O estoque será baixado ao concluir.'
       : 'A venda foi finalizada e salva com sucesso.';
 
-    if (typeof aoVoltar === 'function') {
-      aoVoltar({ mensagemSucesso });
-      return;
-    }
-
-    mostrarAviso('Sucesso!', mensagemSucesso, 'sucesso');
+    irParaListagemVendas({ mensagemSucesso });
   };
 
   useEffect(() => {
@@ -497,7 +550,7 @@ const VendaForm = ({ aoVoltar }) => {
       
       <div style={styles.header}>
         <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-          <button onClick={aoVoltar} style={styles.btnBack}>
+          <button type="button" onClick={() => irParaListagemVendas()} style={styles.btnBack}>
             <ArrowLeft size={16} /> Voltar
           </button>
           <h2 style={{color: '#fff', fontSize: '18px', margin: 0}}>Nova Venda - PDV</h2>

@@ -37,8 +37,10 @@ const ROUTE_TO_TELA = Object.fromEntries(
   Object.entries(TELA_ROUTES).map(([tela, rota]) => [rota, tela])
 );
 
+const normalizePath = (pathname) => pathname.replace(/\/+$/, '') || '/';
+
 export const pathToTela = (pathname) =>
-  ROUTE_TO_TELA[pathname] ?? 'listagem';
+  ROUTE_TO_TELA[normalizePath(pathname)] ?? 'listagem';
 
 export const telaToPath = (tela) =>
   TELA_ROUTES[tela] ?? TELA_ROUTES.listagem;

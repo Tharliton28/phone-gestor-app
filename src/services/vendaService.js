@@ -10,6 +10,7 @@ import {
 import { getLojaConfig, permiteVendaSemEstoque } from './lojaConfigService';
 import { registrarMovimentacao } from './movimentacaoService';
 import { gerarReceitasVenda, cancelarReceitasVenda } from './financeiroService';
+import { marcarOrcamentoConvertido } from './orcamentoService';
 
 export const STATUS_LABEL = {
   concluido: 'Concluído',
@@ -216,6 +217,10 @@ async function createVendaLegacy(lojaId, payload, operadorId) {
     }
   }
 
+  if (payload.orcamentoId) {
+    await marcarOrcamentoConvertido(lojaId, payload.orcamentoId, venda.id);
+  }
+
   return { data: { ...venda, valor_troco: valorTroco }, error: null };
 }
 
@@ -313,6 +318,10 @@ export async function createVenda(lojaId, payload, operadorId) {
     }
 
     return { data: null, error: new Error(error.message ?? 'Não foi possível finalizar a venda.') };
+  }
+
+  if (payload.orcamentoId && data?.id) {
+    await marcarOrcamentoConvertido(lojaId, payload.orcamentoId, data.id);
   }
 
   return {

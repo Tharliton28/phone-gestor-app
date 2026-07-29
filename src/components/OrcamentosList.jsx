@@ -1,31 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Plus, Eraser, Download, Settings, ChevronDown, 
   Edit, FileText, Trash2, Search, FileSpreadsheet, 
-  TableProperties, ChevronLeft, ChevronRight, CheckCircle, Clock, XCircle, AlertCircle
+  TableProperties, ChevronLeft, ChevronRight, CheckCircle, Clock, XCircle, AlertCircle, RefreshCw
 } from 'lucide-react';
+import { useLoja } from '../contexts/LojaContext';
+import { formatBRL } from '../utils/formatters';
+import {
+  aprovarOrcamento,
+  excluirOrcamento,
+  listOrcamentos,
+  mapOrcamentoRow,
+  rejeitarOrcamento,
+} from '../services/orcamentoService';
 
 const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
+  const { lojaAtivaId } = useLoja();
   const [menuAberto, setMenuAberto] = useState(null);
   const [menuExportarAberto, setMenuExportarAberto] = useState(false);
   const [paginaAtual, setPaginaAtual] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState(null);
+  const [processando, setProcessando] = useState(false);
   
-  // Filtros
   const [filtros, setFiltros] = useState({
     codigo: '', cliente: '', vendedor: 'Todos', data: '', validade: '', status: 'Todos'
   });
 
-  // Estados para os Modais Customizados
   const [modalExcluirAberto, setModalExcluirAberto] = useState({ aberto: false, id: null });
   const [modalAprovarAberto, setModalAprovarAberto] = useState({ aberto: false, id: null });
   const [modalRejeitarAberto, setModalRejeitarAberto] = useState({ aberto: false, id: null });
 
-  const [orcamentos, setOrcamentos] = useState([
-    { cod: '9001', cliente: 'CARLOS EDUARDO', vendedor: 'Wesley de Sousa', data: '08/07/2026', validade: '15/07/2026', valor: '4.500,00', status: 'Pendente' },
-    { cod: '9002', cliente: 'MARIA JOAQUINA', vendedor: 'Wesley de Sousa', data: '07/07/2026', validade: '10/07/2026', valor: '350,00', status: 'Aprovado' },
-    { cod: '9003', cliente: 'EMPRESA XPTO LTDA', vendedor: 'Wesley de Sousa', data: '05/07/2026', validade: '12/07/2026', valor: '1.850,00', status: 'Rejeitado' },
-    { cod: '9004', cliente: 'FERNANDO SILVA', vendedor: 'Wesley de Sousa', data: '01/07/2026', validade: '05/07/2026', valor: '120,00', status: 'Aprovado' },
-  ]);
+  const [orcamentos, setOrcamentos] = useState([]);
+
+  const carregar = useCallback(async () => {
+    if (!lojaAtivaId) return;
+
+    setLoading(true);
+    setErro(null);
+
+    const { data, error } = await listOrcamentos(lojaAtivaId);
+
+    if (error) {
+      setErro(error.message ?? 'Erro ao carregar orçamentos.');
+      setOrcamentos([]);
+    } else {
+      setOrcamentos((data ?? []).map(mapOrcamentoRow));
+    }
+
+    setLoading(false);
+  }, [lojaAtivaId]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  const vendedoresUnicos = useMemo(() => {
+    const nomes = [...new Set(orcamentos.map((o) => o.vendedor).filter(Boolean))];
+    return nomes.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [orcamentos]);
 
   useEffect(() => {
     const handleClickFora = () => { setMenuAberto(null); setMenuExportarAberto(false); };
@@ -45,22 +78,54 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
     setMenuAberto(null);
   };
 
-  // Funções de Ação dos Modais
-  const confirmarExclusao = () => {
-    setOrcamentos(orcamentos.filter(o => o.cod !== modalExcluirAberto.id));
+  const confirmarExclusao = async () => {
+    if (!lojaAtivaId || !modalExcluirAberto.id) return;
+
+    setProcessando(true);
+    const { error } = await excluirOrcamento(lojaAtivaId, modalExcluirAberto.id);
+    setProcessando(false);
     setModalExcluirAberto({ aberto: false, id: null });
+
+    if (error) {
+      setErro(error.message ?? 'Não foi possível excluir o orçamento.');
+      return;
+    }
+
+    await carregar();
   };
 
-  const confirmarRejeicao = () => {
-    setOrcamentos(orcamentos.map(o => o.cod === modalRejeitarAberto.id ? { ...o, status: 'Rejeitado' } : o));
+  const confirmarRejeicao = async () => {
+    if (!lojaAtivaId || !modalRejeitarAberto.id) return;
+
+    setProcessando(true);
+    const { error } = await rejeitarOrcamento(lojaAtivaId, modalRejeitarAberto.id);
+    setProcessando(false);
     setModalRejeitarAberto({ aberto: false, id: null });
+
+    if (error) {
+      setErro(error.message ?? 'Não foi possível rejeitar o orçamento.');
+      return;
+    }
+
+    await carregar();
   };
 
-  const confirmarAprovacao = () => {
-    setOrcamentos(orcamentos.map(o => o.cod === modalAprovarAberto.id ? { ...o, status: 'Aprovado' } : o));
+  const confirmarAprovacao = async () => {
+    if (!lojaAtivaId || !modalAprovarAberto.id) return;
+
+    const orcamentoId = modalAprovarAberto.id;
+    setProcessando(true);
+    const { error } = await aprovarOrcamento(lojaAtivaId, orcamentoId);
+    setProcessando(false);
     setModalAprovarAberto({ aberto: false, id: null });
+
+    if (error) {
+      setErro(error.message ?? 'Não foi possível aprovar o orçamento.');
+      return;
+    }
+
     if (aoMudarTela) {
-      aoMudarTela('nova-venda'); // Envia para o PDV
+      aoMudarTela('nova-venda', 'orcamentos', { orcamentoId });
     }
   };
 
@@ -71,18 +136,17 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   // Função para abrir o PDF (redireciona para o formulário no modo impressão)
   const handleGerarPdf = (orc) => {
     setMenuAberto(null);
-    if(aoMudarTela) {
-        // Envia o orçamento selecionado e uma flag para abrir o modal de impressão diretamente
-        aoMudarTela('novo-orcamento', 'orcamentos', { orcamentoSelecionado: orc, autoImprimir: true });
+    if (aoMudarTela) {
+      aoMudarTela('novo-orcamento', 'orcamentos', { orcamentoId: orc.id, autoImprimir: true });
     }
   };
 
   const orcamentosFiltrados = orcamentos.filter(orc => {
-    const matchCodigo = orc.cod.includes(filtros.codigo);
+    const matchCodigo = String(orc.cod).includes(filtros.codigo);
     const matchCliente = orc.cliente.toLowerCase().includes(filtros.cliente.toLowerCase());
     const matchVendedor = filtros.vendedor === 'Todos' || orc.vendedor === filtros.vendedor;
-    const matchData = filtros.data === '' || orc.data === filtros.data.split('-').reverse().join('/');
-    const matchValidade = filtros.validade === '' || orc.validade === filtros.validade.split('-').reverse().join('/');
+    const matchData = filtros.data === '' || orc.dataIso === filtros.data;
+    const matchValidade = filtros.validade === '' || orc.validadeIso === filtros.validade;
     const matchStatus = filtros.status === 'Todos' || orc.status === filtros.status;
 
     return matchCodigo && matchCliente && matchVendedor && matchData && matchValidade && matchStatus;
@@ -98,6 +162,9 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
           </button>
         </div>
         <div style={styles.rightActions}>
+          <button style={styles.btnOutline} onClick={carregar} disabled={loading}>
+            <RefreshCw size={14} /> Atualizar
+          </button>
           <button style={styles.btnDangerOutline} onClick={limparFiltros}>
             <Eraser size={14} /> Limpar filtros
           </button>
@@ -122,6 +189,10 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
           </div>
         </div>
       </div>
+
+      {erro && (
+        <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px' }}>{erro}</div>
+      )}
 
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
@@ -165,7 +236,9 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                   onChange={(e) => setFiltros({...filtros, vendedor: e.target.value})}
                 >
                   <option>Todos</option>
-                  <option>Wesley de Sousa</option>
+                  {vendedoresUnicos.map((nome) => (
+                    <option key={nome}>{nome}</option>
+                  ))}
                 </select>
               </td>
               <td style={styles.tdFilter}>
@@ -195,22 +268,31 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                   <option>Pendente</option>
                   <option>Aprovado</option>
                   <option>Rejeitado</option>
+                  <option>Convertido</option>
                 </select>
               </td>
               <td style={styles.tdFilter}></td>
             </tr>
           </thead>
           <tbody>
-            {orcamentosFiltrados.map((orc, index) => (
-              <tr key={orc.cod} style={styles.tr}>
+            {loading && (
+              <tr>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: '#64748b', fontSize: '13px' }}>
+                  Carregando orçamentos...
+                </td>
+              </tr>
+            )}
+            {!loading && orcamentosFiltrados.map((orc, index) => (
+              <tr key={orc.id} style={styles.tr}>
                 <td style={{...styles.td, color: '#e2e8f0'}}>{orc.cod}</td>
                 <td style={{...styles.td, fontWeight: 'bold', color: '#e2e8f0'}} title={orc.cliente}>{orc.cliente}</td>
                 <td style={styles.td} title={orc.vendedor}>{orc.vendedor}</td>
                 <td style={styles.td}>{orc.data}</td>
                 <td style={styles.td}>{orc.validade}</td>
-                <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>{orc.valor}</td>
+                <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>{formatBRL(orc.valor)}</td>
                 <td style={styles.td}>
                   {orc.status === 'Aprovado' && <span style={styles.badgeVerde}>{orc.status}</span>}
+                  {orc.status === 'Convertido' && <span style={styles.badgeVerde}>{orc.status}</span>}
                   {orc.status === 'Pendente' && <span style={styles.badgeAmarelo}><Clock size={10} style={{marginRight: '4px'}}/> {orc.status}</span>}
                   {orc.status === 'Rejeitado' && <span style={styles.badgeVermelho}>{orc.status}</span>}
                 </td>
@@ -224,9 +306,15 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                     {menuAberto === index && (
                       <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
                         
-                        <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); if(aoMudarTela) { aoMudarTela('novo-orcamento', 'orcamentos', { orcamentoSelecionado: orc }); } else { aoClicarEmCadastrar(); } }}>
+                        <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); if(aoMudarTela) { aoMudarTela('novo-orcamento', 'orcamentos', { orcamentoId: orc.id }); } else { aoClicarEmCadastrar(); } }}>
                           <Edit size={14} color="#94a3b8" /> Editar Orçamento
                         </div>
+
+                        {orc.status === 'Aprovado' && (
+                          <div style={{...styles.dropdownItem, color: '#4ade80'}} onClick={() => { setMenuAberto(null); if (aoMudarTela) aoMudarTela('nova-venda', 'orcamentos', { orcamentoId: orc.id }); }}>
+                            <CheckCircle size={14} color="#4ade80" /> Gerar Venda (PDV)
+                          </div>
+                        )}
                         
                         <div style={styles.dropdownItem} onClick={() => handleGerarPdf(orc)}>
                           <FileText size={14} color="#38bdf8" /> Gerar PDF / Imprimir
@@ -235,18 +323,20 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                         {/* Renderização Condicional baseada no status DESTE orçamento específico */}
                         {orc.status === 'Pendente' && (
                           <>
-                            <div style={{...styles.dropdownItem, color: '#4ade80', borderTop: '1px solid #1f2233', paddingTop: '8px', marginTop: '4px'}} onClick={() => { setMenuAberto(null); setModalAprovarAberto({ aberto: true, id: orc.cod }); }}>
+                            <div style={{...styles.dropdownItem, color: '#4ade80', borderTop: '1px solid #1f2233', paddingTop: '8px', marginTop: '4px'}} onClick={() => { setMenuAberto(null); setModalAprovarAberto({ aberto: true, id: orc.id }); }}>
                               <CheckCircle size={14} color="#4ade80" /> Aprovar (Gerar Venda)
                             </div>
-                            <div style={{...styles.dropdownItem, color: '#ef4444'}} onClick={() => { setMenuAberto(null); setModalRejeitarAberto({ aberto: true, id: orc.cod }); }}>
+                            <div style={{...styles.dropdownItem, color: '#ef4444'}} onClick={() => { setMenuAberto(null); setModalRejeitarAberto({ aberto: true, id: orc.id }); }}>
                               <XCircle size={14} color="#ef4444" /> Rejeitar Orçamento
                             </div>
                           </>
                         )}
 
-                        <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', paddingTop: '8px', marginTop: '4px'}} onClick={() => { setMenuAberto(null); setModalExcluirAberto({ aberto: true, id: orc.cod }); }}>
-                          <Trash2 size={14} color="#ef4444" /> Excluir Registro
-                        </div>
+                        {(orc.status === 'Pendente' || orc.status === 'Rejeitado') && (
+                          <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', paddingTop: '8px', marginTop: '4px'}} onClick={() => { setMenuAberto(null); setModalExcluirAberto({ aberto: true, id: orc.id }); }}>
+                            <Trash2 size={14} color="#ef4444" /> Excluir Registro
+                          </div>
+                        )}
                         
                       </div>
                     )}
@@ -254,7 +344,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                 </td>
               </tr>
             ))}
-            {orcamentosFiltrados.length === 0 && (
+            {!loading && orcamentosFiltrados.length === 0 && (
               <tr>
                 <td colSpan="8" style={{textAlign: 'center', padding: '30px', color: '#64748b', fontSize: '13px'}}>
                   Nenhum registro encontrado
@@ -289,7 +379,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
           <div style={styles.modalContentSmall}>
             <div style={styles.modalHeader}>
               <h3 style={{margin: 0, color: '#fff', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                <CheckCircle size={18} color="#4ade80" /> Aprovar Orçamento #{modalAprovarAberto.id}
+                <CheckCircle size={18} color="#4ade80" /> Aprovar Orçamento
               </h3>
             </div>
             <div style={{padding: '20px 0'}}>
@@ -299,7 +389,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             </div>
             <div style={styles.modalFooter}>
               <button style={styles.btnCancel} onClick={() => setModalAprovarAberto({aberto: false, id: null})}>Cancelar</button>
-              <button style={{...styles.btnSaveModal, backgroundColor: '#22c55e', color: '#0f111a'}} onClick={confirmarAprovacao}>Sim, Gerar Venda</button>
+              <button style={{...styles.btnSaveModal, backgroundColor: '#22c55e', color: '#0f111a'}} onClick={confirmarAprovacao} disabled={processando}>Sim, Gerar Venda</button>
             </div>
           </div>
         </div>
@@ -311,7 +401,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
           <div style={styles.modalContentSmall}>
             <div style={styles.modalHeader}>
               <h3 style={{margin: 0, color: '#fff', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                <XCircle size={18} color="#ef4444" /> Rejeitar Orçamento #{modalRejeitarAberto.id}
+                <XCircle size={18} color="#ef4444" /> Rejeitar Orçamento
               </h3>
             </div>
             <div style={{padding: '20px 0'}}>
@@ -321,7 +411,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             </div>
             <div style={styles.modalFooter}>
               <button style={styles.btnCancel} onClick={() => setModalRejeitarAberto({aberto: false, id: null})}>Cancelar</button>
-              <button style={{...styles.btnSaveModal, backgroundColor: '#ef4444'}} onClick={confirmarRejeicao}>Sim, Rejeitar</button>
+              <button style={{...styles.btnSaveModal, backgroundColor: '#ef4444'}} onClick={confirmarRejeicao} disabled={processando}>Sim, Rejeitar</button>
             </div>
           </div>
         </div>
@@ -338,12 +428,12 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             </div>
             <div style={{padding: '20px 0'}}>
               <p style={{color: '#94a3b8', fontSize: '14px', margin: 0}}>
-                Tem certeza que deseja excluir permanentemente o orçamento <strong>#{modalExcluirAberto.id}</strong>? Esta ação não pode ser desfeita.
+                Tem certeza que deseja excluir permanentemente este orçamento? Esta ação não pode ser desfeita.
               </p>
             </div>
             <div style={styles.modalFooter}>
               <button style={styles.btnCancel} onClick={() => setModalExcluirAberto({aberto: false, id: null})}>Cancelar</button>
-              <button style={{...styles.btnSaveModal, backgroundColor: '#ef4444'}} onClick={confirmarExclusao}>Sim, Excluir</button>
+              <button style={{...styles.btnSaveModal, backgroundColor: '#ef4444'}} onClick={confirmarExclusao} disabled={processando}>Sim, Excluir</button>
             </div>
           </div>
         </div>

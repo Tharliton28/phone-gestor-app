@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building, ShoppingCart, Package, DollarSign, FileText, 
   BarChart2, Save, UploadCloud, ToggleRight, ToggleLeft,
-  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff
+  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff, RotateCcw
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 import { useLoja } from '../contexts/LojaContext';
@@ -11,6 +11,20 @@ import {
   mapConfigToToggles,
   updateLojaConfigToggles,
 } from '../services/lojaConfigService';
+import {
+  cloneDefaultTaxas,
+  listTaxasCreditoParcela,
+  saveTaxasCreditoParcela,
+} from '../services/taxaCreditoService';
+import {
+  createFormaPagamento,
+  desativarFormaPagamento,
+  listFormasPagamentoAdmin,
+  mapFormaPagamentoToUI,
+  reativarFormaPagamento,
+  TIPOS_FORMA_UI,
+  updateFormaPagamento,
+} from '../services/formaPagamentoService';
 
 // --- COMPONENTE REUTILIZÁVEL PARA GERENCIAR LISTAS (TAGS) ---
 const GerenciadorLista = ({ titulo, descricao, itens, aoAdicionar, aoRemover, placeholder }) => {
@@ -70,17 +84,17 @@ const Configuracoes = () => {
     resumoEmail: true
   });
 
-  const [formasPagamento, setFormasPagamento] = useState([
-    { id: 1, nome: 'PIX', tipo: 'PIX', taxa: '0.00', prazo: 'Imediato', ativo: true },
-    { id: 2, nome: 'Dinheiro', tipo: 'Dinheiro', taxa: '0.00', prazo: 'Imediato', ativo: true },
-    { id: 3, nome: 'Crédito à Vista (Stone)', tipo: 'Crédito', taxa: '3.49', prazo: '1 dia (D+1)', ativo: true },
-    { id: 4, nome: 'Crédito Parcelado 12x (Stone)', tipo: 'Crédito', taxa: '12.99', prazo: '1 dia (D+1)', ativo: true },
-    { id: 5, nome: 'Débito (PagSeguro)', tipo: 'Débito', taxa: '1.99', prazo: 'Na hora', ativo: true },
-    { id: 6, nome: 'Boleto Bancário (Cora)', tipo: 'Boleto', taxa: '2.50', prazo: 'D+2 após pago', ativo: true },
-  ]);
+  const [formasPagamento, setFormasPagamento] = useState([]);
+  const [carregandoFormas, setCarregandoFormas] = useState(false);
+  const [salvandoPagamento, setSalvandoPagamento] = useState(false);
 
   const [modalPagamentoAberto, setModalPagamentoAberto] = useState(false);
-  const [formDataPagamento, setFormDataPagamento] = useState({ id: null, nome: '', tipo: 'Crédito', taxa: '', prazo: 'Imediato', ativo: true });
+  const [formDataPagamento, setFormDataPagamento] = useState({
+    id: null, nome: '', tipo: 'Crédito', taxa: '', prazo: 'Imediato', ativo: true, isSistema: false,
+  });
+
+  const [taxasCredito, setTaxasCredito] = useState(cloneDefaultTaxas());
+  const [salvandoTaxas, setSalvandoTaxas] = useState(false);
 
   // === ESTADOS DOS DOCUMENTOS ===
   const [termoGarantia, setTermoGarantia] = useState(`TERMO DE GARANTIA E CONDIÇÕES DE COMPRA\n\nCláusula 1ª: O comprador [NOME_CLIENTE], inscrito sob o CPF [CPF_CLIENTE], está adquirindo o produto descrito acima em plenas condições de uso, mediante valor e forma de pagamento ajustados com a empresa [NOME_EMPRESA].\n\nCláusula 2ª: Por tratar-se de um aparelho seminovo, todas as informações foram repassadas pelo vendedor [NOME_VENDEDOR] na data [DATA_VENDA].\n\nCláusula 3ª (DO PRAZO): A garantia será de 90 dias para defeitos de fabricação (placa), contados a partir da data de recebimento do produto. A [NOME_EMPRESA] não garante a vedação contra água do aparelho.\n\nCláusula 4ª (PERDA DE GARANTIA): A garantia cessará imediatamente em caso de danos físicos, contato com líquidos, ou rompimento do selo de garantia.`);
@@ -95,12 +109,31 @@ const Configuracoes = () => {
       return;
     }
 
+    const carregarFormas = async () => {
+      setCarregandoFormas(true);
+      const { data, error } = await listFormasPagamentoAdmin(lojaAtivaId);
+
+      if (!error) {
+        setFormasPagamento((data ?? []).map(mapFormaPagamentoToUI));
+      }
+
+      setCarregandoFormas(false);
+    };
+
     const carregar = async () => {
       setCarregandoConfig(true);
-      const { data, error } = await getLojaConfig(lojaAtivaId);
+      const [configResult, taxasResult] = await Promise.all([
+        getLojaConfig(lojaAtivaId),
+        listTaxasCreditoParcela(lojaAtivaId),
+        carregarFormas(),
+      ]);
 
-      if (!error && data) {
-        setToggles(mapConfigToToggles(data));
+      if (!configResult.error && configResult.data) {
+        setToggles(mapConfigToToggles(configResult.data));
+      }
+
+      if (!taxasResult.error && taxasResult.data) {
+        setTaxasCredito(taxasResult.data);
       }
 
       setCarregandoConfig(false);
@@ -129,34 +162,156 @@ const Configuracoes = () => {
 
   const abrirModalPagamento = (forma = null) => {
     if (forma) {
-      setFormDataPagamento(forma); 
+      setFormDataPagamento(forma);
     } else {
-      setFormDataPagamento({ id: null, nome: '', tipo: 'Crédito', taxa: '', prazo: 'Imediato', ativo: true }); 
+      setFormDataPagamento({
+        id: null, nome: '', tipo: 'Crédito', taxa: '', prazo: 'Imediato', ativo: true, isSistema: false,
+      });
     }
     setModalPagamentoAberto(true);
   };
 
+  const recarregarFormas = async () => {
+    if (!lojaAtivaId) return;
+
+    setCarregandoFormas(true);
+    const { data, error } = await listFormasPagamentoAdmin(lojaAtivaId);
+
+    if (!error) {
+      setFormasPagamento((data ?? []).map(mapFormaPagamentoToUI));
+    }
+
+    setCarregandoFormas(false);
+  };
+
   const salvarPagamento = async () => {
-    if (!formDataPagamento.nome || !formDataPagamento.taxa) {
-      await alert('Preencha o nome e a taxa da forma de pagamento.', { type: 'warning', title: 'Campos obrigatórios' });
+    if (!lojaAtivaId) {
+      await alert('Nenhuma loja ativa selecionada.', { type: 'error', title: 'Erro' });
       return;
     }
 
-    if (formDataPagamento.id) {
-      setFormasPagamento(formasPagamento.map(f => f.id === formDataPagamento.id ? formDataPagamento : f));
-    } else {
-      setFormasPagamento([...formasPagamento, { ...formDataPagamento, id: Date.now() }]);
+    if (!formDataPagamento.nome?.trim()) {
+      await alert('Informe o nome da forma de pagamento.', { type: 'warning', title: 'Campos obrigatórios' });
+      return;
     }
+
+    if (!formDataPagamento.isSistema && (formDataPagamento.taxa === '' || formDataPagamento.taxa == null)) {
+      await alert('Informe a taxa da operadora.', { type: 'warning', title: 'Campos obrigatórios' });
+      return;
+    }
+
+    setSalvandoPagamento(true);
+
+    const { data, error } = formDataPagamento.id
+      ? await updateFormaPagamento(lojaAtivaId, formDataPagamento.id, formDataPagamento)
+      : await createFormaPagamento(lojaAtivaId, formDataPagamento);
+
+    setSalvandoPagamento(false);
+
+    if (error) {
+      await alert(error.message ?? 'Não foi possível salvar a forma de pagamento.', { type: 'error', title: 'Erro' });
+      return;
+    }
+
+    if (data) {
+      const mapped = mapFormaPagamentoToUI(data);
+      setFormasPagamento((prev) => {
+        const idx = prev.findIndex((f) => f.id === mapped.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = mapped;
+          return next;
+        }
+        return [...prev, mapped];
+      });
+    } else {
+      await recarregarFormas();
+    }
+
     setModalPagamentoAberto(false);
+    await alert('Forma de pagamento salva com sucesso!', { type: 'success', title: 'Sucesso' });
   };
 
-  const removerPagamento = async (id) => {
-    const confirmar = await confirm('Tem certeza que deseja remover esta forma de pagamento?', {
-      title: 'Remover forma de pagamento',
-    });
-    if (confirmar) {
-      setFormasPagamento(formasPagamento.filter(f => f.id !== id));
+  const removerPagamento = async (forma) => {
+    if (forma.isSistema) {
+      await alert('Esta forma é do sistema e não pode ser removida.', { type: 'warning', title: 'Ação não permitida' });
+      return;
     }
+
+    const confirmar = await confirm(
+      forma.ativo
+        ? 'Desativar esta forma de pagamento? Ela deixará de aparecer no PDV.'
+        : 'Esta forma já está inativa.',
+      { title: 'Desativar forma de pagamento' }
+    );
+
+    if (!confirmar || !forma.ativo) return;
+
+    const { error } = await desativarFormaPagamento(lojaAtivaId, forma.id);
+
+    if (error) {
+      await alert(error.message ?? 'Não foi possível desativar.', { type: 'error', title: 'Erro' });
+      return;
+    }
+
+    setFormasPagamento((prev) =>
+      prev.map((f) => (f.id === forma.id ? { ...f, ativo: false } : f))
+    );
+  };
+
+  const reativarPagamento = async (forma) => {
+    const { error } = await reativarFormaPagamento(lojaAtivaId, forma.id);
+
+    if (error) {
+      await alert(error.message ?? 'Não foi possível reativar.', { type: 'error', title: 'Erro' });
+      return;
+    }
+
+    setFormasPagamento((prev) =>
+      prev.map((f) => (f.id === forma.id ? { ...f, ativo: true } : f))
+    );
+  };
+
+  const atualizarTaxaParcela = (parcelas, valor) => {
+    const taxa = Number(String(valor).replace(',', '.'));
+    setTaxasCredito((prev) => ({
+      ...prev,
+      [parcelas]: Number.isFinite(taxa) ? Math.max(0, taxa) : 0,
+    }));
+  };
+
+  const restaurarTaxasPadrao = async () => {
+    const confirmar = await confirm(
+      'Restaurar as taxas padrão de crédito (1x a 12x)? As alterações não salvas serão perdidas.',
+      { title: 'Restaurar padrão' }
+    );
+    if (confirmar) {
+      setTaxasCredito(cloneDefaultTaxas());
+    }
+  };
+
+  const salvarTaxasCredito = async () => {
+    if (!lojaAtivaId) {
+      await alert('Nenhuma loja ativa selecionada.', { type: 'error', title: 'Erro' });
+      return;
+    }
+
+    setSalvandoTaxas(true);
+    const { error } = await saveTaxasCreditoParcela(lojaAtivaId, taxasCredito);
+    setSalvandoTaxas(false);
+
+    if (error) {
+      await alert(
+        error.message ?? 'Não foi possível salvar as taxas. Verifique se a migration 010 foi aplicada no Supabase.',
+        { type: 'error', title: 'Erro' }
+      );
+      return;
+    }
+
+    await alert('Taxas de crédito por parcela salvas! Orçamentos e PDV usarão estes valores.', {
+      type: 'success',
+      title: 'Sucesso',
+    });
   };
 
   const [listas, setListas] = useState({
@@ -456,29 +611,109 @@ const Configuracoes = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {formasPagamento.map((forma) => (
-                      <tr key={forma.id} style={styles.tr}>
+                    {carregandoFormas && (
+                      <tr>
+                        <td colSpan={6} style={{ ...styles.td, textAlign: 'center', color: '#94a3b8' }}>
+                          Carregando formas de pagamento...
+                        </td>
+                      </tr>
+                    )}
+                    {!carregandoFormas && formasPagamento.length === 0 && (
+                      <tr>
+                        <td colSpan={6} style={{ ...styles.td, textAlign: 'center', color: '#94a3b8' }}>
+                          Nenhuma forma cadastrada. Adicione maquininhas e taxas abaixo.
+                        </td>
+                      </tr>
+                    )}
+                    {!carregandoFormas && formasPagamento.map((forma) => (
+                      <tr key={forma.id} style={{ ...styles.tr, opacity: forma.ativo ? 1 : 0.55 }}>
                         <td style={{...styles.td, color: '#e2e8f0', fontWeight: 'bold'}}>
                           <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
                             <CreditCard size={14} color="#64748b" /> {forma.nome}
+                            {forma.isSistema && (
+                              <span style={styles.badgeSistema}>Sistema</span>
+                            )}
                           </div>
                         </td>
                         <td style={styles.td}>{forma.tipo}</td>
-                        <td style={{...styles.td, color: forma.taxa === '0.00' || forma.taxa === '0' ? '#4ade80' : '#fbbf24', fontWeight: 'bold'}}>
+                        <td style={{...styles.td, color: forma.taxa === '0' || forma.taxa === '0.00' ? '#4ade80' : '#fbbf24', fontWeight: 'bold'}}>
                           {forma.taxa}%
                         </td>
-                        <td style={styles.td}>{forma.prazo}</td>
+                        <td style={styles.td}>{forma.prazo || '—'}</td>
                         <td style={styles.td}>
-                          <span style={styles.badgeSuccess}>Ativo</span>
+                          {forma.ativo ? (
+                            <span style={styles.badgeSuccess}>Ativo</span>
+                          ) : (
+                            <span style={styles.badgeInactive}>Inativo</span>
+                          )}
                         </td>
                         <td style={{...styles.td, textAlign: 'center'}}>
-                          <button style={styles.iconBtn} onClick={() => abrirModalPagamento(forma)}><Edit size={14} /></button>
-                          <button style={{...styles.iconBtn, color: '#ef4444'}} onClick={() => removerPagamento(forma.id)}><Trash2 size={14} /></button>
+                          <button style={styles.iconBtn} onClick={() => abrirModalPagamento(forma)} title="Editar">
+                            <Edit size={14} />
+                          </button>
+                          {forma.ativo ? (
+                            !forma.isSistema && (
+                              <button
+                                style={{...styles.iconBtn, color: '#ef4444'}}
+                                onClick={() => removerPagamento(forma)}
+                                title="Desativar"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )
+                          ) : (
+                            <button
+                              style={{...styles.iconBtn, color: '#4ade80'}}
+                              onClick={() => reativarPagamento(forma)}
+                              title="Reativar"
+                            >
+                              <RotateCcw size={14} />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              <h3 style={{...styles.sectionTitle, marginTop: '40px'}}>Taxas de Crédito por Parcela</h3>
+              <p style={{color: '#94a3b8', fontSize: '13px', marginBottom: '16px', lineHeight: '1.5'}}>
+                Usadas no <strong>simulador de orçamento</strong> e na conversão para o PDV.
+                Informe a taxa da maquininha/adquirente para cada quantidade de parcelas (repasse ao cliente).
+              </p>
+
+              <div style={styles.tableWrapper}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '10px' }}>
+                  <button style={styles.btnOutline} type="button" onClick={restaurarTaxasPadrao}>
+                    Restaurar padrão
+                  </button>
+                  <button style={styles.btnAction} type="button" onClick={salvarTaxasCredito} disabled={salvandoTaxas}>
+                    <Save size={14} /> {salvandoTaxas ? 'Salvando...' : 'Salvar Taxas de Crédito'}
+                  </button>
+                </div>
+
+                <div style={styles.taxasGrid}>
+                  {Array.from({ length: 12 }, (_, index) => {
+                    const parcelas = index + 1;
+                    return (
+                      <div key={parcelas} style={styles.taxaCard}>
+                        <label style={styles.taxaLabel}>{parcelas}x</label>
+                        <div style={styles.taxaInputWrap}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            style={styles.taxaInput}
+                            value={taxasCredito[parcelas] ?? 0}
+                            onChange={(e) => atualizarTaxaParcela(parcelas, e.target.value)}
+                          />
+                          <span style={styles.taxaSuffix}>%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <h3 style={{...styles.sectionTitle, marginTop: '40px'}}>Regras e Categorias Financeiras</h3>
@@ -661,13 +896,12 @@ const Configuracoes = () => {
                 <select 
                   style={styles.input}
                   value={formDataPagamento.tipo}
+                  disabled={formDataPagamento.isSistema}
                   onChange={(e) => setFormDataPagamento({...formDataPagamento, tipo: e.target.value})}
                 >
-                  <option value="Crédito">Cartão de Crédito</option>
-                  <option value="Débito">Cartão de Débito</option>
-                  <option value="PIX">PIX</option>
-                  <option value="Dinheiro">Dinheiro Físico</option>
-                  <option value="Boleto">Boleto Bancário</option>
+                  {TIPOS_FORMA_UI.map((tipo) => (
+                    <option key={tipo} value={tipo}>{tipo}</option>
+                  ))}
                 </select>
               </div>
               <div style={styles.inputGroup}>
@@ -676,6 +910,7 @@ const Configuracoes = () => {
                   style={styles.input} 
                   type="number"
                   placeholder="Ex: 3.49"
+                  disabled={formDataPagamento.isSistema}
                   value={formDataPagamento.taxa}
                   onChange={(e) => setFormDataPagamento({...formDataPagamento, taxa: e.target.value})}
                 />
@@ -689,11 +924,31 @@ const Configuracoes = () => {
                   onChange={(e) => setFormDataPagamento({...formDataPagamento, prazo: e.target.value})}
                 />
               </div>
+              {formDataPagamento.id && !formDataPagamento.isSistema && (
+                <div style={{ ...styles.inputGroup, gridColumn: '1 / -1' }}>
+                  <label style={{ ...styles.label, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={formDataPagamento.ativo !== false}
+                      onChange={(e) => setFormDataPagamento({ ...formDataPagamento, ativo: e.target.checked })}
+                    />
+                    Forma ativa (visível no PDV)
+                  </label>
+                </div>
+              )}
             </div>
+
+            {formDataPagamento.isSistema && (
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginTop: '12px' }}>
+                Forma reservada do sistema — apenas o nome e prazo podem ser ajustados.
+              </p>
+            )}
 
             <div style={styles.modalFooter}>
               <button style={styles.btnCancel} onClick={() => setModalPagamentoAberto(false)}>Cancelar</button>
-              <button style={styles.btnSaveModal} onClick={salvarPagamento}>Salvar Forma de Pagamento</button>
+              <button style={styles.btnSaveModal} onClick={salvarPagamento} disabled={salvandoPagamento}>
+                {salvandoPagamento ? 'Salvando...' : 'Salvar Forma de Pagamento'}
+              </button>
             </div>
           </div>
         </div>
@@ -760,7 +1015,16 @@ const styles = {
   td: { padding: '12px 10px', color: '#94a3b8', fontSize: '12px', borderBottom: '1px solid #1f2233' },
   tr: { transition: '0.2s' },
   badgeSuccess: { backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#4ade80', padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' },
+  badgeInactive: { backgroundColor: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8', padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' },
+  badgeSistema: { backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', padding: '2px 6px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold' },
   btnAction: { backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
+  btnOutline: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '6px 12px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' },
+  taxasGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '12px' },
+  taxaCard: { backgroundColor: '#0b0c10', border: '1px solid #2a2e3f', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' },
+  taxaLabel: { color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' },
+  taxaInputWrap: { display: 'flex', alignItems: 'center', gap: '6px' },
+  taxaInput: { flex: 1, backgroundColor: '#161925', border: '1px solid #2a2e3f', borderRadius: '4px', padding: '8px 10px', color: '#fff', fontSize: '13px', outline: 'none', width: '100%' },
+  taxaSuffix: { color: '#64748b', fontSize: '12px', fontWeight: 'bold' },
   iconBtn: { backgroundColor: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' },
 
   /* Estilos do Modal */

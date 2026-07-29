@@ -24,11 +24,26 @@ export function useErpNavigation() {
   };
 
   const voltarTelaAnterior = (fallback = 'listagem') => {
-    if (telaOrigem) {
-      navigate(telaToPath(telaOrigem));
+    const destino =
+      telaOrigem && telaOrigem !== telaAtiva ? telaOrigem : fallback;
+    const path = telaToPath(destino);
+    const pathAtual = location.pathname.replace(/\/+$/, '') || '/';
+
+    if (path === pathAtual) {
+      navigate(telaToPath(fallback));
       return;
     }
-    navigate(telaToPath(fallback));
+
+    navigate(path);
+  };
+
+  const irParaListagemVendas = (dados = null) => {
+    navigate(telaToPath('listagem'), {
+      replace: true,
+      state: dados
+        ? { dadosNavegacao: dados, telaOrigem: 'nova-venda' }
+        : { dadosNavegacao: null, telaOrigem: 'listagem' },
+    });
   };
 
   return {
@@ -37,5 +52,6 @@ export function useErpNavigation() {
     telaOrigem,
     mudarTela,
     voltarTelaAnterior,
+    irParaListagemVendas,
   };
 }

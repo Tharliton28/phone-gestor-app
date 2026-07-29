@@ -75,7 +75,7 @@ export default function ErpContent() {
             <span style={{ color: '#3b82f6' }}>Venda</span> {'>'} Listagem de Vendas {'>'} Nova
             Venda / Edição
           </div>
-          <VendaForm aoVoltar={(opts) => mudarTela('listagem', 'nova-venda', opts)} />
+          <VendaForm dadosNavegacao={dadosNavegacao} />
         </>
       );
 
