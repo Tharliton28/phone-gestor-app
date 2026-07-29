@@ -90,13 +90,29 @@ export async function listOrdensServico(lojaId) {
     .select(
       `
       id, codigo, aparelho_modelo, relato_cliente, status,
-      valor_total, data_entrada, data_previsao, created_at,
+      valor_total, data_entrada, data_previsao, data_finalizacao, created_at, updated_at,
       cliente:pessoas!ordens_servico_cliente_id_fkey (id, nome, telefone),
       tecnico:pessoas!ordens_servico_tecnico_id_fkey (id, nome)
     `
     )
     .eq('loja_id', lojaId)
     .order('created_at', { ascending: false });
+}
+
+export async function listOrdensServicoHistorico(lojaId) {
+  return supabase
+    .from('ordens_servico')
+    .select(
+      `
+      id, codigo, aparelho_modelo, relato_cliente, status,
+      valor_total, data_entrada, data_previsao, data_finalizacao, created_at, updated_at,
+      cliente:pessoas!ordens_servico_cliente_id_fkey (id, nome, telefone),
+      tecnico:pessoas!ordens_servico_tecnico_id_fkey (id, nome)
+    `
+    )
+    .eq('loja_id', lojaId)
+    .in('status', ['finalizada', 'cancelada'])
+    .order('data_finalizacao', { ascending: false, nullsFirst: false });
 }
 
 export async function getOrdemServicoStats(lojaId) {

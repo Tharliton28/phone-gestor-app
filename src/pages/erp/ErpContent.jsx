@@ -17,6 +17,7 @@ import RupturaEstoque from '../../components/RupturaEstoque';
 import OSList from '../../components/OSList';
 import OSForm from '../../components/OSForm';
 import OSPainelTecnico from '../../components/OSPainelTecnico';
+import OSHistorico from '../../components/OSHistorico';
 import RecibosNotas from '../../components/RecibosNotas';
 import FinanceiroList from '../../components/FinanceiroList';
 import FinanceiroForm from '../../components/FinanceiroForm';
@@ -425,10 +426,7 @@ export default function ErpContent() {
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
             <span style={{ color: '#3b82f6' }}>Assistência Técnica</span> {'>'} Histórico / Finalizadas
           </div>
-          <ComingSoon
-            title="Histórico de OS"
-            description="Consulte ordens de serviço finalizadas e entregues, com filtros por período, cliente e técnico."
-          />
+          <OSHistorico aoMudarTela={mudarTela} />
         </>
       );
 
