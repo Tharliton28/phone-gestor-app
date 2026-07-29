@@ -13,6 +13,7 @@ import {
   mapOrcamentoRow,
   rejeitarOrcamento,
 } from '../services/orcamentoService';
+import { podeConverterOrcamento, podeEditarOrcamento, podeExcluirOrcamento, podeAprovarOrcamento } from '../domain/orcamentoStatus';
 
 const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const { lojaAtivaId } = useLoja();
@@ -126,6 +127,17 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
 
     if (aoMudarTela) {
       aoMudarTela('nova-venda', 'orcamentos', { orcamentoId });
+    }
+  };
+
+  const irParaPdv = (orc) => {
+    if (!podeConverterOrcamento(orc.statusDb, orc.validadeIso)) {
+      setErro('Este orçamento não pode ser convertido (expirado ou status inválido).');
+      return;
+    }
+    setMenuAberto(null);
+    if (aoMudarTela) {
+      aoMudarTela('nova-venda', 'orcamentos', { orcamentoId: orc.id });
     }
   };
 
@@ -268,6 +280,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                   <option>Pendente</option>
                   <option>Aprovado</option>
                   <option>Rejeitado</option>
+                  <option>Expirado</option>
                   <option>Convertido</option>
                 </select>
               </td>
@@ -295,6 +308,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                   {orc.status === 'Convertido' && <span style={styles.badgeVerde}>{orc.status}</span>}
                   {orc.status === 'Pendente' && <span style={styles.badgeAmarelo}><Clock size={10} style={{marginRight: '4px'}}/> {orc.status}</span>}
                   {orc.status === 'Rejeitado' && <span style={styles.badgeVermelho}>{orc.status}</span>}
+                  {orc.status === 'Expirado' && <span style={styles.badgeCinza}><AlertCircle size={10} style={{marginRight: '4px'}}/> {orc.status}</span>}
                 </td>
                 
                 <td style={{...styles.td, textAlign: 'center', overflow: 'visible'}}>
@@ -307,11 +321,11 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                       <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
                         
                         <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); if(aoMudarTela) { aoMudarTela('novo-orcamento', 'orcamentos', { orcamentoId: orc.id }); } else { aoClicarEmCadastrar(); } }}>
-                          <Edit size={14} color="#94a3b8" /> Editar Orçamento
+                          <Edit size={14} color="#94a3b8" /> {podeEditarOrcamento(orc.statusDb, orc.validadeIso) ? 'Editar Orçamento' : 'Visualizar Orçamento'}
                         </div>
 
-                        {orc.status === 'Aprovado' && (
-                          <div style={{...styles.dropdownItem, color: '#4ade80'}} onClick={() => { setMenuAberto(null); if (aoMudarTela) aoMudarTela('nova-venda', 'orcamentos', { orcamentoId: orc.id }); }}>
+                        {podeConverterOrcamento(orc.statusDb, orc.validadeIso) && (
+                          <div style={{...styles.dropdownItem, color: '#4ade80'}} onClick={() => irParaPdv(orc)}>
                             <CheckCircle size={14} color="#4ade80" /> Gerar Venda (PDV)
                           </div>
                         )}
@@ -321,7 +335,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                         </div>
                         
                         {/* Renderização Condicional baseada no status DESTE orçamento específico */}
-                        {orc.status === 'Pendente' && (
+                        {podeAprovarOrcamento(orc.statusDb, orc.validadeIso) && (
                           <>
                             <div style={{...styles.dropdownItem, color: '#4ade80', borderTop: '1px solid #1f2233', paddingTop: '8px', marginTop: '4px'}} onClick={() => { setMenuAberto(null); setModalAprovarAberto({ aberto: true, id: orc.id }); }}>
                               <CheckCircle size={14} color="#4ade80" /> Aprovar (Gerar Venda)
@@ -332,7 +346,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                           </>
                         )}
 
-                        {(orc.status === 'Pendente' || orc.status === 'Rejeitado') && (
+                        {podeExcluirOrcamento(orc.statusDb) && (
                           <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', paddingTop: '8px', marginTop: '4px'}} onClick={() => { setMenuAberto(null); setModalExcluirAberto({ aberto: true, id: orc.id }); }}>
                             <Trash2 size={14} color="#ef4444" /> Excluir Registro
                           </div>
@@ -470,6 +484,7 @@ const styles = {
   badgeVerde: { backgroundColor: 'rgba(74, 222, 128, 0.1)', color: '#4ade80', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' },
   badgeAmarelo: { backgroundColor: 'rgba(251, 191, 36, 0.1)', color: '#fbbf24', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' },
   badgeVermelho: { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' },
+  badgeCinza: { backgroundColor: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' },
   
   btnGerenciar: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', margin: '0 auto' },
   

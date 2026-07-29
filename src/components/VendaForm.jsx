@@ -11,7 +11,7 @@ import { listProdutos, TIPO_LABEL } from '../services/produtoService';
 import { formatFormaPagamentoLabel, listFormasPagamento, opcoesParcelasPorForma } from '../services/formaPagamentoService';
 import { getLojaConfig, permiteVendaSemEstoque } from '../services/lojaConfigService';
 import { createVenda, STATUS_UI_TO_DB } from '../services/vendaService';
-import { getOrcamentoById, buildPdvPreloadFromOrcamento } from '../services/orcamentoService';
+import { getOrcamentoById, buildPdvPreloadFromOrcamento, validarOrcamentoParaPdv } from '../services/orcamentoService';
 import { formatCpfCnpj, formatBRL } from '../utils/formatters';
 import CurrencyInput from './CurrencyInput';
 import {
@@ -250,6 +250,13 @@ const VendaForm = ({ dadosNavegacao }) => {
 
       if (error || !data) {
         mostrarAviso('Orçamento', error?.message ?? 'Não foi possível carregar o orçamento.', 'erro');
+        setPreloadOrcamentoFeito(true);
+        return;
+      }
+
+      const validacao = validarOrcamentoParaPdv(data);
+      if (!validacao.ok) {
+        mostrarAviso('Orçamento', validacao.error.message, 'erro');
         setPreloadOrcamentoFeito(true);
         return;
       }

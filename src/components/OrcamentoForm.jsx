@@ -24,6 +24,7 @@ import {
   mapOrcamentoToFormState,
   updateOrcamento,
 } from '../services/orcamentoService';
+import { podeEditarOrcamento } from '../domain/orcamentoStatus';
 import { parseMoney, formatBRL, roundMoney } from '../utils/formatters';
 
 const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
@@ -33,6 +34,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
 
   const [orcamentoId, setOrcamentoId] = useState(orcamentoIdInicial);
   const [codigoOrcamento, setCodigoOrcamento] = useState(null);
+  const [statusDb, setStatusDb] = useState(null);
   const [carregando, setCarregando] = useState(Boolean(orcamentoIdInicial));
   const [salvando, setSalvando] = useState(false);
   const [dataEmissao, setDataEmissao] = useState(new Date().toISOString().slice(0, 10));
@@ -79,6 +81,10 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
   const [taxasCreditoParcela, setTaxasCreditoParcela] = useState({});
 
   const vendedorNome = perfil?.nome ?? 'Vendedor';
+
+  const somenteLeitura = Boolean(
+    statusDb && !podeEditarOrcamento(statusDb, dataValidade)
+  );
 
   const produtosCatalogo = useMemo(() => (
     (produtos ?? []).map((produto) => ({
@@ -201,6 +207,7 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
     }
 
     aplicarEstadoOrcamento(mapOrcamentoToFormState(data));
+    setStatusDb(data.status);
     setCarregando(false);
   }, [lojaAtivaId, orcamentoIdInicial, aplicarEstadoOrcamento]);
 
@@ -277,6 +284,9 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
   };
 
   const salvarOrcamento = async () => {
+    if (somenteLeitura) {
+      return mostrarAviso('Somente leitura', 'Este orçamento não pode mais ser alterado.', 'info');
+    }
     if (!lojaAtivaId) return;
     if (!clienteSelecionadoObj) {
       return mostrarAviso('Atenção', 'Selecione um cliente para o orçamento.', 'erro');
@@ -372,10 +382,21 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
             <ArrowLeft size={16} /> Voltar
           </button>
           <h2 style={{color: '#fff', fontSize: '18px', margin: 0}}>
-             {orcamentoId ? `Editando Orçamento #${codigoOrcamento ?? '—'}` : 'Novo Orçamento de Venda'}
+             {orcamentoId
+               ? `${somenteLeitura ? 'Visualizar' : 'Editando'} Orçamento #${codigoOrcamento ?? '—'}`
+               : 'Novo Orçamento de Venda'}
           </h2>
         </div>
       </div>
+
+      {somenteLeitura && !carregando && (
+        <div style={styles.bannerLeitura}>
+          <AlertCircle size={16} />
+          {statusDb === 'expirado'
+            ? 'Orçamento expirado — somente visualização e impressão em PDF.'
+            : 'Orçamento fechado — somente visualização e impressão em PDF.'}
+        </div>
+      )}
 
       <div style={styles.content}>
         
@@ -670,11 +691,13 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
         </div>
         <div style={styles.footerActions}>
           <button style={styles.btnOutlineBlue} onClick={gerarPDF}>
-            <FileText size={16} /> Salvar e Gerar PDF
+            <FileText size={16} /> {somenteLeitura ? 'Gerar PDF / Imprimir' : 'Salvar e Gerar PDF'}
           </button>
-          <button style={styles.btnSaveGreen} onClick={salvarOrcamento} disabled={salvando}>
-            <Save size={16} /> {salvando ? 'Salvando...' : 'Salvar Orçamento'}
-          </button>
+          {!somenteLeitura && (
+            <button style={styles.btnSaveGreen} onClick={salvarOrcamento} disabled={salvando}>
+              <Save size={16} /> {salvando ? 'Salvando...' : 'Salvar Orçamento'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -950,6 +973,7 @@ const styles = {
   container: { backgroundColor: '#0f111a', display: 'flex', flexDirection: 'column', flex: 1, minHeight: '85vh', position: 'relative' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#11131c', padding: '20px 24px', borderBottom: '1px solid #1f2233', borderRadius: '8px 8px 0 0' },
   btnBack: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#94a3b8', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
+  bannerLeitura: { display: 'flex', alignItems: 'center', gap: '10px', margin: '0 24px 16px', padding: '12px 16px', backgroundColor: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.35)', borderRadius: '8px', color: '#fbbf24', fontSize: '13px' },
   btnOutline: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' },
   content: { padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '120px' },
   section: { backgroundColor: '#11131c', border: '1px solid #1f2233', borderRadius: '8px', padding: '20px' },

@@ -8,6 +8,14 @@ import {
   calcTotaisItensOrcamento,
   simulacaoFromOrcamentoPersistido,
 } from '../domain/orcamentoCalculos';
+import {
+  isDataValidadeExpirada,
+  podeAprovarOrcamento,
+  podeConverterOrcamento,
+  podeEditarOrcamento,
+  podeExcluirOrcamento,
+  podeRejeitarOrcamento,
+} from '../domain/orcamentoStatus';
 
 export const STATUS_LABEL = {
   pendente: 'Pendente',
@@ -146,7 +154,61 @@ async function persistItensAndAparelhos(lojaId, orcamentoId, itens, aparelhos) {
   return { error: null };
 }
 
+/** Marca pendentes/aprovados vencidos como expirado (RPC Supabase ou fallback) */
+export async function expirarOrcamentosVencidos(lojaId) {
+  const { error } = await supabase.rpc('expirar_orcamentos_vencidos', {
+    p_loja_id: lojaId,
+  });
+
+  if (!error) {
+    return { error: null };
+  }
+
+  const hoje = new Date().toISOString().slice(0, 10);
+
+  return supabase
+    .from('orcamentos')
+    .update({ status: 'expirado' })
+    .eq('loja_id', lojaId)
+    .in('status', ['pendente', 'aprovado'])
+    .not('data_validade', 'is', null)
+    .lt('data_validade', hoje);
+}
+
+function mensagemOrcamentoExpirado() {
+  return new Error('Este orçamento está expirado. Crie um novo orçamento para o cliente.');
+}
+
+export function validarOrcamentoParaPdv(orcamento) {
+  if (!orcamento) {
+    return { ok: false, error: new Error('Orçamento não encontrado.') };
+  }
+
+  if (orcamento.status === 'expirado' || isDataValidadeExpirada(orcamento.data_validade)) {
+    return { ok: false, error: mensagemOrcamentoExpirado() };
+  }
+
+  if (orcamento.status === 'convertido') {
+    return { ok: false, error: new Error('Este orçamento já foi convertido em venda.') };
+  }
+
+  if (orcamento.status === 'rejeitado') {
+    return { ok: false, error: new Error('Orçamento rejeitado não pode ser convertido em venda.') };
+  }
+
+  if (!podeConverterOrcamento(orcamento.status, orcamento.data_validade)) {
+    return {
+      ok: false,
+      error: new Error('Somente orçamentos aprovados e dentro da validade podem ir para o PDV.'),
+    };
+  }
+
+  return { ok: true, error: null };
+}
+
 export async function listOrcamentos(lojaId) {
+  await expirarOrcamentosVencidos(lojaId);
+
   return supabase
     .from('orcamentos')
     .select(
@@ -161,6 +223,8 @@ export async function listOrcamentos(lojaId) {
 }
 
 export async function getOrcamentoById(lojaId, orcamentoId) {
+  await expirarOrcamentosVencidos(lojaId);
+
   return supabase
     .from('orcamentos')
     .select(
@@ -234,9 +298,11 @@ export async function createOrcamento(lojaId, payload, itens, aparelhos, vendedo
 }
 
 export async function updateOrcamento(lojaId, orcamentoId, payload, itens, aparelhos) {
+  await expirarOrcamentosVencidos(lojaId);
+
   const { data: existente, error: fetchError } = await supabase
     .from('orcamentos')
-    .select('id, status')
+    .select('id, status, data_validade')
     .eq('loja_id', lojaId)
     .eq('id', orcamentoId)
     .single();
@@ -245,8 +311,13 @@ export async function updateOrcamento(lojaId, orcamentoId, payload, itens, apare
     return { data: null, error: fetchError ?? new Error('Orçamento não encontrado.') };
   }
 
-  if (existente.status !== 'pendente') {
-    return { data: null, error: new Error('Somente orçamentos pendentes podem ser editados.') };
+  if (!podeEditarOrcamento(existente.status, existente.data_validade)) {
+    return {
+      data: null,
+      error: existente.status === 'expirado' || isDataValidadeExpirada(existente.data_validade)
+        ? mensagemOrcamentoExpirado()
+        : new Error('Somente orçamentos pendentes podem ser editados.'),
+    };
   }
 
   if (!itens?.length) {
@@ -293,9 +364,11 @@ export async function updateOrcamento(lojaId, orcamentoId, payload, itens, apare
 }
 
 export async function aprovarOrcamento(lojaId, orcamentoId) {
+  await expirarOrcamentosVencidos(lojaId);
+
   const { data: orcamento, error: fetchError } = await supabase
     .from('orcamentos')
-    .select('id, status')
+    .select('id, status, data_validade')
     .eq('loja_id', lojaId)
     .eq('id', orcamentoId)
     .single();
@@ -304,8 +377,12 @@ export async function aprovarOrcamento(lojaId, orcamentoId) {
     return { error: fetchError ?? new Error('Orçamento não encontrado.') };
   }
 
-  if (orcamento.status !== 'pendente') {
-    return { error: new Error('Somente orçamentos pendentes podem ser aprovados.') };
+  if (!podeAprovarOrcamento(orcamento.status, orcamento.data_validade)) {
+    return {
+      error: orcamento.status === 'expirado' || isDataValidadeExpirada(orcamento.data_validade)
+        ? mensagemOrcamentoExpirado()
+        : new Error('Somente orçamentos pendentes podem ser aprovados.'),
+    };
   }
 
   return supabase
@@ -316,9 +393,11 @@ export async function aprovarOrcamento(lojaId, orcamentoId) {
 }
 
 export async function rejeitarOrcamento(lojaId, orcamentoId) {
+  await expirarOrcamentosVencidos(lojaId);
+
   const { data: orcamento, error: fetchError } = await supabase
     .from('orcamentos')
-    .select('id, status')
+    .select('id, status, data_validade')
     .eq('loja_id', lojaId)
     .eq('id', orcamentoId)
     .single();
@@ -327,8 +406,12 @@ export async function rejeitarOrcamento(lojaId, orcamentoId) {
     return { error: fetchError ?? new Error('Orçamento não encontrado.') };
   }
 
-  if (orcamento.status !== 'pendente') {
-    return { error: new Error('Somente orçamentos pendentes podem ser rejeitados.') };
+  if (!podeRejeitarOrcamento(orcamento.status, orcamento.data_validade)) {
+    return {
+      error: orcamento.status === 'expirado' || isDataValidadeExpirada(orcamento.data_validade)
+        ? mensagemOrcamentoExpirado()
+        : new Error('Somente orçamentos pendentes podem ser rejeitados.'),
+    };
   }
 
   return supabase
@@ -339,6 +422,8 @@ export async function rejeitarOrcamento(lojaId, orcamentoId) {
 }
 
 export async function excluirOrcamento(lojaId, orcamentoId) {
+  await expirarOrcamentosVencidos(lojaId);
+
   const { data: orcamento, error: fetchError } = await supabase
     .from('orcamentos')
     .select('id, status')
@@ -350,20 +435,38 @@ export async function excluirOrcamento(lojaId, orcamentoId) {
     return { error: fetchError ?? new Error('Orçamento não encontrado.') };
   }
 
-  if (!['pendente', 'rejeitado'].includes(orcamento.status)) {
-    return { error: new Error('Somente orçamentos pendentes ou rejeitados podem ser excluídos.') };
+  if (!podeExcluirOrcamento(orcamento.status)) {
+    return { error: new Error('Somente orçamentos pendentes, rejeitados ou expirados podem ser excluídos.') };
   }
 
   return supabase.from('orcamentos').delete().eq('loja_id', lojaId).eq('id', orcamentoId);
 }
 
 export async function marcarOrcamentoConvertido(lojaId, orcamentoId, vendaId) {
+  await expirarOrcamentosVencidos(lojaId);
+
+  const { data: orcamento, error: fetchError } = await supabase
+    .from('orcamentos')
+    .select('id, status, data_validade')
+    .eq('loja_id', lojaId)
+    .eq('id', orcamentoId)
+    .single();
+
+  if (fetchError || !orcamento) {
+    return { error: fetchError ?? new Error('Orçamento não encontrado.') };
+  }
+
+  const validacao = validarOrcamentoParaPdv(orcamento);
+  if (!validacao.ok) {
+    return { error: validacao.error };
+  }
+
   return supabase
     .from('orcamentos')
     .update({ status: 'convertido', venda_id: vendaId })
     .eq('loja_id', lojaId)
     .eq('id', orcamentoId)
-    .in('status', ['pendente', 'aprovado']);
+    .eq('status', 'aprovado');
 }
 
 export function mapOrcamentoRow(orcamento) {
