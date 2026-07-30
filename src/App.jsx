@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import AppLayout from './layouts/AppLayout';
 import LoginPage from './pages/auth/LoginPage';
+import OSAceiteClientePage from './pages/public/OSAceiteClientePage';
 import ErpContent from './pages/erp/ErpContent';
 import GuestRoute from './routes/GuestRoute';
 import ProtectedRoute from './routes/ProtectedRoute';
@@ -20,6 +21,8 @@ export default function App() {
           </GuestRoute>
         }
       />
+
+      <Route path="/aceite-os/:token" element={<OSAceiteClientePage />} />
 
       <Route
         path="/app"
