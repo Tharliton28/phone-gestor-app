@@ -9,6 +9,16 @@ Eu, [NOME_CLIENTE], declaro que entrego o equipamento descrito nesta OS ([CODIGO
 
 Data: [DATA_ENTRADA]`;
 
+export const TERMO_OS_SAIDA_PADRAO = `TERMO DE SAÍDA — ORDEM DE SERVIÇO
+
+Eu, [NOME_CLIENTE], declaro que retiro o equipamento descrito nesta OS ([CODIGO_OS]) da [NOME_EMPRESA].
+
+1. Recebi o aparelho e conferi o estado físico conforme fotos registradas na saída.
+2. Estou ciente dos serviços executados e das condições de garantia informadas.
+3. A loja não se responsabiliza por dados, aplicativos ou contas após a entrega.
+
+Data: [DATA_ENTRADA]`;
+
 export function substituirVariaveisTermo(texto, vars = {}) {
   if (!texto) return '';
 

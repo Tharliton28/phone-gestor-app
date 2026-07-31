@@ -351,7 +351,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
             <h3 style={styles.sectionDivider}>Dados de contato</h3>
             <div style={styles.gridContainer}>
               <div style={{...styles.inputGroup, gridColumn: 'span 3'}}>
-                <label style={styles.label}><span style={styles.required}>*</span> Telefone / WhatsApp:</label>
+                <label style={styles.label}><span style={styles.required}>*</span> Telefone:</label>
                 <input style={styles.input} name="telefone" value={formData.telefone} onChange={handleChange} placeholder="(00) 00000-0000" />
               </div>
               <div style={{...styles.inputGroup, gridColumn: 'span 3'}}>
@@ -359,8 +359,14 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
                 <input style={styles.input} name="email" value={formData.email} onChange={handleChange} placeholder="email@exemplo.com" />
               </div>
               <div style={{...styles.inputGroup, gridColumn: 'span 3'}}>
-                <label style={styles.label}>Telefone Alternativo:</label>
-                <input style={styles.input} name="telefoneAlt" value={formData.telefoneAlt} onChange={handleChange} />
+                <label style={styles.label}>WhatsApp:</label>
+                <input
+                  style={styles.input}
+                  name="telefoneAlt"
+                  value={formData.telefoneAlt}
+                  onChange={handleChange}
+                  placeholder="Número usado para enviar links e avisos"
+                />
               </div>
               <div style={{...styles.inputGroup, gridColumn: 'span 3'}}>
                 <label style={styles.label}>Instagram:</label>

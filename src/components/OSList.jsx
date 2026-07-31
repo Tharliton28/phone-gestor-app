@@ -6,6 +6,15 @@ import {
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { formatBRL } from '../utils/formatters';
+import { imprimirViaCliente } from '../utils/osTermoPdf';
+import { getOsEvidencias } from '../services/osEvidenciaService';
+import { getLojaConfigAssistencia, mapConfigOs } from '../services/lojaConfigService';
+import { substituirVariaveisTermo, TERMO_OS_PADRAO, TERMO_OS_SAIDA_PADRAO } from '../domain/osTermo';
+import {
+  buildWhatsAppLink,
+  montarMensagemStatusOs,
+  telefoneWhatsAppCliente,
+} from '../domain/osEvidencias';
 import {
   cancelarOrdemServico,
   finalizarOrdemServico,
@@ -22,7 +31,7 @@ function resumoServico(os) {
 }
 
 const OSList = ({ aoClicarEmNova, aoMudarTela }) => {
-  const { lojaAtivaId, perfil } = useLoja();
+  const { lojaAtivaId, lojaAtiva, perfil } = useLoja();
   const { alert, confirm } = useDialog();
   const [ordens, setOrdens] = useState([]);
   const [stats, setStats] = useState({ abertas: 0, emManutencao: 0, aguardandoPeca: 0, finalizadas: 0 });
@@ -32,6 +41,7 @@ const OSList = ({ aoClicarEmNova, aoMudarTela }) => {
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [imprimindo, setImprimindo] = useState(null);
 
   const carregar = useCallback(async () => {
     if (!lojaAtivaId) return;
@@ -77,6 +87,103 @@ const OSList = ({ aoClicarEmNova, aoMudarTela }) => {
     setMenuAberto(null);
     if (aoMudarTela) {
       aoMudarTela('nova-os', 'listagem-os', { osId: os.id });
+    }
+  };
+
+  const verLaudo = async (os) => {
+    setMenuAberto(null);
+    const laudo = os.laudo_tecnico?.trim();
+
+    if (!laudo) {
+      await alert(
+        'Nenhum laudo técnico registrado nesta OS. Abra Editar / Atualizar OS e preencha o campo "Laudo técnico".',
+        { type: 'info', title: 'Laudo técnico' }
+      );
+      return;
+    }
+
+    await alert(laudo, { type: 'info', title: `Laudo técnico — ${os.codigo}` });
+  };
+
+  const notificarWhatsApp = async (os) => {
+    setMenuAberto(null);
+    const telefone = telefoneWhatsAppCliente(os.cliente);
+
+    if (!telefone || String(telefone).replace(/\D/g, '').length < 10) {
+      await alert(
+        'Cadastre o WhatsApp do cliente em Pessoas → Clientes (campo WhatsApp) para notificar.',
+        { type: 'warning', title: 'WhatsApp não cadastrado' }
+      );
+      return;
+    }
+
+    const nomeEmpresa = lojaAtiva?.nome_fantasia ?? lojaAtiva?.razao_social ?? 'Loja';
+    const msg = montarMensagemStatusOs({
+      nomeCliente: os.cliente?.nome,
+      codigoOs: os.codigo,
+      nomeEmpresa,
+      status: os.status,
+      aparelhoModelo: os.aparelho_modelo,
+    });
+
+    window.open(buildWhatsAppLink(telefone, msg), '_blank', 'noopener,noreferrer');
+  };
+
+  const imprimirVia = async (os, tipo) => {
+    if (!lojaAtivaId || imprimindo) return;
+
+    // Menu fica aberto durante a preparação para servir de indicador de progresso.
+    setImprimindo(`${os.id}-${tipo}`);
+
+    const [evidencias, configResult] = await Promise.all([
+      getOsEvidencias(lojaAtivaId, os.id, tipo),
+      getLojaConfigAssistencia(lojaAtivaId),
+    ]);
+
+    if (evidencias.error) {
+      setImprimindo(null);
+      setMenuAberto(null);
+      await alert(evidencias.error.message ?? 'Não foi possível carregar as evidências da OS.', {
+        type: 'error',
+        title: 'Erro ao gerar via',
+      });
+      return;
+    }
+
+    const configOs = mapConfigOs(configResult.data);
+    const template = tipo === 'saida'
+      ? (configOs?.termoOSSaida?.trim() || TERMO_OS_SAIDA_PADRAO)
+      : (configOs?.termoOS?.trim() || TERMO_OS_PADRAO);
+
+    const nomeEmpresa = lojaAtiva?.nome_fantasia ?? lojaAtiva?.razao_social ?? 'Loja';
+
+    const { ok, error } = await imprimirViaCliente({
+      tipo,
+      termo: evidencias.termo,
+      fotos: evidencias.fotos,
+      assinaturaUrl: evidencias.assinaturaUrl,
+      termoTextoFallback: substituirVariaveisTermo(template, {
+        nomeEmpresa,
+        cnpjEmpresa: lojaAtiva?.cnpj,
+        nomeCliente: os.cliente?.nome,
+        codigoOs: os.codigo,
+        modeloAparelho: os.aparelho_modelo,
+        imei: os.aparelho_imei,
+        dataEntrada: new Date(os.data_entrada ?? os.created_at ?? Date.now()).toLocaleDateString('pt-BR'),
+      }),
+      codigoOs: os.codigo,
+      nomeCliente: os.cliente?.nome,
+      empresa: { nome: nomeEmpresa, cnpj: lojaAtiva?.cnpj },
+    });
+
+    setImprimindo(null);
+    setMenuAberto(null);
+
+    if (!ok) {
+      await alert(error?.message ?? 'Não foi possível gerar a via do cliente.', {
+        type: 'error',
+        title: 'Erro ao gerar via',
+      });
     }
   };
 
@@ -265,30 +372,22 @@ const OSList = ({ aoClicarEmNova, aoMudarTela }) => {
                             <div style={styles.dropdownItem} onClick={() => editarOS(os)}>
                               <Edit size={14} color="#38bdf8" /> Editar / Atualizar OS
                             </div>
-                            <div
-                              style={styles.dropdownItem}
-                              onClick={() => {
-                                setMenuAberto(null);
-                                alert('Impressão da via do cliente em breve.', { type: 'info', title: 'Em breve' });
-                              }}
-                            >
-                              <Printer size={14} color="#94a3b8" /> Imprimir Via do Cliente
+                            <div style={styles.dropdownItem} onClick={() => imprimirVia(os, 'entrada')}>
+                              <Printer size={14} color="#94a3b8" />
+                              {imprimindo === `${os.id}-entrada` ? 'Preparando via...' : 'Imprimir via do cliente — entrada'}
                             </div>
-                            <div
-                              style={styles.dropdownItem}
-                              onClick={() => {
-                                setMenuAberto(null);
-                                alert('Laudo técnico em breve.', { type: 'info', title: 'Em breve' });
-                              }}
-                            >
+                            {os.status !== 'aberta' && (
+                              <div style={styles.dropdownItem} onClick={() => imprimirVia(os, 'saida')}>
+                                <Printer size={14} color="#94a3b8" />
+                                {imprimindo === `${os.id}-saida` ? 'Preparando via...' : 'Imprimir via do cliente — saída'}
+                              </div>
+                            )}
+                            <div style={styles.dropdownItem} onClick={() => verLaudo(os)}>
                               <FileText size={14} color="#94a3b8" /> Ver Laudo Técnico
                             </div>
                             <div
                               style={{ ...styles.dropdownItem, color: '#4ade80' }}
-                              onClick={() => {
-                                setMenuAberto(null);
-                                alert('Integração WhatsApp em breve.', { type: 'info', title: 'Em breve' });
-                              }}
+                              onClick={() => notificarWhatsApp(os)}
                             >
                               <MessageCircle size={14} color="#4ade80" /> Notificar via WhatsApp
                             </div>

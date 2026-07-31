@@ -89,9 +89,9 @@ export async function listOrdensServico(lojaId) {
     .from('ordens_servico')
     .select(
       `
-      id, codigo, aparelho_modelo, relato_cliente, status,
+      id, codigo, aparelho_modelo, aparelho_imei, relato_cliente, laudo_tecnico, status,
       valor_total, data_entrada, data_previsao, data_finalizacao, created_at, updated_at,
-      cliente:pessoas!ordens_servico_cliente_id_fkey (id, nome, telefone),
+      cliente:pessoas!ordens_servico_cliente_id_fkey (id, nome, telefone, telefone_alternativo),
       tecnico:pessoas!ordens_servico_tecnico_id_fkey (id, nome)
     `
     )

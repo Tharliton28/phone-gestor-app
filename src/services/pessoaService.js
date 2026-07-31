@@ -94,7 +94,7 @@ export const CATEGORIA_LABEL = {
 export async function listPessoasResumo(lojaId, { categoria = null } = {}) {
   let query = supabase
     .from('pessoas')
-    .select('id, loja_id, codigo, nome, cpf_cnpj, telefone, categoria, ativo, created_at, updated_at')
+    .select('id, loja_id, codigo, nome, cpf_cnpj, telefone, telefone_alternativo, categoria, ativo, created_at, updated_at')
     .eq('loja_id', lojaId)
     .eq('ativo', true)
     .order('nome', { ascending: true });

@@ -36,15 +36,24 @@ export function getOrcamentoValidadeDias(config) {
 export function mapConfigOs(config) {
   return {
     termoOS: config?.termo_os ?? null,
-    exigirTermoEntrada: config?.os_exigir_termo_entrada ?? true,
-    exigirFotoEntrada: config?.os_exigir_foto_entrada ?? true,
+    termoOSSaida: config?.termo_os_saida ?? null,
+    exigirTermoEntrada: config?.os_exigir_termo_entrada !== false,
+    exigirFotoEntrada: config?.os_exigir_foto_entrada !== false,
+    exigirTermoSaida: config?.os_exigir_termo_saida !== false,
+    exigirFotoSaida: config?.os_exigir_foto_saida !== false,
+    bloquearKanbanSemEntrada: config?.os_bloquear_kanban_sem_entrada !== false,
   };
 }
 
 export async function getLojaConfigAssistencia(lojaId) {
   return supabase
     .from('loja_configuracoes')
-    .select('termo_os, termo_garantia, os_exigir_termo_entrada, os_exigir_foto_entrada')
+    .select(`
+      termo_os, termo_os_saida, termo_garantia,
+      os_exigir_termo_entrada, os_exigir_foto_entrada,
+      os_exigir_termo_saida, os_exigir_foto_saida,
+      os_bloquear_kanban_sem_entrada
+    `)
     .eq('loja_id', lojaId)
     .maybeSingle();
 }
@@ -55,11 +64,15 @@ export async function updateLojaConfigDocumentos(lojaId, documentos) {
     .update({
       termo_garantia: documentos.termoGarantia,
       termo_os: documentos.termoOS,
+      termo_os_saida: documentos.termoOSSaida,
       os_exigir_termo_entrada: documentos.exigirTermoEntrada ?? true,
       os_exigir_foto_entrada: documentos.exigirFotoEntrada ?? true,
+      os_exigir_termo_saida: documentos.exigirTermoSaida ?? true,
+      os_exigir_foto_saida: documentos.exigirFotoSaida ?? true,
+      os_bloquear_kanban_sem_entrada: documentos.bloquearKanbanSemEntrada ?? true,
     })
     .eq('loja_id', lojaId)
-    .select('termo_garantia, termo_os, os_exigir_termo_entrada, os_exigir_foto_entrada')
+    .select('termo_garantia, termo_os, termo_os_saida')
     .single();
 }
 

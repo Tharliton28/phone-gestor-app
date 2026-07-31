@@ -19,6 +19,8 @@ import {
   STATUS_LABEL,
   updateOrdemServicoStatus,
 } from '../services/osService';
+import { getLojaConfigAssistencia, mapConfigOs } from '../services/lojaConfigService';
+import { getChecklistOs } from '../services/osEvidenciaService';
 
 function formatDataCurta(iso) {
   if (!iso) return null;
@@ -116,6 +118,7 @@ export default function OSPainelTecnico({ aoMudarTela }) {
   const [erro, setErro] = useState(null);
   const [filtroTecnico, setFiltroTecnico] = useState('todos');
   const [movendoId, setMovendoId] = useState(null);
+  const [configOs, setConfigOs] = useState(mapConfigOs(null));
 
   const carregar = useCallback(async () => {
     if (!lojaAtivaId) return;
@@ -123,13 +126,20 @@ export default function OSPainelTecnico({ aoMudarTela }) {
     setLoading(true);
     setErro(null);
 
-    const { data, error } = await listOrdensServico(lojaAtivaId);
+    const [osResult, configResult] = await Promise.all([
+      listOrdensServico(lojaAtivaId),
+      getLojaConfigAssistencia(lojaAtivaId),
+    ]);
 
-    if (error) {
-      setErro(error.message ?? 'Erro ao carregar ordens de serviço.');
+    if (configResult.data) {
+      setConfigOs(mapConfigOs(configResult.data));
+    }
+
+    if (osResult.error) {
+      setErro(osResult.error.message ?? 'Erro ao carregar ordens de serviço.');
       setOrdens([]);
     } else {
-      setOrdens(data ?? []);
+      setOrdens(osResult.data ?? []);
     }
 
     setLoading(false);
@@ -174,7 +184,27 @@ export default function OSPainelTecnico({ aoMudarTela }) {
   const moverStatus = async (os, novoStatus) => {
     if (!lojaAtivaId || !podeMoverPara(os.status, novoStatus)) return;
 
+    if (novoStatus !== 'cancelada' && configOs.bloquearKanbanSemEntrada) {
+      const entrada = await getChecklistOs(lojaAtivaId, os.id, configOs, 'entrada');
+      if (!entrada.completo) {
+        await alert(
+          `Complete a entrada antes de mover a ${os.codigo}: ${entrada.pendencias.join(', ')}.`,
+          { type: 'warning', title: 'Entrada incompleta' }
+        );
+        return;
+      }
+    }
+
     if (novoStatus === 'finalizada') {
+      const saida = await getChecklistOs(lojaAtivaId, os.id, configOs, 'saida');
+      if (!saida.completo) {
+        await alert(
+          `Complete o termo de saída antes de finalizar a ${os.codigo}: ${saida.pendencias.join(', ')}.`,
+          { type: 'warning', title: 'Saída incompleta' }
+        );
+        return;
+      }
+
       const confirmar = await confirm(
         `Finalizar a ${os.codigo}? Peças vinculadas serão baixadas do estoque.`,
         { title: 'Finalizar OS', confirmLabel: 'Finalizar', confirmVariant: 'primary' }

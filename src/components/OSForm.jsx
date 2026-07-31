@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ArrowLeft, Save, User, Smartphone, AlertCircle, DollarSign, Wrench } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -6,6 +6,8 @@ import { listPessoasResumo } from '../services/pessoaService';
 import { formatBRL, parseMoney } from '../utils/formatters';
 import { getLojaConfigAssistencia, mapConfigOs } from '../services/lojaConfigService';
 import OSTermoEntrada from './OSTermoEntrada';
+import OSFotosUpload from './OSFotosUpload';
+import { listFotosComUrl, MOMENTO_FOTO } from '../services/osEvidenciaService';
 import {
   createOrdemServico,
   getOrdemServicoById,
@@ -32,7 +34,7 @@ const EMPTY_FORM = {
 
 const OSForm = ({ aoVoltar, osId = null }) => {
   const { lojaAtivaId, lojaAtiva, perfil } = useLoja();
-  const { alert } = useDialog();
+  const { alert, confirm } = useDialog();
   const isEdicao = Boolean(osId);
   const [osIdLocal, setOsIdLocal] = useState(null);
   const osIdEfetivo = osId ?? osIdLocal;
@@ -44,6 +46,12 @@ const OSForm = ({ aoVoltar, osId = null }) => {
   const [tecnicos, setTecnicos] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [configOs, setConfigOs] = useState(mapConfigOs(null));
+  const termoEntradaApi = useRef(null);
+  const termoSaidaApi = useRef(null);
+  const fotosReparoApi = useRef(null);
+  const sequenciaReparoRef = useRef(0);
+  const [fotosReparo, setFotosReparo] = useState([]);
+  const [avisoReparo, setAvisoReparo] = useState(null);
 
   useEffect(() => {
     if (!lojaAtivaId) return;
@@ -99,7 +107,81 @@ const OSForm = ({ aoVoltar, osId = null }) => {
     [clientes, form.clienteId]
   );
 
+  // WhatsApp dedicado (telefone_alternativo) tem prioridade sobre o telefone principal.
+  const clienteTelefone = useMemo(() => {
+    const cliente = clientes.find((c) => c.id === form.clienteId);
+    return cliente?.telefone_alternativo || cliente?.telefone || '';
+  }, [clientes, form.clienteId]);
+
+  // Saída só faz sentido na retirada. Em "aberta" ainda é entrada; cancelada não coleta.
+  // Em "finalizada" ainda permite coletar se o termo de saída não foi assinado.
+  const mostrarTermoSaida = Boolean(osIdEfetivo) && !['aberta', 'cancelada'].includes(form.status);
+  const coletaEvidenciaBloqueada = form.status === 'cancelada';
+
   const nomeEmpresa = lojaAtiva?.nome_fantasia ?? lojaAtiva?.razao_social ?? 'Loja';
+  const cnpjEmpresa = lojaAtiva?.cnpj ?? '';
+
+  const carregarFotosReparo = useCallback(async (osIdAlvo = null) => {
+    const alvo = osIdAlvo ?? osIdEfetivo;
+    if (!lojaAtivaId || !alvo) return;
+
+    const sequencia = sequenciaReparoRef.current + 1;
+    sequenciaReparoRef.current = sequencia;
+
+    const { fotos, error } = await listFotosComUrl(lojaAtivaId, alvo, MOMENTO_FOTO.DURANTE);
+
+    // Descarta resposta obsoleta para não sobrescrever a lista recém-atualizada.
+    if (sequencia !== sequenciaReparoRef.current) return;
+
+    if (error) {
+      setAvisoReparo('Fotos do reparo indisponíveis: rode a migration 018 no Supabase.');
+      setFotosReparo([]);
+      return;
+    }
+
+    setAvisoReparo(null);
+    setFotosReparo(fotos);
+  }, [lojaAtivaId, osIdEfetivo]);
+
+  useEffect(() => {
+    carregarFotosReparo();
+  }, [carregarFotosReparo]);
+
+  /** Sobe as fotos que o operador já selecionou, agora que a OS tem id. */
+  const enviarFotosPendentes = async (osIdAlvo) => {
+    const apis = [termoEntradaApi.current, termoSaidaApi.current, fotosReparoApi.current].filter(Boolean);
+    let salvas = 0;
+    let mensagemErro = null;
+
+    for (const api of apis) {
+      if (!api.temFotosPendentes()) continue;
+
+      const upload = await api.flushFotosPendentes(osIdAlvo);
+      salvas += upload.salvas ?? 0;
+
+      if (!upload.ok && !mensagemErro) {
+        mensagemErro = upload.error?.message ?? 'erro no envio das fotos.';
+      }
+    }
+
+    return { salvas, falhou: Boolean(mensagemErro), mensagemErro };
+  };
+
+  /** Evidência selecionada e não enviada é perda irreversível: confirma antes de descartar. */
+  const voltarComGuarda = async () => {
+    const temPendentes = [termoEntradaApi, termoSaidaApi, fotosReparoApi]
+      .some((ref) => ref.current?.temFotosPendentes());
+
+    if (temPendentes) {
+      const sair = await confirm(
+        'Há fotos selecionadas que ainda não foram enviadas. Se sair agora, elas serão perdidas.',
+        { title: 'Fotos não enviadas', confirmLabel: 'Sair sem enviar', confirmVariant: 'danger' }
+      );
+      if (!sair) return;
+    }
+
+    aoVoltar();
+  };
 
   const salvar = async () => {
     if (!lojaAtivaId) return;
@@ -127,14 +209,43 @@ const OSForm = ({ aoVoltar, osId = null }) => {
     if (!isEdicao && !osIdLocal && result.data) {
       setOsIdLocal(result.data.id);
       setCodigo(result.data.codigo);
+
+      const upload = await enviarFotosPendentes(result.data.id);
+
+      if (upload.falhou) {
+        await alert(
+          `OS ${result.data.codigo} criada, mas as fotos não foram enviadas: ${upload.mensagemErro}`,
+          { type: 'error', title: 'Fotos não enviadas' }
+        );
+        return;
+      }
+
       await alert(
-        'OS criada. Registre o termo de entrada e as fotos do aparelho na seção abaixo.',
+        upload.salvas > 0
+          ? `OS ${result.data.codigo} criada e ${upload.salvas} foto(s) enviada(s). Colete agora a assinatura do cliente na seção abaixo.`
+          : `OS ${result.data.codigo} criada. Registre as fotos e colete a assinatura do cliente na seção abaixo.`,
         { type: 'success', title: 'OS salva' }
       );
       return;
     }
 
-    await alert('OS atualizada com sucesso!', { type: 'success', title: 'Sucesso' });
+    const upload = await enviarFotosPendentes(osIdEfetivo);
+
+    if (upload.falhou) {
+      await alert(
+        `OS salva, mas as fotos não foram enviadas: ${upload.mensagemErro}`,
+        { type: 'error', title: 'Fotos não enviadas' }
+      );
+      return;
+    }
+
+    await alert(
+      upload.salvas > 0
+        ? `OS salva e ${upload.salvas} foto(s) enviada(s).`
+        : 'OS salva com sucesso!',
+      { type: 'success', title: 'Sucesso' }
+    );
+    aoVoltar();
   };
 
   if (carregando) {
@@ -149,7 +260,7 @@ const OSForm = ({ aoVoltar, osId = null }) => {
     <div style={styles.container}>
       <div style={styles.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <button onClick={aoVoltar} style={styles.btnBack}>
+          <button onClick={voltarComGuarda} style={styles.btnBack}>
             <ArrowLeft size={16} /> Voltar
           </button>
           <h2 style={{ color: '#fff', fontSize: '18px', margin: 0 }}>
@@ -323,13 +434,67 @@ const OSForm = ({ aoVoltar, osId = null }) => {
           codigo={codigo}
           form={form}
           clienteNome={clienteNome}
+          clienteTelefone={clienteTelefone}
           nomeEmpresa={nomeEmpresa}
+          cnpjEmpresa={cnpjEmpresa}
           termoTemplate={configOs.termoOS}
           exigirTermo={configOs.exigirTermoEntrada}
           exigirFoto={configOs.exigirFotoEntrada}
-          somenteLeitura={somenteLeitura}
+          somenteLeitura={coletaEvidenciaBloqueada}
           operadorId={perfil?.id}
+          tipo="entrada"
+          apiRef={termoEntradaApi}
         />
+
+        {osIdEfetivo && form.status === 'aberta' && (
+          <p style={styles.avisoSaida}>
+            Termo de saída (link com IP do cliente na retirada): aparece quando o status sair de Aberta
+            — por exemplo Em Manutenção ou ao preparar a entrega.
+          </p>
+        )}
+
+        {osIdEfetivo && (
+          <div style={styles.section}>
+            <h3 style={styles.secTitle}><Wrench size={16} color="#f59e0b" /> Fotos do reparo</h3>
+            {avisoReparo ? (
+              <p style={styles.avisoReparo}>{avisoReparo}</p>
+            ) : (
+              <OSFotosUpload
+                lojaId={lojaAtivaId}
+                osId={osIdEfetivo}
+                momento={MOMENTO_FOTO.DURANTE}
+                operadorId={perfil?.id}
+                titulo="Evidências técnicas da execução"
+                ator="uso interno da loja"
+                ajuda="Placa aberta, oxidação, componente queimado, peça substituída. Não aparecem no termo do cliente: servem para defender o laudo da loja em contestação técnica."
+                somenteLeitura={coletaEvidenciaBloqueada}
+                fotosSalvas={fotosReparo}
+                apiRef={fotosReparoApi}
+                onSalvou={carregarFotosReparo}
+              />
+            )}
+          </div>
+        )}
+
+        {mostrarTermoSaida && (
+          <OSTermoEntrada
+            lojaId={lojaAtivaId}
+            osId={osIdEfetivo}
+            codigo={codigo}
+            form={form}
+            clienteNome={clienteNome}
+            clienteTelefone={clienteTelefone}
+            nomeEmpresa={nomeEmpresa}
+            cnpjEmpresa={cnpjEmpresa}
+            termoTemplate={configOs.termoOSSaida}
+            exigirTermo={configOs.exigirTermoSaida}
+            exigirFoto={configOs.exigirFotoSaida}
+            somenteLeitura={coletaEvidenciaBloqueada}
+            operadorId={perfil?.id}
+            tipo="saida"
+            apiRef={termoSaidaApi}
+          />
+        )}
       </div>
 
       <div style={styles.footer}>
@@ -357,6 +522,11 @@ const styles = {
   content: { padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' },
   section: { backgroundColor: '#161925', border: '1px solid #1f2233', borderRadius: '8px', padding: '20px' },
   secTitle: { display: 'flex', alignItems: 'center', gap: '8px', color: '#e2e8f0', fontSize: '14px', marginBottom: '15px', marginTop: 0 },
+  avisoReparo: { color: '#fbbf24', fontSize: '12px', margin: 0 },
+  avisoSaida: {
+    color: '#94a3b8', fontSize: '12px', margin: '0 0 16px 0', padding: '10px 12px',
+    backgroundColor: '#161925', border: '1px dashed #2a2e3f', borderRadius: '8px', lineHeight: 1.5,
+  },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' },
   grid3: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '5px' },
