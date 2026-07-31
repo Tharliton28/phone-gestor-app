@@ -1,0 +1,19 @@
+{
+  "name": "Phone Gestor ERP",
+  "short_name": "PhoneGestor",
+  "description": "PDV, estoque por IMEI e ordens de serviço para lojas de celular.",
+  "start_url": "/login",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0c10",
+  "theme_color": "#0b0c10",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
