@@ -14,6 +14,9 @@ import {
   updateLojaConfigToggles,
   getLojaConfigAssistencia,
   updateLojaConfigDocumentos,
+  getLojaConfigFiscal,
+  mapConfigToFiscal,
+  updateLojaConfigFiscal,
 } from '../services/lojaConfigService';
 import { TERMO_OS_PADRAO, TERMO_OS_SAIDA_PADRAO } from '../services/osEvidenciaService';
 import {
@@ -123,6 +126,17 @@ const Configuracoes = () => {
   const [previewOS, setPreviewOS] = useState(false);
   const [previewOSSaida, setPreviewOSSaida] = useState(false);
 
+  const [fiscal, setFiscal] = useState({
+    nfeAmbiente: 'homologacao',
+    nfeSerie: 1,
+    nfeUltimoNumero: 0,
+    nfceSerie: 1,
+    nfceUltimoNumero: 0,
+    fiscalProvider: 'mock',
+    emitirNfceAuto: false,
+    certificadoPath: null,
+  });
+
   useEffect(() => {
     if (dadosNavegacao?.aba) setAbaAtiva(dadosNavegacao.aba);
   }, [dadosNavegacao?.aba]);
@@ -146,9 +160,10 @@ const Configuracoes = () => {
 
     const carregar = async () => {
       setCarregandoConfig(true);
-      const [configResult, docResult] = await Promise.all([
+      const [configResult, docResult, fiscalResult] = await Promise.all([
         getLojaConfig(lojaAtivaId),
         getLojaConfigAssistencia(lojaAtivaId),
+        getLojaConfigFiscal(lojaAtivaId),
         carregarFormas(),
       ]);
 
@@ -165,6 +180,10 @@ const Configuracoes = () => {
         setExigirTermoSaida(docResult.data.os_exigir_termo_saida !== false);
         setExigirFotoSaida(docResult.data.os_exigir_foto_saida !== false);
         setBloquearKanbanSemEntrada(docResult.data.os_bloquear_kanban_sem_entrada !== false);
+      }
+
+      if (!fiscalResult.error && fiscalResult.data) {
+        setFiscal(mapConfigToFiscal(fiscalResult.data));
       }
 
       setCarregandoConfig(false);
@@ -194,7 +213,7 @@ const Configuracoes = () => {
     }
 
     setSalvando(true);
-    const [toggleResult, docResult] = await Promise.all([
+    const [toggleResult, docResult, fiscalResult] = await Promise.all([
       updateLojaConfigToggles(lojaAtivaId, toggles),
       updateLojaConfigDocumentos(lojaAtivaId, {
         termoGarantia,
@@ -206,15 +225,23 @@ const Configuracoes = () => {
         exigirFotoSaida,
         bloquearKanbanSemEntrada,
       }),
+      updateLojaConfigFiscal(lojaAtivaId, fiscal),
     ]);
     setSalvando(false);
 
-    if (toggleResult.error || docResult.error) {
+    if (toggleResult.error || docResult.error || fiscalResult.error) {
       await alert(
-        toggleResult.error?.message ?? docResult.error?.message ?? 'Não foi possível salvar as configurações.',
+        toggleResult.error?.message
+          ?? docResult.error?.message
+          ?? fiscalResult.error?.message
+          ?? 'Não foi possível salvar as configurações.',
         { type: 'error', title: 'Erro' }
       );
       return;
+    }
+
+    if (fiscalResult.data) {
+      setFiscal(mapConfigToFiscal(fiscalResult.data));
     }
 
     await alert('Configurações salvas com sucesso!', { type: 'success', title: 'Sucesso' });
@@ -992,42 +1019,92 @@ const Configuracoes = () => {
           {/* --- FISCAL --- */}
           {abaAtiva === 'fiscal' && (
             <div style={styles.formSection}>
-              <h3 style={styles.sectionTitle}>Nota Fiscal Eletrônica</h3>
+              <h3 style={styles.sectionTitle}>NFC-e / NF-e</h3>
+              <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px', lineHeight: 1.45 }}>
+                Emissão real na SEFAZ ainda usa provedor mock (dev). Ligar auto-emissão no PDV já gera documento,
+                debita créditos e aparece no Painel Fiscal — sem XML oficial até plugar Focus/eNotas.
+              </p>
               <div style={styles.grid2}>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Ambiente de Homologação?</label>
-                  <select style={styles.input}>
-                    <option>Não (Produção)</option>
-                    <option>Sim (Testes)</option>
+                  <label style={styles.label}>Ambiente</label>
+                  <select
+                    style={styles.input}
+                    value={fiscal.nfeAmbiente}
+                    onChange={(e) => setFiscal({ ...fiscal, nfeAmbiente: e.target.value })}
+                  >
+                    <option value="homologacao">Homologação (testes)</option>
+                    <option value="producao">Produção</option>
                   </select>
                 </div>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Última NFE Emitida:</label>
-                  <input style={styles.input} placeholder="Nº da NFE" />
+                  <label style={styles.label}>Provedor</label>
+                  <select
+                    style={styles.input}
+                    value={fiscal.fiscalProvider}
+                    onChange={(e) => setFiscal({ ...fiscal, fiscalProvider: e.target.value })}
+                  >
+                    <option value="mock">Mock (desenvolvimento)</option>
+                    <option value="focus" disabled>Focus NFe (em breve)</option>
+                    <option value="enotas" disabled>eNotas (em breve)</option>
+                  </select>
                 </div>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Série NFE:</label>
-                  <input style={styles.input} placeholder="Ex: 1" />
+                  <label style={styles.label}>Série NFC-e</label>
+                  <input
+                    style={styles.input}
+                    type="number"
+                    min={1}
+                    value={fiscal.nfceSerie}
+                    onChange={(e) => setFiscal({ ...fiscal, nfceSerie: e.target.value })}
+                  />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Última NFC-e emitida</label>
+                  <input style={styles.input} disabled value={fiscal.nfceUltimoNumero ?? 0} />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Série NF-e</label>
+                  <input
+                    style={styles.input}
+                    type="number"
+                    min={1}
+                    value={fiscal.nfeSerie}
+                    onChange={(e) => setFiscal({ ...fiscal, nfeSerie: e.target.value })}
+                  />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Última NF-e emitida</label>
+                  <input style={styles.input} disabled value={fiscal.nfeUltimoNumero ?? 0} />
                 </div>
               </div>
 
+              <div style={{ ...styles.toggleRow, marginTop: '20px' }}>
+                <div>
+                  <h4 style={styles.toggleTitle}>Emitir NFC-e automaticamente no PDV</h4>
+                  <p style={styles.toggleDesc}>
+                    Ao concluir a venda, tenta emitir NFC-e e debita 4 créditos se autorizada (ou simulada).
+                  </p>
+                </div>
+                <Switch
+                  ativo={fiscal.emitirNfceAuto}
+                  onClick={() => setFiscal({ ...fiscal, emitirNfceAuto: !fiscal.emitirNfceAuto })}
+                />
+              </div>
+
               <h3 style={{...styles.sectionTitle, marginTop: '30px'}}>Certificado Digital</h3>
-              <div style={{...styles.logoUploadArea, marginTop: '10px'}}>
+              <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '10px' }}>
+                Upload A1 será exigido quando o provedor real estiver ativo.
+              </p>
+              <div style={{...styles.logoUploadArea, marginTop: '10px', opacity: 0.7}}>
                 <div style={{...styles.logoPlaceholder, width: '40px', height: '40px', borderRadius: '4px'}}><FileText size={20}/></div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '4px', flex: 1}}>
                   <span style={{color: '#e2e8f0', fontSize: '13px', fontWeight: 'bold'}}>Certificado (.pfx, .p12)</span>
-                  <span style={{color: '#94a3b8', fontSize: '12px'}}>Nenhum arquivo escolhido.</span>
-                  <button style={styles.btnUpload}><UploadCloud size={14} /> Carregar Arquivo</button>
-                </div>
-              </div>
-              <div style={styles.grid2}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Senha certificado:</label>
-                  <input style={styles.input} type="password" />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Validade do certificado:</label>
-                  <input style={styles.input} disabled placeholder="Carregue o certificado primeiro" />
+                  <span style={{color: '#94a3b8', fontSize: '12px'}}>
+                    {fiscal.certificadoPath ? fiscal.certificadoPath : 'Nenhum arquivo — em breve.'}
+                  </span>
+                  <button type="button" style={styles.btnUpload} disabled>
+                    <UploadCloud size={14} /> Em breve
+                  </button>
                 </div>
               </div>
             </div>

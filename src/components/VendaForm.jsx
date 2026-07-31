@@ -10,6 +10,7 @@ import { listPessoasResumo } from '../services/pessoaService';
 import { listProdutos, TIPO_LABEL } from '../services/produtoService';
 import { formatFormaPagamentoLabel, listFormasPagamento, opcoesParcelasPorForma } from '../services/formaPagamentoService';
 import { getLojaConfig, permiteVendaSemEstoque } from '../services/lojaConfigService';
+import { emitirNfceParaVenda } from '../services/fiscalService';
 import { createVenda, STATUS_UI_TO_DB } from '../services/vendaService';
 import { getOrcamentoById, buildPdvPreloadFromOrcamento, validarOrcamentoParaPdv } from '../services/orcamentoService';
 import { formatCpfCnpj, formatBRL } from '../utils/formatters';
@@ -498,12 +499,13 @@ const VendaForm = ({ dadosNavegacao }) => {
     }
 
     setSalvando(true);
-    const { error } = await createVenda(
+    const statusDb = STATUS_UI_TO_DB[statusVenda] ?? 'concluido';
+    const { data: vendaCriada, error } = await createVenda(
       lojaAtivaId,
       {
         clienteId,
         vendedorId: perfil?.id,
-        status: STATUS_UI_TO_DB[statusVenda] ?? 'concluido',
+        status: statusDb,
         dataVenda,
         itens: carrinho,
         pagamentos,
@@ -512,16 +514,34 @@ const VendaForm = ({ dadosNavegacao }) => {
       },
       perfil?.id
     );
-    setSalvando(false);
 
     if (error) {
+      setSalvando(false);
       return mostrarAviso('Erro', error.message ?? 'Não foi possível finalizar a venda.', 'erro');
     }
 
-    const mensagemSucesso = statusVenda === 'Pré-Venda'
+    let mensagemSucesso = statusVenda === 'Pré-Venda'
       ? 'Pré-venda registrada. O estoque será baixado ao concluir.'
       : 'A venda foi finalizada e salva com sucesso.';
 
+    if (statusDb === 'concluido' && vendaCriada?.id) {
+      const emit = await emitirNfceParaVenda({
+        lojaId: lojaAtivaId,
+        vendaId: vendaCriada.id,
+        valorTotal: vendaCriada.valor_total,
+        operadorId: perfil?.id,
+      });
+
+      if (emit.skipped) {
+        // auto-emissão desligada ou já emitida
+      } else if (emit.error) {
+        mensagemSucesso += ` NFC-e não emitida: ${emit.error.message}`;
+      } else if (emit.data) {
+        mensagemSucesso += ` NFC-e ${emit.data.serie}/${emit.data.numero} registrada (${emit.data.status}).`;
+      }
+    }
+
+    setSalvando(false);
     irParaListagemVendas({ mensagemSucesso });
   };
 

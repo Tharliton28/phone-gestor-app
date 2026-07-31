@@ -97,3 +97,54 @@ export async function updateLojaConfigToggles(lojaId, toggles) {
     .select(CONFIG_FIELDS.join(', '))
     .single();
 }
+
+const FISCAL_FIELDS = [
+  'nfe_ambiente',
+  'nfe_serie',
+  'nfe_ultimo_numero',
+  'nfce_serie',
+  'nfce_ultimo_numero',
+  'fiscal_provider',
+  'fiscal_emitir_nfce_auto',
+  'certificado_storage_path',
+];
+
+export function mapConfigToFiscal(config) {
+  return {
+    nfeAmbiente: config?.nfe_ambiente ?? 'homologacao',
+    nfeSerie: config?.nfe_serie ?? 1,
+    nfeUltimoNumero: config?.nfe_ultimo_numero ?? 0,
+    nfceSerie: config?.nfce_serie ?? 1,
+    nfceUltimoNumero: config?.nfce_ultimo_numero ?? 0,
+    fiscalProvider: config?.fiscal_provider ?? 'mock',
+    emitirNfceAuto: Boolean(config?.fiscal_emitir_nfce_auto),
+    certificadoPath: config?.certificado_storage_path ?? null,
+  };
+}
+
+export function mapFiscalToConfig(fiscal) {
+  return {
+    nfe_ambiente: fiscal.nfeAmbiente === 'producao' ? 'producao' : 'homologacao',
+    nfe_serie: Math.max(1, Number(fiscal.nfeSerie) || 1),
+    nfce_serie: Math.max(1, Number(fiscal.nfceSerie) || 1),
+    fiscal_provider: fiscal.fiscalProvider || 'mock',
+    fiscal_emitir_nfce_auto: Boolean(fiscal.emitirNfceAuto),
+  };
+}
+
+export async function getLojaConfigFiscal(lojaId) {
+  return supabase
+    .from('loja_configuracoes')
+    .select(FISCAL_FIELDS.join(', '))
+    .eq('loja_id', lojaId)
+    .maybeSingle();
+}
+
+export async function updateLojaConfigFiscal(lojaId, fiscal) {
+  return supabase
+    .from('loja_configuracoes')
+    .update(mapFiscalToConfig(fiscal))
+    .eq('loja_id', lojaId)
+    .select(FISCAL_FIELDS.join(', '))
+    .single();
+}
