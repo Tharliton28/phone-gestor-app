@@ -1,28 +1,73 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, ChevronDown, HelpCircle, LogOut, Menu, Store, Zap } from 'lucide-react';
+import { Bell, ChevronDown, Coins, HelpCircle, LogOut, Menu, Store, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { formatCnpj, getInitials, truncate } from '../utils/formatters';
+import { getSaldoCreditos } from '../services/lojaCreditoService';
+import { CREDITOS_ATUALIZADOS_EVENT } from '../utils/creditosEvents';
 import './topbar.css';
 
-export default function Topbar({ onMenuToggle, isMobile }) {
+export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos }) {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { alert } = useDialog();
   const { perfil, lojaAtiva, lojas, lojaAtivaId, setLojaAtiva, papelAtivo } = useLoja();
   const [menuAberto, setMenuAberto] = useState(false);
+  const [saldoCreditos, setSaldoCreditos] = useState(null);
 
   const nomeExibicao = lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'Sem loja vinculada';
   const cnpjFormatado = lojaAtiva?.cnpj ? formatCnpj(lojaAtiva.cnpj) : '';
   const nomeUsuario = perfil?.nome ?? 'Usuário';
   const iniciais = getInitials(nomeUsuario);
 
+  useEffect(() => {
+    if (!lojaAtivaId) {
+      setSaldoCreditos(null);
+      return undefined;
+    }
+
+    let ativo = true;
+    const carregarSaldo = () => {
+      getSaldoCreditos(lojaAtivaId).then(({ saldo, error }) => {
+        if (!ativo) return;
+        setSaldoCreditos(error ? null : saldo);
+      });
+    };
+
+    carregarSaldo();
+
+    const aoAtualizar = (event) => {
+      if (typeof event.detail?.saldo === 'number') {
+        setSaldoCreditos(event.detail.saldo);
+        return;
+      }
+      carregarSaldo();
+    };
+
+    window.addEventListener(CREDITOS_ATUALIZADOS_EVENT, aoAtualizar);
+    return () => {
+      ativo = false;
+      window.removeEventListener(CREDITOS_ATUALIZADOS_EVENT, aoAtualizar);
+    };
+  }, [lojaAtivaId]);
+
   const handleLogout = async () => {
     setMenuAberto(false);
     const { error } = await signOut();
     if (!error) navigate('/login', { replace: true });
+  };
+
+  const abrirCreditos = () => {
+    if (typeof onAbrirCreditos === 'function') {
+      onAbrirCreditos();
+      return;
+    }
+    alert('Abra Configurações → Créditos da loja para ver o extrato e comprar pacotes.', {
+      type: 'info',
+      title: 'Créditos',
+    });
   };
 
   return (
@@ -62,6 +107,18 @@ export default function Topbar({ onMenuToggle, isMobile }) {
 
       <div className="topbar__right">
         <div className="topbar__icons">
+          {lojaAtivaId && saldoCreditos != null && (
+            <button
+              type="button"
+              className="topbar__btn-creditos"
+              onClick={abrirCreditos}
+              title="Créditos da loja"
+            >
+              <Coins size={14} color="#fbbf24" />
+              <span className="topbar__creditos-text">{saldoCreditos}</span>
+            </button>
+          )}
+
           <button type="button" className="topbar__btn-upgrade" onClick={() => alert('Abrir planos de assinatura...', { type: 'info', title: 'Planos' })}>
             <Zap size={14} color="#fbbf24" fill="#fbbf24" />
             <span className="topbar__upgrade-text">Upgrade PRO</span>

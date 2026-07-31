@@ -107,7 +107,11 @@ export default function AppLayout() {
           width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
         }}
       >
-        <Topbar onMenuToggle={toggleSidebar} isMobile={isMobile} />
+        <Topbar
+          onMenuToggle={toggleSidebar}
+          isMobile={isMobile}
+          onAbrirCreditos={() => mudarTela('config', telaAtiva, { aba: 'creditos' })}
+        />
 
         <div className="app-layout__content">
           <Outlet />

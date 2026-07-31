@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Building, ShoppingCart, Package, DollarSign, FileText, 
   BarChart2, Save, UploadCloud, ToggleRight, ToggleLeft,
-  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff, RotateCcw
+  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff, RotateCcw, Coins
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 import { useLoja } from '../contexts/LojaContext';
+import { useErpNavigation } from '../hooks/useErpNavigation';
+import LojaCreditosPanel from './LojaCreditosPanel';
 import {
   getLojaConfig,
   mapConfigToToggles,
@@ -76,7 +78,8 @@ const GerenciadorLista = ({ titulo, descricao, itens, aoAdicionar, aoRemover, pl
 const Configuracoes = () => {
   const { alert, confirm } = useDialog();
   const { lojaAtivaId } = useLoja();
-  const [abaAtiva, setAbaAtiva] = useState('empresa');
+  const { dadosNavegacao } = useErpNavigation();
+  const [abaAtiva, setAbaAtiva] = useState(dadosNavegacao?.aba ?? 'empresa');
   const [salvando, setSalvando] = useState(false);
   const [carregandoConfig, setCarregandoConfig] = useState(true);
   
@@ -119,6 +122,10 @@ const Configuracoes = () => {
   const [previewGarantia, setPreviewGarantia] = useState(false);
   const [previewOS, setPreviewOS] = useState(false);
   const [previewOSSaida, setPreviewOSSaida] = useState(false);
+
+  useEffect(() => {
+    if (dadosNavegacao?.aba) setAbaAtiva(dadosNavegacao.aba);
+  }, [dadosNavegacao?.aba]);
 
   useEffect(() => {
     if (!lojaAtivaId) {
@@ -444,6 +451,9 @@ const Configuracoes = () => {
           </button>
           <button style={abaAtiva === 'financeiro' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('financeiro')}>
             <DollarSign size={16} /> Financeiro e Taxas
+          </button>
+          <button style={abaAtiva === 'creditos' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('creditos')}>
+            <Coins size={16} /> Créditos da loja
           </button>
           <button style={abaAtiva === 'documentos' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('documentos')}>
             <Printer size={16} /> Documentos e Impressão
@@ -969,6 +979,13 @@ const Configuracoes = () => {
                 <Switch ativo={bloquearKanbanSemEntrada} onClick={() => setBloquearKanbanSemEntrada((v) => !v)} />
               </div>
 
+            </div>
+          )}
+
+          {abaAtiva === 'creditos' && (
+            <div style={styles.formSection}>
+              <h3 style={styles.sectionTitle}>Créditos da loja</h3>
+              <LojaCreditosPanel />
             </div>
           )}
 

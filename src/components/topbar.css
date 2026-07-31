@@ -108,6 +108,24 @@
   font-weight: bold;
 }
 
+.topbar__btn-creditos {
+  background-color: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+  padding: 6px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.topbar__creditos-text {
+  font-variant-numeric: tabular-nums;
+}
+
 .topbar__icon-wrap {
   width: 32px;
   height: 32px;
