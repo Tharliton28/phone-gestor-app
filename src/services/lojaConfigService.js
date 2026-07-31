@@ -148,3 +148,22 @@ export async function updateLojaConfigFiscal(lojaId, fiscal) {
     .select(FISCAL_FIELDS.join(', '))
     .single();
 }
+
+export async function getFocusTokenConfigurado(lojaId) {
+  if (!lojaId) return { configurado: false, error: null };
+  const { data, error } = await supabase.rpc('focus_nfe_token_configurado', { p_loja_id: lojaId });
+  return { configurado: Boolean(data), error };
+}
+
+export async function salvarFocusNfeToken(lojaId, token) {
+  const { data, error } = await supabase.rpc('salvar_focus_nfe_token', {
+    p_loja_id: lojaId,
+    p_token: token,
+  });
+  return { data, error };
+}
+
+export async function removerFocusNfeToken(lojaId) {
+  const { data, error } = await supabase.rpc('remover_focus_nfe_token', { p_loja_id: lojaId });
+  return { data, error };
+}

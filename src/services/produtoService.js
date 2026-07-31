@@ -54,6 +54,11 @@ export function mapFormToProduto(formData, { tipoItem }) {
     observacoes: formData.observacoes || null,
     fornecedor_id: formData.fornecedorId || null,
     numero_nfe_entrada: formData.numeroNfeEntrada || null,
+    ncm: onlyDigits(formData.ncm) || null,
+    cfop: onlyDigits(formData.cfop) || '5102',
+    unidade: (formData.unidade || 'UN').trim().toUpperCase().slice(0, 6) || 'UN',
+    icms_origem: String(formData.icmsOrigem ?? '0'),
+    icms_situacao_tributaria: String(formData.icmsSituacaoTributaria || '102'),
   };
 }
 
@@ -85,6 +90,11 @@ export function mapProdutoToForm(produto) {
     observacoes: produto.observacoes ?? '',
     fornecedorId: produto.fornecedor_id ?? '',
     numeroNfeEntrada: produto.numero_nfe_entrada ?? '',
+    ncm: produto.ncm ?? '',
+    cfop: produto.cfop ?? '5102',
+    unidade: produto.unidade ?? 'UN',
+    icmsOrigem: produto.icms_origem ?? '0',
+    icmsSituacaoTributaria: produto.icms_situacao_tributaria ?? '102',
   };
 }
 

@@ -42,6 +42,11 @@ const EMPTY_FORM = {
   observacoes: '',
   fornecedorId: '',
   numeroNfeEntrada: '',
+  ncm: '',
+  cfop: '5102',
+  unidade: 'UN',
+  icmsOrigem: '0',
+  icmsSituacaoTributaria: '102',
 };
 
 const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
@@ -150,6 +155,7 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
       <div style={styles.tabsContainer}>
         <button style={abaAtiva === 'gerais' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('gerais')}>Dados Gerais</button>
         <button style={abaAtiva === 'precos' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('precos')}>Preços e Custos</button>
+        <button style={abaAtiva === 'fiscal' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('fiscal')}>Fiscal</button>
         <button style={abaAtiva === 'fornecedor' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('fornecedor')}>Fornecedor / NFe</button>
         <button style={abaAtiva === 'imagens' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('imagens')}>Imagens</button>
       </div>
@@ -502,6 +508,54 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
               <div style={{...styles.inputGroup, marginTop: '10px'}}>
                 <label style={styles.label}><span style={styles.required}>*</span> Valor de Venda (R$):</label>
                 <input style={{...styles.input, fontSize: '18px', fontWeight: 'bold', color: '#38bdf8', borderColor: '#38bdf8'}} name="valorVenda" value={formData.valorVenda} onChange={handleChange} placeholder="0,00" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {abaAtiva === 'fiscal' && (
+          <div style={styles.column}>
+            <h3 style={styles.sectionSubtitle}>Classificação fiscal (NFC-e)</h3>
+            <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px', lineHeight: 1.45 }}>
+              NCM é obrigatório para emissão real. Padrões abaixo servem para Simples Nacional / venda interna.
+            </p>
+            <div style={styles.grid2Inner}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}><span style={styles.required}>*</span> NCM (8 dígitos)</label>
+                <input
+                  style={styles.input}
+                  name="ncm"
+                  value={formData.ncm}
+                  onChange={handleChange}
+                  placeholder="Ex: 85171231"
+                  maxLength={10}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>CFOP</label>
+                <input style={styles.input} name="cfop" value={formData.cfop} onChange={handleChange} placeholder="5102" />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Unidade</label>
+                <input style={styles.input} name="unidade" value={formData.unidade} onChange={handleChange} placeholder="UN" />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Origem ICMS</label>
+                <select style={styles.input} name="icmsOrigem" value={formData.icmsOrigem} onChange={handleChange}>
+                  <option value="0">0 — Nacional</option>
+                  <option value="1">1 — Estrangeira (importação direta)</option>
+                  <option value="2">2 — Estrangeira (mercado interno)</option>
+                </select>
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>CSOSN / CST</label>
+                <input
+                  style={styles.input}
+                  name="icmsSituacaoTributaria"
+                  value={formData.icmsSituacaoTributaria}
+                  onChange={handleChange}
+                  placeholder="102"
+                />
               </div>
             </div>
           </div>

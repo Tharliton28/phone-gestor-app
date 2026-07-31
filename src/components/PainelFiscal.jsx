@@ -133,6 +133,7 @@ const PainelFiscal = () => {
                 <th style={styles.th}>Valor</th>
                 <th style={styles.th}>Status</th>
                 <th style={styles.th}>Protocolo / retorno</th>
+                <th style={styles.th}>DANFE</th>
                 <th style={styles.th}>Créditos</th>
               </tr>
             </thead>
@@ -163,6 +164,20 @@ const PainelFiscal = () => {
                     {item.protocolo ? `Prot. ${item.protocolo}` : ''}
                     {item.protocolo && item.mensagem ? ' · ' : ''}
                     {item.mensagem || item.chave_acesso || '—'}
+                  </td>
+                  <td style={styles.td}>
+                    {item.caminho_danfe ? (
+                      <a
+                        href={item.caminho_danfe.startsWith('http')
+                          ? item.caminho_danfe
+                          : `https://api.focusnfe.com.br${item.caminho_danfe}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: '#38bdf8', fontSize: 12 }}
+                      >
+                        Abrir
+                      </a>
+                    ) : '—'}
                   </td>
                   <td style={styles.td}>{item.consumiu_creditos || 0}</td>
                 </tr>

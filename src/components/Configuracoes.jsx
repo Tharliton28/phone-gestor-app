@@ -17,6 +17,9 @@ import {
   getLojaConfigFiscal,
   mapConfigToFiscal,
   updateLojaConfigFiscal,
+  getFocusTokenConfigurado,
+  salvarFocusNfeToken,
+  removerFocusNfeToken,
 } from '../services/lojaConfigService';
 import { TERMO_OS_PADRAO, TERMO_OS_SAIDA_PADRAO } from '../services/osEvidenciaService';
 import {
@@ -136,6 +139,9 @@ const Configuracoes = () => {
     emitirNfceAuto: false,
     certificadoPath: null,
   });
+  const [focusTokenConfigurado, setFocusTokenConfigurado] = useState(false);
+  const [focusTokenInput, setFocusTokenInput] = useState('');
+  const [salvandoToken, setSalvandoToken] = useState(false);
 
   useEffect(() => {
     if (dadosNavegacao?.aba) setAbaAtiva(dadosNavegacao.aba);
@@ -185,6 +191,9 @@ const Configuracoes = () => {
       if (!fiscalResult.error && fiscalResult.data) {
         setFiscal(mapConfigToFiscal(fiscalResult.data));
       }
+
+      const tokenStatus = await getFocusTokenConfigurado(lojaAtivaId);
+      if (!tokenStatus.error) setFocusTokenConfigurado(tokenStatus.configurado);
 
       setCarregandoConfig(false);
     };
@@ -1021,8 +1030,8 @@ const Configuracoes = () => {
             <div style={styles.formSection}>
               <h3 style={styles.sectionTitle}>NFC-e / NF-e</h3>
               <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px', lineHeight: 1.45 }}>
-                Emissão real na SEFAZ ainda usa provedor mock (dev). Ligar auto-emissão no PDV já gera documento,
-                debita créditos e aparece no Painel Fiscal — sem XML oficial até plugar Focus/eNotas.
+                Mock gera documento local. Focus envia à SEFAZ (homologação/produção) via Edge Function —
+                cadastre o token da empresa na Focus e preencha NCM nos produtos.
               </p>
               <div style={styles.grid2}>
                 <div style={styles.inputGroup}>
@@ -1044,7 +1053,7 @@ const Configuracoes = () => {
                     onChange={(e) => setFiscal({ ...fiscal, fiscalProvider: e.target.value })}
                   >
                     <option value="mock">Mock (desenvolvimento)</option>
-                    <option value="focus" disabled>Focus NFe (em breve)</option>
+                    <option value="focus">Focus NFe</option>
                     <option value="enotas" disabled>eNotas (em breve)</option>
                   </select>
                 </div>
@@ -1089,6 +1098,68 @@ const Configuracoes = () => {
                   ativo={fiscal.emitirNfceAuto}
                   onClick={() => setFiscal({ ...fiscal, emitirNfceAuto: !fiscal.emitirNfceAuto })}
                 />
+              </div>
+
+              <h3 style={{ ...styles.sectionTitle, marginTop: '30px' }}>Token Focus NFe</h3>
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '10px', lineHeight: 1.45 }}>
+                Status: {focusTokenConfigurado ? 'configurado' : 'não configurado'}.
+                O token fica só no servidor (não aparece de novo após salvar).
+              </p>
+              <div style={styles.grid2}>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Novo token (empresa Focus)</label>
+                  <input
+                    style={styles.input}
+                    type="password"
+                    value={focusTokenInput}
+                    onChange={(e) => setFocusTokenInput(e.target.value)}
+                    placeholder="Cole o token aqui"
+                    autoComplete="off"
+                  />
+                </div>
+                <div style={{ ...styles.inputGroup, justifyContent: 'flex-end', flexDirection: 'row', gap: '8px', alignItems: 'flex-end' }}>
+                  <button
+                    type="button"
+                    style={styles.btnUpload}
+                    disabled={salvandoToken || !focusTokenInput.trim()}
+                    onClick={async () => {
+                      if (!lojaAtivaId) return;
+                      setSalvandoToken(true);
+                      const { error } = await salvarFocusNfeToken(lojaAtivaId, focusTokenInput.trim());
+                      setSalvandoToken(false);
+                      if (error) {
+                        await alert(error.message ?? 'Não foi possível salvar o token.', { type: 'error', title: 'Erro' });
+                        return;
+                      }
+                      setFocusTokenConfigurado(true);
+                      setFocusTokenInput('');
+                      await alert('Token Focus salvo.', { type: 'success', title: 'Sucesso' });
+                    }}
+                  >
+                    {salvandoToken ? 'Salvando…' : 'Salvar token'}
+                  </button>
+                  {focusTokenConfigurado && (
+                    <button
+                      type="button"
+                      style={{ ...styles.btnUpload, backgroundColor: '#7f1d1d' }}
+                      disabled={salvandoToken}
+                      onClick={async () => {
+                        const ok = await confirm('Remover o token Focus desta loja?', { title: 'Confirmar' });
+                        if (!ok || !lojaAtivaId) return;
+                        setSalvandoToken(true);
+                        const { error } = await removerFocusNfeToken(lojaAtivaId);
+                        setSalvandoToken(false);
+                        if (error) {
+                          await alert(error.message ?? 'Falha ao remover.', { type: 'error', title: 'Erro' });
+                          return;
+                        }
+                        setFocusTokenConfigurado(false);
+                      }}
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
               </div>
 
               <h3 style={{...styles.sectionTitle, marginTop: '30px'}}>Certificado Digital</h3>

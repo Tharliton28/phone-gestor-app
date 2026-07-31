@@ -255,11 +255,12 @@ export async function getVendaById(lojaId, vendaId) {
       vendedor:usuarios!vendas_vendedor_id_fkey (id, nome),
       itens:venda_itens (
         id, produto_id, descricao, imei, quantidade, valor_unitario, valor_total, baixou_estoque,
-        produto:produtos (id, nome, codigo)
+        produto:produtos (id, nome, codigo, ncm, cfop, unidade, icms_origem, icms_situacao_tributaria, ean)
       ),
       pagamentos:venda_pagamentos (
         id, forma_pagamento_id, forma_nome, valor, valor_base, valor_taxa,
-        parcelas, detalhes, taxa_percentual, taxa_repassada, aparelho_entrada_produto_id
+        parcelas, detalhes, taxa_percentual, taxa_repassada, aparelho_entrada_produto_id,
+        forma:formas_pagamento (id, tipo, nome)
       )
     `
     )

@@ -5,18 +5,12 @@ import { consumirCreditos, getSaldoCreditos } from './lojaCreditoService';
 import { emitirNfceMock } from './fiscal/mockNfceProvider';
 import { getLojaConfigFiscal } from './lojaConfigService';
 
-async function resolverProvider(providerName) {
-  if (providerName === 'mock' || !providerName) return emitirNfceMock;
-  // focus / enotas: plugar aqui depois
-  return emitirNfceMock;
-}
-
 export async function listDocumentosFiscais(lojaId, { limit = 40 } = {}) {
   if (!lojaId) return { data: [], error: new Error('Loja não informada.') };
 
   const { data, error } = await supabase
     .from('documentos_fiscais')
-    .select('id, tipo, serie, numero, status, chave_acesso, protocolo, mensagem, provider, valor_total, consumiu_creditos, venda_id, ambiente, created_at')
+    .select('id, tipo, serie, numero, status, chave_acesso, protocolo, mensagem, provider, valor_total, consumiu_creditos, venda_id, ambiente, caminho_danfe, qrcode_url, created_at')
     .eq('loja_id', lojaId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -38,33 +32,38 @@ export async function getDocumentoFiscalDaVenda(lojaId, vendaId) {
   return { data, error };
 }
 
-/**
- * Emite NFC-e para uma venda já salva.
- * Não desfaz a venda se falhar — retorna erro amigável.
- */
-export async function emitirNfceParaVenda({
+async function emitirViaFocusEdge({ lojaId, vendaId, forcar }) {
+  const { data, error } = await supabase.functions.invoke('emitir-nfce', {
+    body: { lojaId, vendaId, forcar },
+  });
+
+  if (error) {
+    const msg = data?.error || error.message || 'Falha ao chamar emissão Focus.';
+    return { data: data?.data ?? null, skipped: Boolean(data?.skipped), error: new Error(msg) };
+  }
+
+  if (data?.skipped) {
+    return { data: data?.data ?? null, skipped: true, error: null };
+  }
+
+  if (data?.error && !data?.data) {
+    return { data: null, error: new Error(data.error) };
+  }
+
+  if (data?.error && data?.data) {
+    return { data: data.data, error: new Error(data.error) };
+  }
+
+  return { data: data?.data ?? null, error: null };
+}
+
+async function emitirViaMock({
   lojaId,
   vendaId,
   valorTotal,
-  operadorId = null,
-  forcar = false,
+  operadorId,
+  config,
 }) {
-  if (!lojaId || !vendaId) {
-    return { data: null, error: new Error('Loja e venda são obrigatórios.') };
-  }
-
-  const { data: config, error: configError } = await getLojaConfigFiscal(lojaId);
-  if (configError) return { data: null, error: configError };
-
-  if (!forcar && !config?.fiscal_emitir_nfce_auto) {
-    return { data: null, skipped: true, error: null };
-  }
-
-  const existente = await getDocumentoFiscalDaVenda(lojaId, vendaId);
-  if (existente.data && statusFiscalEhSucesso(existente.data.status)) {
-    return { data: existente.data, skipped: true, error: null };
-  }
-
   const custo = CUSTO_CREDITOS.nfce_emissao?.creditos ?? 4;
   const { saldo, error: saldoError } = await getSaldoCreditos(lojaId);
   if (saldoError) {
@@ -88,7 +87,6 @@ export async function emitirNfceParaVenda({
   const serie = Number(reserva.serie) || 1;
   const numero = Number(reserva.numero);
   const ambiente = reserva.ambiente ?? config?.nfe_ambiente ?? 'homologacao';
-  const providerName = reserva.provider ?? config?.fiscal_provider ?? 'mock';
 
   const { data: rascunho, error: insertError } = await supabase
     .from('documentos_fiscais')
@@ -100,7 +98,7 @@ export async function emitirNfceParaVenda({
       serie,
       numero,
       status: 'processando',
-      provider: providerName,
+      provider: 'mock',
       valor_total: valorTotal ?? null,
       created_by: operadorId,
       mensagem: 'Enviando ao provedor fiscal…',
@@ -112,17 +110,9 @@ export async function emitirNfceParaVenda({
     return { data: null, error: new Error(insertError.message ?? 'Falha ao registrar documento fiscal.') };
   }
 
-  const provider = await resolverProvider(providerName);
   let resultado;
   try {
-    resultado = await provider({
-      serie,
-      numero,
-      valorTotal,
-      ambiente,
-      vendaId,
-      lojaId,
-    });
+    resultado = await emitirNfceMock({ serie, numero, valorTotal, ambiente, vendaId, lojaId });
   } catch (err) {
     resultado = {
       ok: false,
@@ -189,4 +179,44 @@ export async function emitirNfceParaVenda({
   }
 
   return { data: atualizado, error: null };
+}
+
+/**
+ * Emite NFC-e para uma venda já salva.
+ * Focus → Edge Function; mock → client local.
+ */
+export async function emitirNfceParaVenda({
+  lojaId,
+  vendaId,
+  valorTotal,
+  operadorId = null,
+  forcar = false,
+}) {
+  if (!lojaId || !vendaId) {
+    return { data: null, error: new Error('Loja e venda são obrigatórios.') };
+  }
+
+  const { data: config, error: configError } = await getLojaConfigFiscal(lojaId);
+  if (configError) return { data: null, error: configError };
+
+  if (!forcar && !config?.fiscal_emitir_nfce_auto) {
+    return { data: null, skipped: true, error: null };
+  }
+
+  const existente = await getDocumentoFiscalDaVenda(lojaId, vendaId);
+  if (existente.data && statusFiscalEhSucesso(existente.data.status)) {
+    return { data: existente.data, skipped: true, error: null };
+  }
+
+  const providerName = config?.fiscal_provider ?? 'mock';
+
+  if (providerName === 'focus') {
+    return emitirViaFocusEdge({ lojaId, vendaId, forcar });
+  }
+
+  if (providerName === 'enotas') {
+    return { data: null, error: new Error('Provedor eNotas ainda não está disponível.') };
+  }
+
+  return emitirViaMock({ lojaId, vendaId, valorTotal, operadorId, config });
 }
