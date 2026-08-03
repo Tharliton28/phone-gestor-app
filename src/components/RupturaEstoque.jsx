@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   AlertCircle, RefreshCw, Download, ChevronDown,
   Search, FilePen, TrendingDown, PackagePlus,
-  Package, List, ShoppingCart, Shield
+  Package, ShoppingCart, Shield
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -105,13 +105,6 @@ const RupturaEstoque = ({ aoMudarTela }) => {
     if (aoMudarTela) {
       aoMudarTela('novo-produto', 'ruptura-estoque', { produtoId: item.id });
     }
-  };
-
-  const handleVerVenda = () => {
-    alert(
-      'Colunas de venda, vendedor e data serão exibidas quando o módulo de Vendas/PDV estiver conectado.',
-      { type: 'info', title: 'Em breve — PDV' }
-    );
   };
 
   const handleGerarCompra = () => {
@@ -282,12 +275,6 @@ const RupturaEstoque = ({ aoMudarTela }) => {
                                 onClick={() => { setMenuAberto(null); handleVerProduto(item); }}
                               >
                                 <Package size={14} color="#38bdf8" /> Acessar Ficha do Produto
-                              </div>
-                              <div
-                                style={styles.dropdownItem}
-                                onClick={() => { setMenuAberto(null); handleVerVenda(); }}
-                              >
-                                <List size={14} color="#94a3b8" /> Ver Venda (PDV)
                               </div>
                               <div
                                 style={{

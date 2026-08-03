@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Users, UserCheck, RefreshCw, Plus, Eraser, Download, ChevronDown, 
+  Users, UserCheck, RefreshCw, Plus, Eraser, ChevronDown, 
   Search, Settings, Edit, ShoppingBag, MessageCircle, Trash2,
-  FileText, FileSpreadsheet, TableProperties, ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight,
   X
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
@@ -13,6 +13,7 @@ import {
   getPessoaStats,
   listPessoasResumo,
 } from '../services/pessoaService';
+import { buildWhatsAppLink, telefoneWhatsAppCliente } from '../domain/osEvidencias';
 import { formatCpfCnpj, onlyDigits } from '../utils/formatters';
 
 const FILTRO_CATEGORIA = {
@@ -39,7 +40,6 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const [erro, setErro] = useState(null);
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
   const [menuAberto, setMenuAberto] = useState(null);
-  const [menuExportarAberto, setMenuExportarAberto] = useState(false);
   
   // Modal de histórico (conteúdo rico — permanece local)
   const [modalHistorico, setModalHistorico] = useState({ aberto: false, cliente: null });
@@ -49,10 +49,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   });
 
   useEffect(() => {
-    const handleClickFora = () => {
-      setMenuAberto(null);
-      setMenuExportarAberto(false);
-    };
+    const handleClickFora = () => setMenuAberto(null);
     document.addEventListener('click', handleClickFora);
     return () => document.removeEventListener('click', handleClickFora);
   }, []);
@@ -88,13 +85,17 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const toggleMenu = (index, e) => {
     e.stopPropagation(); 
     setMenuAberto(menuAberto === index ? null : index);
-    setMenuExportarAberto(false);
   };
 
-  const toggleMenuExportar = (e) => {
-    e.stopPropagation();
-    setMenuExportarAberto(!menuExportarAberto);
+  const chamarWhatsApp = async (item) => {
     setMenuAberto(null);
+    const telefone = telefoneWhatsAppCliente(item);
+    if (!telefone || String(telefone).replace(/\D/g, '').length < 10) {
+      await mostrarAviso('WhatsApp', 'Cadastre um telefone válido neste cliente para abrir o WhatsApp.', 'warning');
+      return;
+    }
+    const msg = `Olá ${item.nome || ''}!`.trim();
+    window.open(buildWhatsAppLink(telefone, msg), '_blank', 'noopener,noreferrer');
   };
 
   const mostrarAviso = async (titulo, mensagem, tipo = 'info', acaoOk = null) => {
@@ -195,19 +196,6 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             >
               <Eraser size={14} /> Limpar filtros
             </button>
-            
-            <div style={{ position: 'relative' }}>
-              <button style={styles.btnOutline} onClick={toggleMenuExportar}>
-                <Download size={14} /> Exportar <ChevronDown size={14} />
-              </button>
-              {menuExportarAberto && (
-                <div style={styles.dropdownExport} onClick={(e) => e.stopPropagation()}>
-                  <div style={styles.dropdownItem} onClick={() => { setMenuExportarAberto(false); mostrarAviso('PDF', 'Relatório de clientes gerado.', 'sucesso'); }}><FileText size={14} color="#ef4444" /> Exportar PDF</div>
-                  <div style={styles.dropdownItem} onClick={() => { setMenuExportarAberto(false); mostrarAviso('Excel', 'Planilha de clientes gerada.', 'sucesso'); }}><FileSpreadsheet size={14} color="#22c55e" /> Exportar Excel</div>
-                  <div style={styles.dropdownItem} onClick={() => { setMenuExportarAberto(false); mostrarAviso('CSV', 'Arquivo CSV gerado.', 'sucesso'); }}><TableProperties size={14} color="#38bdf8" /> Exportar CSV</div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
@@ -328,7 +316,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                               <ShoppingBag size={14} color="#38bdf8" /> Histórico de Compras
                             </div>
                             
-                            <div style={{...styles.dropdownItem, color: '#4ade80'}} onClick={() => { setMenuAberto(null); mostrarAviso('WhatsApp', `Redirecionando para falar com ${item.nome}...`, 'sucesso'); }}>
+                            <div style={{...styles.dropdownItem, color: '#4ade80'}} onClick={() => chamarWhatsApp(item)}>
                               <MessageCircle size={14} color="#4ade80" /> Chamar no WhatsApp
                             </div>
 

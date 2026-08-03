@@ -109,9 +109,21 @@
 }
 
 .dashboard-home__kpi--blue::after { background: #38bdf8; }
-.dashboard-home__kpi--green::after { background: #4ade80; }
-.dashboard-home__kpi--amber::after { background: #fbbf24; }
-.dashboard-home__kpi--violet::after { background: #a78bfa; }
+.dashboard-home__kpi--violet::after { background: #60a5fa; }
+
+.dashboard-home__skeleton-banner {
+  min-height: 180px;
+  border-radius: 14px;
+  border: 1px solid #1f2233;
+  background: linear-gradient(90deg, #161925 0%, #1f2233 50%, #161925 100%);
+  background-size: 200% 100%;
+  animation: dashSkeleton 1.2s ease-in-out infinite;
+}
+
+@keyframes dashSkeleton {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
 
 .dashboard-home__kpi-label {
   margin: 0;

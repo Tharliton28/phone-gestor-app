@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Save, MapPin, Trash2, Settings, 
-  UploadCloud, FileText, CheckCircle, User, Calendar, X
+  FileText, CheckCircle, User, Calendar, X
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -222,9 +222,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
           <div style={styles.tabsGroup}>
             <button style={abaAtiva === 'dados-gerais' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('dados-gerais')}>
               Dados gerais
-            </button>
-            <button style={abaAtiva === 'anexos' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('anexos')}>
-              Anexos <span style={styles.badgeCount}>0</span>
             </button>
             <button style={abaAtiva === 'dados-adicionais' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('dados-adicionais')}>
               Dados adicionais
@@ -482,15 +479,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
           </div>
         )}
 
-        {abaAtiva === 'anexos' && (
-           <div style={{...styles.formArea, minHeight: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px dashed #2a2e3f'}}>
-           <UploadCloud size={48} color="#38bdf8" style={{marginBottom: '15px'}} />
-           <h3 style={{color: '#e2e8f0', margin: '0 0 10px 0'}}>Nenhum anexo encontrado</h3>
-           <p style={{color: '#94a3b8', fontSize: '13px', marginBottom: '20px'}}>Anexe fotos de documentos, contratos ou imagens.</p>
-           <button style={styles.btnPrimary}>Selecionar Arquivos</button>
-         </div>
-        )}
-        
         {abaAtiva === 'dados-adicionais' && (
            <div style={styles.formArea}>
              <div style={styles.inputGroup}>

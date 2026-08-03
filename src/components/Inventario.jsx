@@ -333,7 +333,7 @@ const styles = {
   sessaoBadge: { color: '#38bdf8', fontSize: '12px', fontWeight: '600' },
   erro: { color: '#ef4444', fontSize: '13px', marginTop: '12px' },
   btnPrimary: { backgroundColor: '#3b82f6', color: '#fff', padding: '8px 16px', borderRadius: '4px', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
-  btnSuccess: { backgroundColor: '#22c55e', color: '#fff', padding: '8px 16px', borderRadius: '4px', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
+  btnSuccess: { backgroundColor: '#3b82f6', color: '#fff', padding: '8px 16px', borderRadius: '4px', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
   btnOutline: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
   advancedFiltersPanel: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', padding: '20px', backgroundColor: '#0f111a', borderBottom: '1px solid #1f2233', borderRadius: '0 0 8px 8px', marginTop: '12px', marginBottom: '12px' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },

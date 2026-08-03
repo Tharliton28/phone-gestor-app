@@ -23,8 +23,8 @@ export const HOME_PATROCINIOS_PADRAO = [
     ctaLabel: 'Ver condições',
     ctaUrl: 'https://wa.me/5585989733574?text=Quero%20espa%C3%A7o%20patrocinado%20Android',
     badge: 'Patrocinado',
-    accent: '#4ade80',
-    gradiente: 'linear-gradient(135deg, #14532d 0%, #052e16 50%, #020617 100%)',
+    accent: '#60a5fa',
+    gradiente: 'linear-gradient(135deg, #1e3a8a 0%, #172554 50%, #020617 100%)',
   },
   {
     id: 'slot-acessorios',
@@ -34,8 +34,8 @@ export const HOME_PATROCINIOS_PADRAO = [
     ctaLabel: 'Pedir catálogo',
     ctaUrl: 'https://wa.me/5585989733574?text=Quero%20anunciar%20acess%C3%B3rios',
     badge: 'Patrocinado',
-    accent: '#fbbf24',
-    gradiente: 'linear-gradient(135deg, #78350f 0%, #451a03 50%, #020617 100%)',
+    accent: '#38bdf8',
+    gradiente: 'linear-gradient(135deg, #0f766e 0%, #134e4a 50%, #020617 100%)',
   },
   {
     id: 'slot-vazio',
@@ -45,7 +45,7 @@ export const HOME_PATROCINIOS_PADRAO = [
     ctaLabel: 'Anunciar neste espaço',
     ctaUrl: 'https://wa.me/5585989733574?text=Quero%20comprar%20espa%C3%A7o%20na%20home%20do%20Phone%20Gestor',
     badge: 'Espaço disponível',
-    accent: '#a78bfa',
+    accent: '#93c5fd',
     gradiente: 'linear-gradient(135deg, #312e81 0%, #1e1b4b 50%, #020617 100%)',
   },
 ];

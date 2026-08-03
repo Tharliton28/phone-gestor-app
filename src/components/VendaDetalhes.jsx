@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  ArrowLeft, Printer, FileText, ShoppingCart, 
+  ArrowLeft, Printer, ShoppingCart, 
   CreditCard, User, Calendar, MapPin, Tag 
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
@@ -84,9 +84,6 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
           <span style={styles.statusPill}>{STATUS_LABEL[venda.status] ?? venda.status}</span>
         </div>
         <div style={styles.rightActions}>
-          <button style={styles.btnOutline} onClick={() => alert('Geração de PDF em desenvolvimento (Requer biblioteca jsPDF)', { type: 'info', title: 'Em breve' })}>
-            <FileText size={14} /> Gerar PDF
-          </button>
           <button style={styles.btnPrimary} onClick={handleImprimirRecibo}>
             <Printer size={14} /> Imprimir Recibo
           </button>

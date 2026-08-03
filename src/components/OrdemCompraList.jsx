@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Plus, Settings, Eraser, Download, ChevronDown,
+  Plus, Eraser, ChevronDown,
   Search, Calendar, FilePen, Edit, FileText,
   PackageCheck, Printer, XCircle
 } from 'lucide-react';
@@ -155,16 +155,12 @@ const OrdemCompraList = ({ aoClicarEmNova, aoMudarTela }) => {
     <div style={styles.container}>
       <div style={styles.actionHeader}>
         <div style={styles.leftActions}>
-          <button onClick={aoClicarEmNova} style={styles.btnSuccess}>
+          <button onClick={aoClicarEmNova} style={styles.btnPrimary}>
             <Plus size={16} /> Nova Ordem de Compra
           </button>
-          <button style={styles.btnOutline}><Settings size={14} /> Ferramentas <ChevronDown size={14} /></button>
           <button style={styles.btnOutlineWarning} onClick={limparFiltros}>
             <Eraser size={14} /> Limpar filtros
           </button>
-        </div>
-        <div style={styles.rightActions}>
-          <button style={styles.btnOutline}><Download size={14} /> Exportar <ChevronDown size={14} /></button>
         </div>
       </div>
 
@@ -299,7 +295,7 @@ const styles = {
   actionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '20px', borderBottom: '1px solid #1f2233' },
   leftActions: { display: 'flex', gap: '10px' },
   rightActions: { display: 'flex' },
-  btnSuccess: { backgroundColor: '#4ade80', color: '#0b0c10', padding: '8px 16px', borderRadius: '4px', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
+  btnPrimary: { backgroundColor: '#3b82f6', color: '#fff', padding: '8px 16px', borderRadius: '4px', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
   btnOutline: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
   btnOutlineWarning: { backgroundColor: 'transparent', border: '1px solid #fbbf24', color: '#fbbf24', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
   erro: { color: '#ef4444', fontSize: '13px', marginBottom: '12px' },

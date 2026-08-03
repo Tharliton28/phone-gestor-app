@@ -398,7 +398,7 @@ const styles = {
   footer: { padding: '20px', borderTop: '1px solid #1f2233', backgroundColor: '#161925', borderRadius: '0 0 8px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   summaryBox: { display: 'flex', alignItems: 'center', gap: '15px' },
   btnCancel: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' },
-  btnFinalize: { backgroundColor: '#22c55e', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' },
+  btnFinalize: { backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' },
 };
 
 export default OrdemCompraForm;

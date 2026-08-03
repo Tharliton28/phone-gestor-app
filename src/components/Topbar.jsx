@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, ChevronDown, Coins, HelpCircle, LogOut, Menu, Store, UserRound, Zap } from 'lucide-react';
+import { ChevronDown, Coins, LogOut, Menu, Store, UserRound, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -167,12 +167,6 @@ export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos, onAbri
             <span className="topbar__upgrade-text">{planoDef.label}</span>
           </button>
 
-          <span className="topbar__icon-wrap" title="Ajuda">
-            <HelpCircle size={18} />
-          </span>
-          <span className="topbar__icon-wrap" title="Notificações">
-            <Bell size={18} />
-          </span>
         </div>
 
         <div className="topbar__user">

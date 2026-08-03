@@ -21,6 +21,8 @@ import { serieVendasDiarias, topVendedoresChart } from '../domain/dashboardSerie
 import { getRelatorioVendas } from '../services/relatorioService';
 import { listVendas } from '../services/vendaService';
 import { listOrdensServico } from '../services/osService';
+import { listRupturasEstoque } from '../services/rupturaService';
+import { listHomePatrociniosAtivos } from '../services/homePatrocinioService';
 import { formatBRL, truncate } from '../utils/formatters';
 import DashboardSponsorCarousel from './DashboardSponsorCarousel';
 import './dashboard.css';
@@ -103,6 +105,8 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
   const [serie7d, setSerie7d] = useState([]);
   const [topVendedores, setTopVendedores] = useState([]);
   const [osAbertas, setOsAbertas] = useState(0);
+  const [rupturas, setRupturas] = useState(0);
+  const [patrocinios, setPatrocinios] = useState(null);
   const [ultimasVendas, setUltimasVendas] = useState([]);
 
   const nomeLoja = lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'sua loja';
@@ -136,11 +140,13 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
     const periodoMes = periodoPadrao();
     const periodoSerie = periodoUltimosDias(14);
 
-    const [mesResult, serieResult, ultimasResult, osResult] = await Promise.all([
+    const [mesResult, serieResult, ultimasResult, osResult, rupturaResult, adsResult] = await Promise.all([
       getRelatorioVendas(lojaAtivaId, periodoMes),
       getRelatorioVendas(lojaAtivaId, periodoSerie),
       listVendas(lojaAtivaId, { limit: 7 }),
       listOrdensServico(lojaAtivaId),
+      listRupturasEstoque(lojaAtivaId),
+      listHomePatrociniosAtivos(),
     ]);
 
     if (mesResult.error) {
@@ -179,6 +185,9 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
     } else {
       setOsAbertas(0);
     }
+
+    setRupturas(rupturaResult.error ? 0 : (rupturaResult.data ?? []).length);
+    setPatrocinios(adsResult.data ?? null);
 
     setCarregando(false);
   }, [lojaAtivaId, alert]);
@@ -227,31 +236,35 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
         </div>
       </header>
 
-      <DashboardSponsorCarousel />
+      {carregando && !patrocinios ? (
+        <div className="dashboard-home__skeleton-banner" aria-hidden="true" />
+      ) : (
+        <DashboardSponsorCarousel slots={patrocinios || undefined} />
+      )}
 
       <section className="dashboard-home__kpis" aria-label="Indicadores">
-        <article className="dashboard-home__kpi dashboard-home__kpi--green">
+        <article className="dashboard-home__kpi dashboard-home__kpi--blue">
           <p className="dashboard-home__kpi-label">Faturamento hoje</p>
-          <p className="dashboard-home__kpi-value">R$ {formatBRL(resumoHoje.faturamento)}</p>
+          <p className="dashboard-home__kpi-value">{carregando ? '—' : `R$ ${formatBRL(resumoHoje.faturamento)}`}</p>
           <p className="dashboard-home__kpi-meta">{resumoHoje.quantidade} venda(s) concluída(s)</p>
         </article>
         <article className="dashboard-home__kpi dashboard-home__kpi--blue">
           <p className="dashboard-home__kpi-label">Vendas no mês</p>
-          <p className="dashboard-home__kpi-value">{resumoMes.quantidade}</p>
+          <p className="dashboard-home__kpi-value">{carregando ? '—' : resumoMes.quantidade}</p>
           <p className="dashboard-home__kpi-meta">R$ {formatBRL(resumoMes.faturamento)} faturados</p>
         </article>
-        <article className="dashboard-home__kpi dashboard-home__kpi--amber">
+        <article className="dashboard-home__kpi dashboard-home__kpi--blue">
           <p className="dashboard-home__kpi-label">Ticket médio (mês)</p>
-          <p className="dashboard-home__kpi-value">R$ {formatBRL(resumoMes.ticketMedio)}</p>
+          <p className="dashboard-home__kpi-value">{carregando ? '—' : `R$ ${formatBRL(resumoMes.ticketMedio)}`}</p>
           <p className="dashboard-home__kpi-meta">Somente vendas concluídas</p>
         </article>
         <article className="dashboard-home__kpi dashboard-home__kpi--violet">
-          <p className="dashboard-home__kpi-label">OS em andamento</p>
-          <p className="dashboard-home__kpi-value">{osAbertas}</p>
+          <p className="dashboard-home__kpi-label">OS · rupturas</p>
+          <p className="dashboard-home__kpi-value">{carregando ? '—' : `${osAbertas} / ${rupturas}`}</p>
           <p className="dashboard-home__kpi-meta">
-            <button type="button" className="dashboard-home__link" onClick={() => aoMudarTela?.('listagem-os')}>
-              Abrir assistência
-            </button>
+            <button type="button" className="dashboard-home__link" onClick={() => aoMudarTela?.('listagem-os')}>OS</button>
+            {' · '}
+            <button type="button" className="dashboard-home__link" onClick={() => aoMudarTela?.('ruptura-estoque')}>Estoque baixo</button>
           </p>
         </article>
       </section>
@@ -307,7 +320,7 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
                   <XAxis type="number" stroke="#64748b" fontSize={11} tickFormatter={formatAxisMoney} />
                   <YAxis type="category" dataKey="nome" width={88} stroke="#94a3b8" fontSize={11} tickLine={false} />
                   <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="total" name="Total" fill="#4ade80" radius={[0, 6, 6, 0]} barSize={16} />
+                  <Bar dataKey="total" name="Total" fill="#3b82f6" radius={[0, 6, 6, 0]} barSize={16} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

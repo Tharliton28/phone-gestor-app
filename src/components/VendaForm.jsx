@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   ArrowLeft, Save, Plus, Search, X, Trash2, 
-  DollarSign, Percent, Eraser, CreditCard, Calculator, 
+  DollarSign, Percent, Eraser, Calculator, 
   AlertCircle, CheckCircle, Smartphone, Info, ChevronDown
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
@@ -694,7 +694,7 @@ const VendaForm = ({ dadosNavegacao }) => {
           <div style={styles.totalsArea}>
             <div style={styles.discountControls}>
               <button style={styles.btnAction} onClick={() => abrirModalDesconto('rs')} disabled={carrinho.length === 0}><DollarSign size={14}/> Add Desconto (R$)</button>
-              <button style={styles.btnActionGreen} onClick={() => abrirModalDesconto('perc')} disabled={carrinho.length === 0}><Percent size={14}/> Add Desconto (%)</button>
+                <button style={styles.btnAction} onClick={() => abrirModalDesconto('perc')} disabled={carrinho.length === 0}><Percent size={14}/> Add Desconto (%)</button>
               {descontoGlobal > 0 && (
                 <button style={styles.btnActionDanger} onClick={removerDesconto}>
                   <Eraser size={14}/> Remover Desconto
@@ -814,9 +814,8 @@ const VendaForm = ({ dadosNavegacao }) => {
               })}
 
               <div style={styles.paymentActions}>
-                <button style={styles.btnActionGreen} onClick={() => setModalTrocoAberto(true)}><Calculator size={14}/> Calculadora de Troco</button>
-                <button style={styles.btnActionGreen} onClick={() => setModalAparelhoAberto(true)}><Smartphone size={14}/> Entrada com Aparelho</button>
-                <button style={styles.btnActionGreen} onClick={() => mostrarAviso('Em breve', 'Módulo de saldo/crédito em desenvolvimento.', 'info')}><CreditCard size={14}/> Usar crédito do cliente</button>
+                <button style={styles.btnAction} onClick={() => setModalTrocoAberto(true)}><Calculator size={14}/> Calculadora de Troco</button>
+                <button style={styles.btnAction} onClick={() => setModalAparelhoAberto(true)}><Smartphone size={14}/> Entrada com Aparelho</button>
               </div>
             </>
           )}
@@ -1032,7 +1031,7 @@ const styles = {
   totalsArea: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #1f2233' },
   discountControls: { display: 'flex', gap: '10px' },
   btnAction: { backgroundColor: 'transparent', border: '1px solid #e2e8f0', color: '#e2e8f0', padding: '10px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
-  btnActionGreen: { backgroundColor: 'transparent', border: '1px solid #4ade80', color: '#4ade80', padding: '10px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
+  btnAction: { backgroundColor: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', padding: '10px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
   btnActionDanger: { backgroundColor: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '10px 14px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
   totalDisplay: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' },
   totalLabel: { color: '#94a3b8', fontSize: '14px' },

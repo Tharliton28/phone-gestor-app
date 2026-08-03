@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Printer, Download, Share2, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { ArrowLeft, Printer, Download, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 // A tela recebe a propriedade 'vendaSelecionada' além da função de voltar
 const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
@@ -57,9 +57,6 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
           <ArrowLeft size={16} /> Voltar para Recibos e Notas
         </button>
         <div style={styles.rightActions}>
-          <button style={styles.btnOutline} onClick={() => mostrarAviso('WhatsApp', 'Redirecionando para o WhatsApp Web com o link do recibo...', 'sucesso')}>
-            <Share2 size={14} /> Enviar WhatsApp
-          </button>
           <button style={styles.btnOutline} onClick={() => window.print()}>
             <Download size={14} /> Baixar PDF
           </button>

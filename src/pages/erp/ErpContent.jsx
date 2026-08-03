@@ -453,32 +453,6 @@ export default function ErpContent() {
         </>
       );
 
-    case 'ferramentas':
-      return (
-        <>
-          <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
-            <span style={{ color: '#3b82f6' }}>Ferramentas</span>
-          </div>
-          <ComingSoon
-            title="Ferramentas"
-            description="Calculadoras, importação/exportação de dados e utilitários operacionais."
-          />
-        </>
-      );
-
-    case 'documentos':
-      return (
-        <>
-          <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
-            <span style={{ color: '#3b82f6' }}>Documentos</span>
-          </div>
-          <ComingSoon
-            title="Documentos"
-            description="Central de recibos, notas e documentos gerados pelo sistema."
-          />
-        </>
-      );
-
     case 'contas-receber':
       return (
         <>

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
-  Plus, Eraser, Download, ChevronDown, 
+  Plus, Eraser, ChevronDown, 
   Settings, Edit, List, Printer, Ban, 
   Search, CheckCircle, AlertCircle, Info,
-  FileText, FileSpreadsheet, TableProperties, ChevronLeft, ChevronRight, RefreshCw
+  ChevronLeft, ChevronRight, RefreshCw
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -44,7 +44,6 @@ const VendasList = ({ aoClicarEmNovaVenda, aoMudarTela, mensagemFlash = null }) 
   const { lojaAtivaId, perfil } = useLoja();
   const { alert, confirm } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
-  const [menuExportarAberto, setMenuExportarAberto] = useState(false);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
   const [vendas, setVendas] = useState([]);
@@ -91,10 +90,7 @@ const VendasList = ({ aoClicarEmNovaVenda, aoMudarTela, mensagemFlash = null }) 
   }, [mensagemFlash, alert]);
 
   useEffect(() => {
-    const handleClickFora = () => {
-      setMenuAberto(null);
-      setMenuExportarAberto(false);
-    };
+    const handleClickFora = () => setMenuAberto(null);
     document.addEventListener('click', handleClickFora);
     return () => document.removeEventListener('click', handleClickFora);
   }, []);
@@ -102,13 +98,6 @@ const VendasList = ({ aoClicarEmNovaVenda, aoMudarTela, mensagemFlash = null }) 
   const toggleMenu = (index, e) => {
     e.stopPropagation(); 
     setMenuAberto(menuAberto === index ? null : index);
-    setMenuExportarAberto(false);
-  };
-
-  const toggleMenuExportar = (e) => {
-    e.stopPropagation();
-    setMenuExportarAberto(!menuExportarAberto);
-    setMenuAberto(null);
   };
 
   const mostrarAviso = (titulo, mensagem, tipo = 'info', isConfirmacao = false, acaoOk = null) => {
@@ -213,25 +202,6 @@ const VendasList = ({ aoClicarEmNovaVenda, aoMudarTela, mensagemFlash = null }) 
           >
             <Eraser size={14} /> Limpar filtros
           </button>
-          
-          <div style={{ position: 'relative' }}>
-            <button style={styles.btnOutline} onClick={toggleMenuExportar}>
-              <Download size={14} /> Exportar <ChevronDown size={14} />
-            </button>
-            {menuExportarAberto && (
-              <div style={styles.dropdownExport} onClick={(e) => e.stopPropagation()}>
-                <div style={styles.dropdownItem} onClick={() => { setMenuExportarAberto(false); mostrarAviso('Exportar PDF', 'Relatório em PDF gerado com sucesso.', 'sucesso'); }}>
-                  <FileText size={14} color="#ef4444" /> Exportar para PDF
-                </div>
-                <div style={styles.dropdownItem} onClick={() => { setMenuExportarAberto(false); mostrarAviso('Exportar Excel', 'Planilha Excel baixada.', 'sucesso'); }}>
-                  <FileSpreadsheet size={14} color="#22c55e" /> Exportar para Excel
-                </div>
-                <div style={styles.dropdownItem} onClick={() => { setMenuExportarAberto(false); mostrarAviso('Exportar CSV', 'Arquivo CSV gerado.', 'sucesso'); }}>
-                  <TableProperties size={14} color="#38bdf8" /> Exportar para CSV
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

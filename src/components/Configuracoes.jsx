@@ -9,6 +9,7 @@ import { useLoja } from '../contexts/LojaContext';
 import { useErpNavigation } from '../hooks/useErpNavigation';
 import LojaCreditosPanel from './LojaCreditosPanel';
 import LojaPlanoPanel from './LojaPlanoPanel';
+import { uploadLogoLoja } from '../services/lojaLogoService';
 import {
   getLojaConfig,
   mapConfigToToggles,
@@ -84,11 +85,13 @@ const GerenciadorLista = ({ titulo, descricao, itens, aoAdicionar, aoRemover, pl
 // --- COMPONENTE PRINCIPAL DE CONFIGURAÇÕES ---
 const Configuracoes = () => {
   const { alert, confirm } = useDialog();
-  const { lojaAtivaId } = useLoja();
+  const { lojaAtivaId, lojaAtiva, recarregar, temPermissao } = useLoja();
   const { dadosNavegacao } = useErpNavigation();
   const [abaAtiva, setAbaAtiva] = useState(dadosNavegacao?.aba ?? 'empresa');
   const [salvando, setSalvando] = useState(false);
+  const [enviandoLogo, setEnviandoLogo] = useState(false);
   const [carregandoConfig, setCarregandoConfig] = useState(true);
+  const podeEditarLogo = temPermissao('owner', 'admin');
   
   const [toggles, setToggles] = useState({
     vendaSemEstoque: false,
@@ -587,14 +590,40 @@ const Configuracoes = () => {
 
               {/* Informação do tamanho ideal da imagem */}
               <div style={{...styles.logoUploadArea, marginTop: '20px'}}>
-                <div style={styles.logoPlaceholder}>LOGO</div>
+                {lojaAtiva?.logo_url ? (
+                  <img src={lojaAtiva.logo_url} alt="Logo da loja" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '1px solid #2a2e3f' }} />
+                ) : (
+                  <div style={styles.logoPlaceholder}>LOGO</div>
+                )}
                 <div style={{display: 'flex', flexDirection: 'column', gap: '8px', flex: 1}}>
                   <span style={{color: '#e2e8f0', fontSize: '13px', fontWeight: 'bold'}}>Logotipo da Empresa</span>
                   <span style={{color: '#94a3b8', fontSize: '12px'}}>
-                    Usado no cabeçalho de recibos, orçamentos e relatórios em PDF.
-                    Para garantir que a imagem não quebre o layout do documento, o tamanho ideal e obrigatório é de <strong>500x500 pixels (Formato Quadrado)</strong>. Formatos aceitos: PNG (preferencialmente com fundo transparente) ou JPG. Tamanho máximo: 2MB.
+                    Aparece no menu do usuário e em documentos. Ideal: PNG/JPG/WEBP quadrado, até 2MB.
+                    Somente owner/admin podem alterar.
                   </span>
-                  <button style={styles.btnUpload}><UploadCloud size={14} /> Enviar nova imagem (500x500px)</button>
+                  <label style={{...styles.btnUpload, opacity: !podeEditarLogo || enviandoLogo ? 0.6 : 1, cursor: !podeEditarLogo || enviandoLogo ? 'not-allowed' : 'pointer'}}>
+                    <UploadCloud size={14} /> {enviandoLogo ? 'Enviando…' : 'Enviar logo'}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      hidden
+                      disabled={!podeEditarLogo || enviandoLogo}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file || !lojaAtivaId) return;
+                        setEnviandoLogo(true);
+                        const { error } = await uploadLogoLoja(lojaAtivaId, file);
+                        setEnviandoLogo(false);
+                        if (error) {
+                          await alert(error.message, { type: 'error', title: 'Logo' });
+                          return;
+                        }
+                        await recarregar?.();
+                        await alert('Logo atualizada.', { type: 'success', title: 'Logo' });
+                      }}
+                    />
+                  </label>
                 </div>
               </div>
             </div>
@@ -1177,16 +1206,14 @@ const Configuracoes = () => {
               <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '10px' }}>
                 Upload A1 será exigido quando o provedor real estiver ativo.
               </p>
-              <div style={{...styles.logoUploadArea, marginTop: '10px', opacity: 0.7}}>
+              <div style={{...styles.logoUploadArea, marginTop: '10px', opacity: 0.85}}>
                 <div style={{...styles.logoPlaceholder, width: '40px', height: '40px', borderRadius: '4px'}}><FileText size={20}/></div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '4px', flex: 1}}>
                   <span style={{color: '#e2e8f0', fontSize: '13px', fontWeight: 'bold'}}>Certificado (.pfx, .p12)</span>
                   <span style={{color: '#94a3b8', fontSize: '12px'}}>
-                    {fiscal.certificadoPath ? fiscal.certificadoPath : 'Nenhum arquivo — em breve.'}
+                    Upload A1 será liberado com o provedor fiscal ativo.
+                    {fiscal.certificadoPath ? ` Arquivo atual: ${fiscal.certificadoPath}` : ''}
                   </span>
-                  <button type="button" style={styles.btnUpload} disabled>
-                    <UploadCloud size={14} /> Em breve
-                  </button>
                 </div>
               </div>
             </div>
@@ -1196,13 +1223,10 @@ const Configuracoes = () => {
           {abaAtiva === 'relatorios' && (
             <div style={styles.formSection}>
               <h3 style={styles.sectionTitle}>Configurações de Relatórios</h3>
-              <div style={styles.toggleRow}>
-                <div>
-                  <h4 style={styles.toggleTitle}>Receber Resumo Diário por E-mail</h4>
-                  <p style={styles.toggleDesc}>Envia um e-mail com o fechamento de caixa e lucro gerado sempre às 23:00.</p>
-                </div>
-                <Switch ativo={toggles.resumoEmail} onClick={() => handleToggle('resumoEmail')} />
-              </div>
+              <p style={{ color: '#94a3b8', fontSize: '13px', lineHeight: 1.5, margin: 0 }}>
+                Os relatórios operacionais estão no menu Relatórios. Resumo diário por e-mail ainda não está disponível —
+                quando existir, a preferência será configurada aqui.
+              </p>
             </div>
           )}
 

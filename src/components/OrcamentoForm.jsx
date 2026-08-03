@@ -1097,7 +1097,7 @@ const styles = {
   totalValue: { color: '#38bdf8', fontSize: '28px', fontWeight: 'bold' },
   footerActions: { display: 'flex', gap: '15px' },
   btnOutlineBlue: { backgroundColor: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
-  btnSaveGreen: { backgroundColor: '#22c55e', color: '#0f111a', border: 'none', padding: '10px 24px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
+  btnSaveGreen: { backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
   
   btnTradeIn: { backgroundColor: 'transparent', border: '1px dashed #38bdf8', color: '#38bdf8', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 'bold', width: '100%', justifyContent: 'center' },
   tradeInItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#161925', padding: '10px', borderRadius: '6px', marginBottom: '10px', border: '1px solid #2a2e3f' },

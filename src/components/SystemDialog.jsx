@@ -4,7 +4,7 @@ import { AlertCircle, AlertTriangle, CheckCircle, Info, X } from 'lucide-react';
 
 const TYPE_CONFIG = {
   info: { icon: Info, color: '#3b82f6', button: '#3b82f6' },
-  success: { icon: CheckCircle, color: '#4ade80', button: '#22c55e' },
+  success: { icon: CheckCircle, color: '#4ade80', button: '#3b82f6' },
   error: { icon: AlertCircle, color: '#ef4444', button: '#ef4444' },
   warning: { icon: AlertTriangle, color: '#fbbf24', button: '#f59e0b' },
 };

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
-  Eraser, Download, ChevronDown, 
-  Phone, List, FilePen, Search,
-  FileText, FileSpreadsheet, TableProperties,
+  Eraser, ChevronDown, 
+  List, FilePen, Search,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
@@ -22,7 +21,6 @@ const HistoricoVendas = ({ aoMudarTela }) => {
   const { lojaAtivaId } = useLoja();
   const { alert } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
-  const [menuExportarAberto, setMenuExportarAberto] = useState(false);
   const [loading, setLoading] = useState(true);
   const [vendas, setVendas] = useState([]);
   
@@ -51,10 +49,7 @@ const HistoricoVendas = ({ aoMudarTela }) => {
   }, [carregar]);
 
   useEffect(() => {
-    const handleClickFora = () => {
-      setMenuAberto(null);
-      setMenuExportarAberto(false);
-    };
+    const handleClickFora = () => setMenuAberto(null);
     document.addEventListener('click', handleClickFora);
     return () => document.removeEventListener('click', handleClickFora);
   }, []);
@@ -62,13 +57,6 @@ const HistoricoVendas = ({ aoMudarTela }) => {
   const toggleMenu = (index, e) => {
     e.stopPropagation(); 
     setMenuAberto(menuAberto === index ? null : index);
-    setMenuExportarAberto(false);
-  };
-
-  const toggleMenuExportar = (e) => {
-    e.stopPropagation();
-    setMenuExportarAberto(!menuExportarAberto);
-    setMenuAberto(null);
   };
 
   const limparFiltros = () => {
@@ -102,26 +90,6 @@ const HistoricoVendas = ({ aoMudarTela }) => {
           >
             <Eraser size={14} /> Limpar filtros
           </button>
-        </div>
-        <div style={styles.rightActions}>
-          <div style={{ position: 'relative' }}>
-            <button style={styles.btnOutline} onClick={toggleMenuExportar}>
-              <Download size={14} /> Exportar <ChevronDown size={14} />
-            </button>
-            {menuExportarAberto && (
-              <div style={styles.dropdownExport} onClick={(e) => e.stopPropagation()}>
-                <div style={styles.dropdownItem} onClick={() => alert('Gerando PDF...', { type: 'info', title: 'Exportação' })}>
-                  <FileText size={14} color="#ef4444" /> Exportar para PDF
-                </div>
-                <div style={styles.dropdownItem} onClick={() => alert('Gerando Excel...', { type: 'info', title: 'Exportação' })}>
-                  <FileSpreadsheet size={14} color="#22c55e" /> Exportar para Excel
-                </div>
-                <div style={styles.dropdownItem} onClick={() => alert('Gerando CSV...', { type: 'info', title: 'Exportação' })}>
-                  <TableProperties size={14} color="#38bdf8" /> Exportar para CSV
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -181,10 +149,6 @@ const HistoricoVendas = ({ aoMudarTela }) => {
 
                       {menuAberto === index && (
                         <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                          <div style={styles.dropdownItem} onClick={() => alert('Integração WhatsApp em breve.', { type: 'info', title: 'Em breve' })}>
-                            <Phone size={14} color="#22c55e" /> Whatsapp Recibo da venda
-                          </div>
-                          
                           <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); aoMudarTela('venda-detalhes', 'historico', { vendaId: item.id }); }}>
                             <List size={14} color="#e2e8f0" /> Detalhes da Venda
                           </div>

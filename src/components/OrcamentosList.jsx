@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Plus, Eraser, Download, Settings, ChevronDown, 
-  Edit, FileText, Trash2, Search, FileSpreadsheet, 
-  TableProperties, ChevronLeft, ChevronRight, CheckCircle, Clock, XCircle, AlertCircle, RefreshCw
+  Edit, FileText, Trash2, Search,
+  ChevronLeft, ChevronRight, CheckCircle, Clock, XCircle, AlertCircle, RefreshCw
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { formatBRL } from '../utils/formatters';
@@ -19,7 +19,6 @@ import { podeConverterOrcamento, podeEditarOrcamento, podeExcluirOrcamento, pode
 const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const { lojaAtivaId } = useLoja();
   const [menuAberto, setMenuAberto] = useState(null);
-  const [menuExportarAberto, setMenuExportarAberto] = useState(false);
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
@@ -63,7 +62,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   }, [orcamentos]);
 
   useEffect(() => {
-    const handleClickFora = () => { setMenuAberto(null); setMenuExportarAberto(false); };
+    const handleClickFora = () => setMenuAberto(null);
     document.addEventListener('click', handleClickFora);
     return () => document.removeEventListener('click', handleClickFora);
   }, []);
@@ -71,13 +70,6 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const toggleMenu = (index, e) => {
     e.stopPropagation();
     setMenuAberto(menuAberto === index ? null : index);
-    setMenuExportarAberto(false);
-  };
-
-  const toggleMenuExportar = (e) => {
-    e.stopPropagation();
-    setMenuExportarAberto(!menuExportarAberto);
-    setMenuAberto(null);
   };
 
   const confirmarExclusao = async () => {
@@ -155,8 +147,6 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   };
 
   const handleExportCsv = () => {
-    setMenuExportarAberto(false);
-
     if (orcamentosFiltrados.length === 0) {
       setErro('Nenhum orçamento para exportar com os filtros atuais.');
       return;
@@ -206,24 +196,9 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             <Eraser size={14} /> Limpar filtros
           </button>
           
-          <div style={{ position: 'relative' }}>
-            <button style={styles.btnOutline} onClick={toggleMenuExportar}>
-              <Download size={14} /> Exportar <ChevronDown size={14} />
-            </button>
-            {menuExportarAberto && (
-              <div style={styles.dropdownExport} onClick={(e) => e.stopPropagation()}>
-                <div style={{ ...styles.dropdownItem, opacity: 0.5, cursor: 'not-allowed' }}>
-                  <FileText size={14} color="#ef4444" /> Exportar para PDF
-                </div>
-                <div style={{ ...styles.dropdownItem, opacity: 0.5, cursor: 'not-allowed' }}>
-                  <FileSpreadsheet size={14} color="#22c55e" /> Exportar para Excel
-                </div>
-                <div style={styles.dropdownItem} onClick={handleExportCsv}>
-                  <TableProperties size={14} color="#38bdf8" /> Exportar para CSV
-                </div>
-              </div>
-            )}
-          </div>
+          <button style={styles.btnOutline} onClick={handleExportCsv}>
+            <Download size={14} /> Exportar CSV
+          </button>
         </div>
       </div>
 
@@ -428,7 +403,7 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             </div>
             <div style={styles.modalFooter}>
               <button style={styles.btnCancel} onClick={() => setModalAprovarAberto({aberto: false, id: null})}>Cancelar</button>
-              <button style={{...styles.btnSaveModal, backgroundColor: '#22c55e', color: '#0f111a'}} onClick={confirmarAprovacao} disabled={processando}>Sim, Gerar Venda</button>
+              <button style={{...styles.btnSaveModal, backgroundColor: '#3b82f6', color: '#fff'}} onClick={confirmarAprovacao} disabled={processando}>Sim, Gerar Venda</button>
             </div>
           </div>
         </div>

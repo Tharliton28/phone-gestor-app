@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Plus, Search, Filter, ChevronDown, Download,
+  Plus, Search, Filter, ChevronDown,
   TrendingUp, TrendingDown, DollarSign, Calendar,
   FilePen, CheckCircle, Clock, XCircle, Edit, Trash2, FileText, RefreshCw
 } from 'lucide-react';
@@ -158,11 +158,6 @@ const FinanceiroList = ({ tipo, aoClicarEmNovo }) => {
             <Plus size={16} /> Novo Lançamento
           </button>
           <button style={styles.btnOutline} onClick={carregar}><RefreshCw size={14} /> Atualizar</button>
-        </div>
-        <div style={styles.rightActions}>
-          <button style={styles.btnOutline} onClick={() => alert('Exportação em breve.', { type: 'info', title: 'Em breve' })}>
-            <Download size={14} /> Exportar Extrato <ChevronDown size={14} />
-          </button>
         </div>
       </div>
 

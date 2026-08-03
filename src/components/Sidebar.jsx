@@ -10,13 +10,10 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  Briefcase,
-  FolderOpen,
   Menu,
   Search,
 } from 'lucide-react';
 import './sidebar.css';
-import { useDialog } from '../contexts/DialogContext';
 
 const ASSISTENCIA_TELAS = [
   'listagem-os',
@@ -27,7 +24,6 @@ const ASSISTENCIA_TELAS = [
 ];
 
 const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMobile }) => {
-  const { alert } = useDialog();
   const [openMenus, setOpenMenus] = useState({
     vendas: false,
     estoque: false,
@@ -77,11 +73,9 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
       name: 'Fiscal',
       icon: <FileText size={20} />,
       key: 'fiscal',
-      subItems: ['Painel Sefaz', 'Exportar Contabilidade'],
+      subItems: ['Painel Sefaz'],
     },
     { name: 'Relatórios', icon: <BarChart2 size={20} />, key: 'relatorios' },
-    { name: 'Ferramentas', icon: <Briefcase size={20} />, key: 'ferramentas' },
-    { name: 'Documentos', icon: <FolderOpen size={20} />, key: 'documentos' },
     { name: 'Configurações', icon: <Settings size={20} />, key: 'config' },
   ];
 
@@ -126,8 +120,6 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
     if (item.key === 'fiscal' && ['painel-fiscal'].includes(telaAtiva)) return true;
     if (item.key === 'config' && telaAtiva === 'config') return true;
     if (item.key === 'relatorios' && telaAtiva === 'relatorios') return true;
-    if (item.key === 'ferramentas' && telaAtiva === 'ferramentas') return true;
-    if (item.key === 'documentos' && telaAtiva === 'documentos') return true;
     return false;
   };
 
@@ -152,7 +144,6 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
     if (label === 'Contas a Pagar' && aoMudarTela) aoMudarTela('contas-pagar');
     if (label === 'Novo Lançamento' && aoMudarTela) aoMudarTela('novo-lancamento');
     if (label === 'Painel Sefaz' && aoMudarTela) aoMudarTela('painel-fiscal');
-    if (label === 'Exportar Contabilidade') alert('Baixando pacote XML automaticamente...', { type: 'info', title: 'Exportação' });
   };
 
   const isSubActive = (sub) => {

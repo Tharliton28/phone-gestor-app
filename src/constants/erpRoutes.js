@@ -24,8 +24,6 @@ export const TELA_ROUTES = {
   'historico-os': '/app/assistencia/historico',
   'termos-os': '/app/assistencia/termos',
   relatorios: '/app/relatorios',
-  ferramentas: '/app/ferramentas',
-  documentos: '/app/documentos',
   'contas-receber': '/app/financeiro/receber',
   'contas-pagar': '/app/financeiro/pagar',
   'novo-lancamento': '/app/financeiro/novo',

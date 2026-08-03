@@ -758,7 +758,7 @@ const styles = {
   },
   bannerAcoes: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
   btnImprimirVia: {
-    backgroundColor: '#22c55e', color: '#052e16', border: 'none', padding: '10px 16px',
+    backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '10px 16px',
     borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px',
     display: 'inline-flex', alignItems: 'center', gap: '8px',
   },
