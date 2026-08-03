@@ -106,7 +106,13 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
   const [ultimasVendas, setUltimasVendas] = useState([]);
 
   const nomeLoja = lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'sua loja';
-  const nomeUser = perfil?.nome?.split(' ')?.[0] || 'olá';
+  const nomeUser = (perfil?.nome?.trim().split(/\s+/)?.[0]) || 'olá';
+  const saudacao = useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Bom dia';
+    if (h < 18) return 'Boa tarde';
+    return 'Boa noite';
+  }, []);
 
   const todosAtalhos = useMemo(() => [
     { id: 1, nome: 'Nova Venda', icon: <ShoppingCart size={18} />, acao: aoClicarEmNovaVenda },
@@ -204,8 +210,9 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
         <div>
           <p className="dashboard-home__eyebrow">Tela inicial</p>
           <h1 className="dashboard-home__title">
-            {nomeUser}, bem-vindo à {truncate(nomeLoja, 36)}
+            {saudacao}, {nomeUser}
           </h1>
+          <p className="dashboard-home__store">{truncate(nomeLoja, 48)}</p>
           <p className="dashboard-home__subtitle">
             Operação do dia, tendência da semana e espaço premium para fornecedores parceiros.
           </p>

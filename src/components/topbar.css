@@ -171,6 +171,61 @@
   flex-shrink: 0;
 }
 
+.topbar__avatar--logo {
+  object-fit: cover;
+  background: #0f111a;
+  border: 1px solid #2a2e3f;
+}
+
+.topbar__hint {
+  display: block !important;
+  margin-top: 6px !important;
+  font-size: 11px !important;
+  color: #64748b !important;
+  line-height: 1.35;
+}
+
+.topbar__edit-nome {
+  padding: 10px 14px 12px;
+  border-bottom: 1px solid #2a2e3f;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.topbar__edit-input {
+  width: 100%;
+  background: #0f111a;
+  border: 1px solid #2a2e3f;
+  border-radius: 6px;
+  color: #e2e8f0;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.topbar__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.topbar__edit-btn {
+  background: transparent;
+  border: 1px solid #2a2e3f;
+  color: #94a3b8;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.topbar__edit-btn--primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+  font-weight: 700;
+}
+
 .topbar__user-name {
   font-size: 14px;
   color: #e2e8f0;

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, ChevronDown, Coins, HelpCircle, LogOut, Menu, Store, Zap } from 'lucide-react';
+import { Bell, ChevronDown, Coins, HelpCircle, LogOut, Menu, Store, UserRound, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { formatCnpj, getInitials, truncate } from '../utils/formatters';
 import { getPlanoDef } from '../domain/lojaPlanos';
 import { getSaldoCreditos } from '../services/lojaCreditoService';
+import { atualizarNomeUsuario } from '../services/usuarioService';
 import { CREDITOS_ATUALIZADOS_EVENT } from '../utils/creditosEvents';
 import './topbar.css';
 
@@ -14,15 +15,19 @@ export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos, onAbri
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { alert } = useDialog();
-  const { perfil, lojaAtiva, lojas, lojaAtivaId, setLojaAtiva, papelAtivo } = useLoja();
+  const { perfil, lojaAtiva, lojas, lojaAtivaId, setLojaAtiva, papelAtivo, recarregar } = useLoja();
   const planoDef = getPlanoDef(lojaAtiva?.plano);
   const [menuAberto, setMenuAberto] = useState(false);
   const [saldoCreditos, setSaldoCreditos] = useState(null);
+  const [editandoNome, setEditandoNome] = useState(false);
+  const [nomeDraft, setNomeDraft] = useState('');
+  const [salvandoNome, setSalvandoNome] = useState(false);
 
   const nomeExibicao = lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'Sem loja vinculada';
   const cnpjFormatado = lojaAtiva?.cnpj ? formatCnpj(lojaAtiva.cnpj) : '';
   const nomeUsuario = perfil?.nome ?? 'Usuário';
   const iniciais = getInitials(nomeUsuario);
+  const logoLoja = lojaAtiva?.logo_url || null;
 
   useEffect(() => {
     if (!lojaAtivaId) {
@@ -59,6 +64,28 @@ export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos, onAbri
     setMenuAberto(false);
     const { error } = await signOut();
     if (!error) navigate('/login', { replace: true });
+  };
+
+  const abrirEdicaoNome = () => {
+    setNomeDraft(perfil?.nome ?? '');
+    setEditandoNome(true);
+  };
+
+  const salvarNome = async () => {
+    if (!perfil?.id) return;
+    setSalvandoNome(true);
+    const { error } = await atualizarNomeUsuario(perfil.id, nomeDraft);
+    setSalvandoNome(false);
+    if (error) {
+      await alert(error.message ?? 'Não foi possível salvar o nome.', {
+        type: 'error',
+        title: 'Perfil',
+      });
+      return;
+    }
+    setEditandoNome(false);
+    await recarregar?.();
+    await alert('Nome atualizado.', { type: 'success', title: 'Perfil' });
   };
 
   const abrirCreditos = () => {
@@ -156,7 +183,11 @@ export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos, onAbri
             aria-expanded={menuAberto}
             aria-haspopup="true"
           >
-            <div className="topbar__avatar">{iniciais}</div>
+            {logoLoja ? (
+              <img src={logoLoja} alt="" className="topbar__avatar topbar__avatar--logo" />
+            ) : (
+              <div className="topbar__avatar">{iniciais}</div>
+            )}
             <span className="topbar__user-name">{truncate(nomeUsuario, 22)}</span>
             <ChevronDown size={16} className="topbar__chevron" />
           </button>
@@ -166,7 +197,10 @@ export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos, onAbri
               <button
                 type="button"
                 className="topbar__menu-backdrop"
-                onClick={() => setMenuAberto(false)}
+                onClick={() => {
+                  setMenuAberto(false);
+                  setEditandoNome(false);
+                }}
                 aria-label="Fechar menu"
               />
               <div className="topbar__dropdown">
@@ -174,7 +208,45 @@ export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos, onAbri
                   <strong>{nomeUsuario}</strong>
                   <span>{perfil?.email}</span>
                   {papelAtivo && <span className="topbar__papel">{papelAtivo}</span>}
+                  <span className="topbar__hint">
+                    Foto = logo da loja · nome é só seu
+                  </span>
                 </div>
+                {editandoNome ? (
+                  <div className="topbar__edit-nome">
+                    <input
+                      className="topbar__edit-input"
+                      value={nomeDraft}
+                      onChange={(e) => setNomeDraft(e.target.value)}
+                      maxLength={80}
+                      placeholder="Seu nome"
+                      autoFocus
+                    />
+                    <div className="topbar__edit-actions">
+                      <button
+                        type="button"
+                        className="topbar__edit-btn"
+                        onClick={() => setEditandoNome(false)}
+                        disabled={salvandoNome}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className="topbar__edit-btn topbar__edit-btn--primary"
+                        onClick={salvarNome}
+                        disabled={salvandoNome}
+                      >
+                        {salvandoNome ? 'Salvando…' : 'Salvar'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="topbar__dropdown-item" onClick={abrirEdicaoNome}>
+                    <UserRound size={16} />
+                    Alterar meu nome
+                  </button>
+                )}
                 <button type="button" className="topbar__dropdown-item" onClick={handleLogout}>
                   <LogOut size={16} />
                   Sair
