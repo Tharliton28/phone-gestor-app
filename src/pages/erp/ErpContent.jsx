@@ -18,7 +18,6 @@ import OSList from '../../components/OSList';
 import OSForm from '../../components/OSForm';
 import OSPainelTecnico from '../../components/OSPainelTecnico';
 import OSHistorico from '../../components/OSHistorico';
-import RecibosNotas from '../../components/RecibosNotas';
 import FinanceiroList from '../../components/FinanceiroList';
 import FinanceiroForm from '../../components/FinanceiroForm';
 import PainelFiscal from '../../components/PainelFiscal';
@@ -90,7 +89,7 @@ export default function ErpContent() {
           </div>
           <VendaDetalhes
             vendaId={dadosNavegacao?.vendaId ?? null}
-            aoVoltar={() => voltarTelaAnterior('listagem')}
+            aoVoltar={() => voltarTelaAnterior('historico')}
             aoMudarTela={mudarTela}
           />
         </>
@@ -100,11 +99,10 @@ export default function ErpContent() {
       return (
         <>
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
-            <span style={{ color: '#3b82f6' }}>Vendas</span> {'>'} Listagem de Vendas {'>'}{' '}
-            Visualizar Recibo e Garantia
+            <span style={{ color: '#3b82f6' }}>Vendas</span> {'>'} Recibo e Garantia
           </div>
           <ReciboGarantia
-            aoVoltar={() => voltarTelaAnterior('listagem')}
+            aoVoltar={() => voltarTelaAnterior('historico')}
             vendaSelecionada={dadosNavegacao}
           />
         </>
@@ -206,28 +204,6 @@ export default function ErpContent() {
             aoVoltar={() => voltarTelaAnterior('orcamentos')}
             dadosNavegacao={dadosNavegacao}
           />
-        </>
-      );
-
-    case 'recibos-notas':
-      return (
-        <>
-          <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
-            <span style={{ color: '#3b82f6' }}>Venda</span> {'>'} Recibos e Notas Fiscais
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '20px',
-            }}
-          >
-            <h2 style={{ color: '#e2e8f0', fontSize: '20px', fontWeight: '600' }}>
-              Gestão de Recibos e Notas (NFe/NFCe)
-            </h2>
-          </div>
-          <RecibosNotas aoMudarTela={mudarTela} />
         </>
       );
 

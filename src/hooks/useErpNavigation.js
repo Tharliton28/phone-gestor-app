@@ -24,17 +24,14 @@ export function useErpNavigation() {
   };
 
   const voltarTelaAnterior = (fallback = 'listagem') => {
-    const destino =
-      telaOrigem && telaOrigem !== telaAtiva ? telaOrigem : fallback;
-    const path = telaToPath(destino);
-    const pathAtual = location.pathname.replace(/\/+$/, '') || '/';
-
-    if (path === pathAtual) {
-      navigate(telaToPath(fallback));
+    // Preferir histórico do browser: restaura location.state anterior
+    // (ex.: recibo → detalhes com vendaId; detalhes → histórico).
+    if (telaOrigem && telaOrigem !== telaAtiva) {
+      navigate(-1);
       return;
     }
 
-    navigate(path);
+    navigate(telaToPath(fallback));
   };
 
   const irParaListagemVendas = (dados = null) => {

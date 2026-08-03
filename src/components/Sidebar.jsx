@@ -43,7 +43,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
       name: 'Vendas',
       icon: <ShoppingCart size={20} />,
       key: 'vendas',
-      subItems: ['Clientes', 'Venda - PDV', 'Orçamentos', 'Histórico de Vendas', 'Recibos e Notas'],
+      subItems: ['Clientes', 'Venda - PDV', 'Orçamentos', 'Histórico de Vendas'],
     },
     {
       name: 'Compras / Estoque',
@@ -93,7 +93,6 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
         'venda-detalhes',
         'orcamentos',
         'novo-orcamento',
-        'recibos-notas',
         'recibo-garantia',
       ].includes(telaAtiva)
     )
@@ -134,7 +133,6 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
     if (label === 'Clientes' && aoMudarTela) aoMudarTela('clientes');
     if (label === 'Histórico de Vendas' && aoMudarTela) aoMudarTela('historico');
     if (label === 'Orçamentos' && aoMudarTela) aoMudarTela('orcamentos');
-    if (label === 'Recibos e Notas' && aoMudarTela) aoMudarTela('recibos-notas');
     if (label === 'Estoque Atual' && aoMudarTela) aoMudarTela('consulta-estoque');
     if (label === 'Ordem de Compra' && aoMudarTela) aoMudarTela('ordem-compra');
     if (label === 'Movimentações' && aoMudarTela) aoMudarTela('movimentacoes');
@@ -153,9 +151,8 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
       (label === 'Venda - PDV' && (telaAtiva === 'listagem' || telaAtiva === 'nova-venda')) ||
       (label === 'Clientes' && (telaAtiva === 'clientes' || telaAtiva === 'novo-cliente')) ||
       (label === 'Histórico de Vendas' &&
-        (telaAtiva === 'historico' || telaAtiva === 'venda-detalhes')) ||
+        (telaAtiva === 'historico' || telaAtiva === 'venda-detalhes' || telaAtiva === 'recibo-garantia')) ||
       (label === 'Orçamentos' && (telaAtiva === 'orcamentos' || telaAtiva === 'novo-orcamento')) ||
-      (label === 'Recibos e Notas' && telaAtiva === 'recibos-notas') ||
       (label === 'Estoque Atual' &&
         (telaAtiva === 'consulta-estoque' || telaAtiva === 'novo-produto')) ||
       (label === 'Ordem de Compra' &&

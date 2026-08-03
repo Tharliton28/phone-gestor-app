@@ -54,7 +54,7 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
       {/* Barra de Ações Superior - some totalmente na impressão */}
       <div style={styles.actionHeader} className="no-print">
         <button onClick={aoVoltar} style={styles.btnBack}>
-          <ArrowLeft size={16} /> Voltar para Recibos e Notas
+          <ArrowLeft size={16} /> Voltar
         </button>
         <div style={styles.rightActions}>
           <button style={styles.btnOutline} onClick={() => window.print()}>

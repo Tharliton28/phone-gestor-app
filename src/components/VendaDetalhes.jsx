@@ -30,12 +30,17 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
   useEffect(() => {
     if (!vendaId || !lojaAtivaId) {
       setLoading(false);
+      setVenda(null);
       return;
     }
+
+    let cancelado = false;
 
     const carregar = async () => {
       setLoading(true);
       const { data, error } = await getVendaById(lojaAtivaId, vendaId);
+
+      if (cancelado) return;
 
       if (error || !data) {
         await alert(error?.message ?? 'Venda não encontrada.', { type: 'error', title: 'Erro' });
@@ -48,7 +53,10 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
     };
 
     carregar();
-  }, [vendaId, lojaAtivaId, alert, aoVoltar]);
+    return () => { cancelado = true; };
+    // aoVoltar omitido de deps de propósito (callback inline do pai muda a cada render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- carregar sob vendaId/loja
+  }, [vendaId, lojaAtivaId, alert]);
 
   const handleImprimirRecibo = () => {
     if (!venda || !aoMudarTela) return;
@@ -60,7 +68,14 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
   }
 
   if (!venda) {
-    return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Venda não encontrada.</div>;
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+        <p style={{ margin: '0 0 16px' }}>Venda não encontrada.</p>
+        <button type="button" onClick={aoVoltar} style={styles.btnBack}>
+          <ArrowLeft size={16} /> Voltar ao histórico
+        </button>
+      </div>
+    );
   }
 
   const enderecoCliente = [

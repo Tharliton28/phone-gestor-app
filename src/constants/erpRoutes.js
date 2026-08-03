@@ -10,7 +10,6 @@ export const TELA_ROUTES = {
   historico: '/app/vendas/historico',
   orcamentos: '/app/orcamentos',
   'novo-orcamento': '/app/orcamentos/novo',
-  'recibos-notas': '/app/recibos-notas',
   'consulta-estoque': '/app/estoque',
   'novo-produto': '/app/estoque/produto/novo',
   'ordem-compra': '/app/compras',
