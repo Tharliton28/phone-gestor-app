@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Printer, Download } from 'lucide-react';
+import { useDialog } from '../contexts/DialogContext';
 import { useLoja } from '../contexts/LojaContext';
 import { formatBRL, formatCnpj, formatCpfCnpj } from '../utils/formatters';
+import { gerarReciboVendaPdf } from '../utils/reciboVendaPdf';
 
 function formatDataRecibo(value) {
   if (!value) return '—';
@@ -20,6 +22,8 @@ function money(value) {
 
 const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
   const { lojaAtiva } = useLoja();
+  const { alert } = useDialog();
+  const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const empresa = useMemo(() => {
     const loja = lojaAtiva ?? {};
@@ -37,6 +41,27 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
   }, [lojaAtiva]);
 
   const venda = vendaSelecionada;
+
+  const gerarPdf = async (mode) => {
+    if (!venda || gerandoPdf) return;
+    setGerandoPdf(true);
+    try {
+      const result = await gerarReciboVendaPdf({ empresa, venda, mode });
+      if (result?.fallbackDownload) {
+        await alert(
+          'O navegador bloqueou a janela de impressão. O PDF foi baixado — abra o arquivo e imprima.',
+          { type: 'info', title: 'PDF baixado' }
+        );
+      }
+    } catch (err) {
+      await alert(err?.message ?? 'Não foi possível gerar o PDF do recibo.', {
+        type: 'error',
+        title: 'PDF',
+      });
+    } finally {
+      setGerandoPdf(false);
+    }
+  };
 
   if (!venda?.vendaId && !venda?.id) {
     return (
@@ -60,11 +85,21 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
           <ArrowLeft size={16} /> Voltar
         </button>
         <div style={styles.rightActions}>
-          <button style={styles.btnOutline} onClick={() => window.print()}>
-            <Download size={14} /> Baixar PDF
+          <button
+            type="button"
+            style={{ ...styles.btnOutline, opacity: gerandoPdf ? 0.6 : 1 }}
+            disabled={gerandoPdf}
+            onClick={() => gerarPdf('download')}
+          >
+            <Download size={14} /> {gerandoPdf ? 'Gerando…' : 'Baixar PDF'}
           </button>
-          <button style={styles.btnPrimary} onClick={() => window.print()}>
-            <Printer size={16} /> Imprimir Recibo
+          <button
+            type="button"
+            style={{ ...styles.btnPrimary, opacity: gerandoPdf ? 0.6 : 1 }}
+            disabled={gerandoPdf}
+            onClick={() => gerarPdf('print')}
+          >
+            <Printer size={16} /> {gerandoPdf ? 'Gerando…' : 'Imprimir Recibo'}
           </button>
         </div>
       </div>
@@ -74,7 +109,7 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
           <div style={styles.docHeader}>
             <div style={styles.docHeaderLeft}>
               {empresa.logoUrl ? (
-                <img src={empresa.logoUrl} alt="" style={styles.logoImg} />
+                <img src={empresa.logoUrl} alt={tituloMarca} style={styles.logoImg} />
               ) : (
                 <h1 style={styles.logoText}>{tituloMarca}</h1>
               )}
@@ -261,14 +296,19 @@ const styles = {
     fontFamily: 'Arial, sans-serif', fontSize: '11px',
   },
   docHeader: {
-    display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #000',
-    paddingBottom: '10px', marginBottom: '15px', gap: '12px',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    borderBottom: '2px solid #000', paddingBottom: '12px', marginBottom: '15px', gap: '14px',
   },
-  docHeaderLeft: { width: '25%', display: 'flex', alignItems: 'center' },
-  docHeaderCenter: { width: '45%', textAlign: 'center' },
+  docHeaderLeft: {
+    width: '28%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
+  },
+  docHeaderCenter: { width: '42%', textAlign: 'center' },
   docHeaderRight: { width: '30%', textAlign: 'right' },
-  logoText: { margin: 0, fontSize: '22px', fontWeight: 'bold', color: '#111' },
-  logoImg: { maxWidth: '90px', maxHeight: '70px', objectFit: 'contain' },
+  logoText: { margin: 0, fontSize: '22px', fontWeight: 'bold', color: '#111', lineHeight: 1.15 },
+  logoImg: {
+    width: '120px', height: '120px', maxWidth: '120px', maxHeight: '120px',
+    objectFit: 'contain', display: 'block',
+  },
   companyInfo: { margin: '2px 0', fontSize: '10px' },
   docInfo: { margin: '2px 0', fontSize: '10px' },
   docTitle: {

@@ -98,7 +98,7 @@ export default function ErpContent() {
     case 'recibo-garantia':
       return (
         <>
-          <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
+          <div className="no-print" style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
             <span style={{ color: '#3b82f6' }}>Vendas</span> {'>'} Recibo e Garantia
           </div>
           <ReciboGarantia

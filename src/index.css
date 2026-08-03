@@ -27,3 +27,63 @@ body {
     transform: translateY(0) scale(1);
   }
 }
+
+/* Impressão: só a folha do documento (recibo, orçamento, etc.) */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  .sidebar,
+  .topbar,
+  .app-layout__backdrop,
+  .no-print {
+    display: none !important;
+  }
+
+  html,
+  body,
+  #root,
+  .app-layout,
+  .app-layout__main,
+  .app-layout__content {
+    background: #fff !important;
+    color: #000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+    display: block !important;
+  }
+
+  .app-layout__main {
+    margin-left: 0 !important;
+  }
+
+  .viewer-print-wrapper,
+  .app-container-print {
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .print-area {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+}
