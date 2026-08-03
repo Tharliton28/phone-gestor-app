@@ -1,57 +1,60 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Printer, Download, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { ArrowLeft, Printer, Download } from 'lucide-react';
+import { useLoja } from '../contexts/LojaContext';
+import { formatBRL, formatCnpj, formatCpfCnpj } from '../utils/formatters';
 
-// A tela recebe a propriedade 'vendaSelecionada' além da função de voltar
+function formatDataRecibo(value) {
+  if (!value) return '—';
+  if (/^\d{4}-\d{2}-\d{2}/.test(String(value))) {
+    const [y, m, d] = String(value).slice(0, 10).split('-');
+    return `${d}/${m}/${y}`;
+  }
+  return String(value);
+}
+
+function money(value) {
+  if (value == null || value === '') return '0,00';
+  if (typeof value === 'string' && value.includes(',')) return value;
+  return formatBRL(value);
+}
+
 const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
-  const [modalAviso, setModalAviso] = useState({ aberto: false, titulo: '', mensagem: '', tipo: 'info', acaoOk: null });
+  const { lojaAtiva } = useLoja();
 
-  const mostrarAviso = (titulo, mensagem, tipo = 'info', acaoOk = null) => {
-    setModalAviso({ aberto: true, titulo, mensagem, tipo, acaoOk });
-  };
+  const empresa = useMemo(() => {
+    const loja = lojaAtiva ?? {};
+    const endereco = [loja.logradouro, loja.numero].filter(Boolean).join(', ');
+    return {
+      razaoSocial: loja.razao_social || 'Empresa',
+      nomeFantasia: loja.nome_fantasia || loja.razao_social || 'Loja',
+      cnpj: formatCnpj(loja.cnpj) || '—',
+      endereco: endereco || '—',
+      cidade: loja.cidade || '—',
+      uf: loja.estado || '—',
+      telefone: loja.telefone || '—',
+      logoUrl: loja.logo_url || null,
+    };
+  }, [lojaAtiva]);
 
-  // ==========================================
-  // SIMULAÇÃO DO BANCO DE DADOS (Configurações da Empresa)
-  // Isso virá do Contexto/Estado Global no futuro
-  // ==========================================
-  const empresa = {
-    razaoSocial: 'Biscoito Imports LTDA',
-    nomeFantasia: 'Biscoito Imports',
-    cnpj: '64.951.713/0001-13',
-    endereco: 'Avenida Narciso Pessoa de Araújo, 113',
-    cidade: 'Maracanaú',
-    uf: 'CE',
-    telefone: '(85) 98589-2506'
-  };
+  const venda = vendaSelecionada;
 
-  // ==========================================
-  // DADOS DA VENDA
-  // Usa o objeto passado por prop, ou o MOCK caso seja aberto sem seleção
-  // ==========================================
-  const venda = vendaSelecionada || {
-    id: '4146187',
-    cliente: 'THAIS LOPES',
-    cpf: '000.000.000-00',
-    telefone: '(85) 99430-0841',
-    email: 'thais@email.com',
-    endereco: 'Rua das Flores, 123',
-    cidade: 'Maracanaú',
-    uf: 'CE',
-    data: '03/07/2026',
-    vendedor: 'Wesley de Sousa',
-    valorTotal: '5.500,00',
-    produtos: [
-      { id: '5181678', descricao: 'Celular - IPHONE 13 PRO MAX - 128GB - AZUL PACÍFICO', imei: '353967815666840', qtd: 1, valorUnitario: '5.500,00', valorTotal: '5.500,00' }
-    ],
-    pagamentos: [
-      { forma: 'APARELHO NA TROCA', detalhes: 'iPhone 11 64GB Preto (Avaliação)', valor: '2.000,00' },
-      { forma: 'PIX', detalhes: 'Chave CNPJ', valor: '3.500,00' }
-    ]
-  };
+  if (!venda?.vendaId && !venda?.id) {
+    return (
+      <div style={styles.container}>
+        <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+          <p style={{ margin: '0 0 16px' }}>Nenhuma venda selecionada para o recibo.</p>
+          <button type="button" onClick={aoVoltar} style={styles.btnBack}>
+            <ArrowLeft size={16} /> Voltar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const tituloMarca = empresa.nomeFantasia;
 
   return (
     <div style={styles.container} className="app-container-print">
-      
-      {/* Barra de Ações Superior - some totalmente na impressão */}
       <div style={styles.actionHeader} className="no-print">
         <button onClick={aoVoltar} style={styles.btnBack}>
           <ArrowLeft size={16} /> Voltar
@@ -66,16 +69,15 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
         </div>
       </div>
 
-      {/* Área de visualização do Documento */}
       <div style={styles.documentViewer} className="viewer-print-wrapper">
-        
-        {/* A FOLHA A4 */}
         <div style={styles.a4Page} className="print-area">
-          
-          {/* Cabeçalho do Recibo (DADOS DA EMPRESA DINÂMICOS) */}
           <div style={styles.docHeader}>
             <div style={styles.docHeaderLeft}>
-              <h1 style={styles.logoText}>Biscoito<span style={{color: '#d4af37'}}>.</span>Imports</h1>
+              {empresa.logoUrl ? (
+                <img src={empresa.logoUrl} alt="" style={styles.logoImg} />
+              ) : (
+                <h1 style={styles.logoText}>{tituloMarca}</h1>
+              )}
             </div>
             <div style={styles.docHeaderCenter}>
               <p style={styles.companyInfo}><strong>{empresa.razaoSocial}</strong></p>
@@ -83,15 +85,14 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
               <p style={styles.companyInfo}>CNPJ: {empresa.cnpj} | Tel: {empresa.telefone}</p>
             </div>
             <div style={styles.docHeaderRight}>
-              <p style={styles.docInfo}><strong>DATA:</strong> {venda.data}</p>
-              <p style={styles.docInfo}><strong>VENDEDOR:</strong> {venda.vendedor}</p>
-              <p style={styles.docInfo}><strong>RECIBO Nº:</strong> MP{venda.id}</p>
+              <p style={styles.docInfo}><strong>DATA:</strong> {formatDataRecibo(venda.data)}</p>
+              <p style={styles.docInfo}><strong>VENDEDOR:</strong> {venda.vendedor || '—'}</p>
+              <p style={styles.docInfo}><strong>RECIBO Nº:</strong> {venda.id ?? venda.vendaId}</p>
             </div>
           </div>
 
           <h2 style={styles.docTitle}>RECIBO DE VENDA E TERMO DE GARANTIA</h2>
 
-          {/* Dados do Cliente (DADOS DA VENDA DINÂMICOS) */}
           <table style={styles.table}>
             <thead>
               <tr><th colSpan="4" style={styles.thTitle}>DESTINATÁRIO / COMPRADOR</th></tr>
@@ -105,71 +106,84 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
             <tbody>
               <tr>
                 <td style={styles.td}>{venda.cliente}</td>
-                <td style={styles.td}>{venda.telefone}</td>
-                <td style={styles.td}>{venda.cpf}</td>
+                <td style={styles.td}>{venda.telefone || '—'}</td>
+                <td style={styles.td}>{formatCpfCnpj(venda.cpf) || '—'}</td>
                 <td style={styles.td}>{venda.email || 'Não informado'}</td>
               </tr>
               <tr>
-                <td colSpan="2" style={styles.tdHeader}>Endereço: <span style={styles.tdValue}>{venda.endereco || 'Não informado'}</span></td>
-                <td style={styles.tdHeader}>Cidade: <span style={styles.tdValue}>{venda.cidade || '-'}</span></td>
-                <td style={styles.tdHeader}>UF: <span style={styles.tdValue}>{venda.uf || '-'}</span></td>
+                <td colSpan="2" style={styles.tdHeader}>
+                  Endereço: <span style={styles.tdValue}>{venda.endereco || 'Não informado'}</span>
+                </td>
+                <td style={styles.tdHeader}>
+                  Cidade: <span style={styles.tdValue}>{venda.cidade || '-'}</span>
+                </td>
+                <td style={styles.tdHeader}>
+                  UF: <span style={styles.tdValue}>{venda.uf || '-'}</span>
+                </td>
               </tr>
             </tbody>
           </table>
 
-          {/* Dados do Produto (LISTA DINÂMICA) */}
           <table style={styles.table}>
             <thead>
               <tr><th colSpan="5" style={styles.thTitle}>DADOS DO PRODUTO</th></tr>
               <tr>
-                <th style={{...styles.th, width: '10%'}}>Cód</th>
-                <th style={{...styles.th, width: '45%'}}>Descrição do Produto / IMEI</th>
-                <th style={{...styles.th, width: '10%', textAlign: 'center'}}>Qtd</th>
-                <th style={{...styles.th, width: '15%', textAlign: 'right'}}>Vl. Unitário</th>
-                <th style={{...styles.th, width: '20%', textAlign: 'right'}}>Valor Total</th>
+                <th style={{ ...styles.th, width: '10%' }}>Cód</th>
+                <th style={{ ...styles.th, width: '45%' }}>Descrição do Produto / IMEI</th>
+                <th style={{ ...styles.th, width: '10%', textAlign: 'center' }}>Qtd</th>
+                <th style={{ ...styles.th, width: '15%', textAlign: 'right' }}>Vl. Unitário</th>
+                <th style={{ ...styles.th, width: '20%', textAlign: 'right' }}>Valor Total</th>
               </tr>
             </thead>
             <tbody>
-              {venda.produtos.map((prod, index) => (
-                <tr key={index}>
-                  <td style={styles.td}>{prod.id}</td>
-                  <td style={styles.td}>{prod.descricao}{prod.imei && <><br/>IMEI: {prod.imei}</>}</td>
-                  <td style={{...styles.td, textAlign: 'center'}}>{prod.qtd}</td>
-                  <td style={{...styles.td, textAlign: 'right'}}>R$ {prod.valorUnitario}</td>
-                  <td style={{...styles.td, textAlign: 'right'}}>R$ {prod.valorTotal}</td>
+              {(venda.produtos ?? []).map((prod, index) => (
+                <tr key={prod.id ?? index}>
+                  <td style={styles.td}>{String(prod.id ?? '').slice(0, 8)}</td>
+                  <td style={styles.td}>
+                    {prod.descricao}
+                    {prod.imei ? <><br />IMEI: {prod.imei}</> : null}
+                  </td>
+                  <td style={{ ...styles.td, textAlign: 'center' }}>{prod.qtd}</td>
+                  <td style={{ ...styles.td, textAlign: 'right' }}>R$ {money(prod.valorUnitario)}</td>
+                  <td style={{ ...styles.td, textAlign: 'right' }}>R$ {money(prod.valorTotal)}</td>
                 </tr>
               ))}
               <tr>
-                <td colSpan="4" style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>TOTAL DOS PRODUTOS:</td>
-                <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>R$ {venda.valorTotal}</td>
+                <td colSpan="4" style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold' }}>
+                  TOTAL DOS PRODUTOS:
+                </td>
+                <td style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold' }}>
+                  R$ {money(venda.valorTotal)}
+                </td>
               </tr>
             </tbody>
           </table>
 
-          {/* Pagamento (LISTA DINÂMICA) */}
           <table style={styles.table}>
             <thead>
               <tr><th colSpan="3" style={styles.thTitle}>FORMA DE PAGAMENTO</th></tr>
             </thead>
             <tbody>
-              {venda.pagamentos.map((pag, index) => (
+              {(venda.pagamentos ?? []).map((pag, index) => (
                 <tr key={index}>
-                  <td style={{...styles.td, width: '30%'}}>{pag.forma}</td>
-                  <td style={{...styles.td, width: '45%'}}>{pag.detalhes}</td>
-                  <td style={{...styles.td, width: '25%', textAlign: 'right'}}>R$ {pag.valor}</td>
+                  <td style={{ ...styles.td, width: '30%' }}>{pag.forma}</td>
+                  <td style={{ ...styles.td, width: '45%' }}>{pag.detalhes}</td>
+                  <td style={{ ...styles.td, width: '25%', textAlign: 'right' }}>R$ {money(pag.valor)}</td>
                 </tr>
               ))}
               <tr>
-                <td colSpan="2" style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>TOTAL PAGO:</td>
-                <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>R$ {venda.valorTotal}</td>
+                <td colSpan="2" style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold' }}>
+                  TOTAL PAGO:
+                </td>
+                <td style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold' }}>
+                  R$ {money(venda.valorTotal)}
+                </td>
               </tr>
             </tbody>
           </table>
 
-          {/* Cláusulas de Garantia */}
           <div style={styles.legalTextContainer}>
             <h3 style={styles.legalTitle}>TERMO DE GARANTIA E CONDIÇÕES DE COMPRA</h3>
-            
             <p style={styles.legalText}>
               <strong>Cláusula 1ª:</strong> O comprador está adquirindo o produto descrito acima, em plenas condições de uso, devidamente testado, concordando com todas as características e estado do item, inexistindo qualquer defeito, mediante valor e forma de pagamento ajustado entre as partes.
             </p>
@@ -181,11 +195,11 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
             </p>
             <p style={styles.legalText}>
               <strong>Cláusula 4ª (PERDA DE GARANTIA):</strong> A garantia do produto cessará imediatamente nos seguintes casos:
-              <br/>- Danos físicos causados por quedas, amassados, arranhões ou pressão excessiva;
-              <br/>- Contato com líquidos, umidade ou oxidação de componentes internos;
-              <br/>- Rompimento do selo de garantia interno ou externo;
-              <br/>- Tentativa de reparo, abertura do aparelho ou alteração de software por terceiros não autorizados;
-              <br/>- Mau uso, negligência ou uso de acessórios não originais/homologados (carregadores falsos).
+              <br />- Danos físicos causados por quedas, amassados, arranhões ou pressão excessiva;
+              <br />- Contato com líquidos, umidade ou oxidação de componentes internos;
+              <br />- Rompimento do selo de garantia interno ou externo;
+              <br />- Tentativa de reparo, abertura do aparelho ou alteração de software por terceiros não autorizados;
+              <br />- Mau uso, negligência ou uso de acessórios não originais/homologados (carregadores falsos).
             </p>
             <p style={styles.legalText}>
               <strong>Cláusula 5ª:</strong> Em caso de defeito coberto pela garantia, o comprador deverá acionar a loja imediatamente. O prazo para reparo ou substituição do equipamento é de até 30 dias, conforme CDC. Danos em baterias (desgaste natural) não são cobertos após 30 dias.
@@ -195,7 +209,6 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
             </p>
           </div>
 
-          {/* Assinaturas (NOME DA EMPRESA E CLIENTE DINÂMICOS) */}
           <div style={styles.signaturesArea}>
             <div style={styles.signatureBox}>
               <div style={styles.signatureLine}></div>
@@ -208,167 +221,82 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
               <p style={styles.signatureRole}>Vendedor / {empresa.nomeFantasia}</p>
             </div>
           </div>
-          
-          <div style={styles.footerMsg}>OBRIGADO PELA PREFERÊNCIA!</div>
 
+          <div style={styles.footerMsg}>OBRIGADO PELA PREFERÊNCIA!</div>
         </div>
       </div>
-
-      {/* MODAL CUSTOMIZADO PARA AVISOS - AGORA COM CLASSE NO-PRINT */}
-      {modalAviso.aberto && (
-        <div style={styles.modalOverlay} className="no-print">
-          <div style={styles.modalContentSmall}>
-            <div style={styles.modalHeader}>
-              <h3 style={{margin: 0, color: '#fff', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-                {modalAviso.tipo === 'sucesso' && <CheckCircle size={18} color="#4ade80" />}
-                {modalAviso.tipo === 'erro' && <AlertCircle size={18} color="#ef4444" />}
-                {modalAviso.tipo === 'info' && <Info size={18} color="#3b82f6" />}
-                {modalAviso.titulo}
-              </h3>
-            </div>
-            <div style={{padding: '20px 0'}}>
-              <p style={{color: '#94a3b8', fontSize: '14px', margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap'}}>{modalAviso.mensagem}</p>
-            </div>
-            <div style={styles.modalFooter}>
-              <button 
-                style={{...styles.btnSaveModal, backgroundColor: modalAviso.tipo === 'erro' ? '#ef4444' : '#3b82f6', width: '100%'}} 
-                onClick={() => {
-                  setModalAviso({...modalAviso, aberto: false});
-                  if (modalAviso.acaoOk) modalAviso.acaoOk();
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* ================================================================ */}
-      {/* MÁGICA DE IMPRESSÃO INFALÍVEL: MANIPULAÇÃO ESTRUTURAL DA PÁGINA */}
-      {/* ================================================================ */}
-      <style>{`
-        @media print {
-          @page { 
-            size: A4 portrait; 
-            margin: 5mm; 
-          }
-          
-          /* Esconde a Sidebar inteira do App.jsx (primeiro filho do container flex) */
-          #root > div > :not(main) { 
-            display: none !important; 
-          }
-          
-          /* Esconde a Topbar do App.jsx (primeiro filho do main) */
-          main > :not(div) { 
-            display: none !important; 
-          }
-          
-          /* ESCONDE O BREADCRUMB DO APP.JSX (qualquer div irmã do recibo) */
-          main > div > :not(.app-container-print) {
-            display: none !important;
-          }
-
-          /* Zera a margem lateral que empurrava a tela para a direita */
-          main { 
-            margin: 0 !important; 
-            width: 100% !important; 
-          }
-          
-          /* Remove a cor de fundo preta e os paddings da área de visualização */
-          main > div { 
-            background: #ffffff !important; 
-            padding: 0 !important; 
-            margin: 0 !important; 
-          }
-          
-          /* Esconde todos os nossos próprios botões e modais desta tela */
-          .no-print { 
-            display: none !important; 
-          }
-          
-          /* Evita a criação da segunda folha em branco removendo o height fixo do sistema */
-          html, body, #root, main, main > div, .app-container-print, .viewer-print-wrapper {
-            height: auto !important;
-            min-height: 0 !important;
-            background-color: #ffffff !important;
-            overflow: visible !important;
-            position: static !important;
-          }
-          
-          /* Formata o Recibo para ocupar a página nativamente no fluxo */
-          .print-area { 
-            width: 100% !important; 
-            max-width: 100% !important; 
-            height: auto !important;
-            min-height: 0 !important;
-            margin: 0 !important;
-            padding: 10mm !important;
-            box-shadow: none !important; 
-          }
-        }
-      `}</style>
     </div>
   );
 };
 
 const styles = {
-  container: { display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#0f111a', position: 'relative' },
-  actionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 24px', backgroundColor: '#161925', borderBottom: '1px solid #1f2233' },
-  btnBack: { backgroundColor: 'transparent', border: 'none', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px' },
-  rightActions: { display: 'flex', gap: '10px' },
-  btnOutline: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' },
-  btnPrimary: { backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 'bold' },
-  
-  documentViewer: { flex: 1, overflowY: 'auto', padding: '40px 20px', display: 'flex', justifyContent: 'center' },
-  
-  a4Page: { 
-    backgroundColor: '#ffffff', 
-    width: '100%',
-    maxWidth: '210mm',
-    minHeight: '297mm', 
-    padding: '15mm', 
-    boxShadow: '0 10px 25px rgba(0,0,0,0.5)', 
-    color: '#000000', 
-    fontFamily: 'Arial, sans-serif',
-    boxSizing: 'border-box',
-    margin: '0 auto'
+  container: { display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#0b0d14' },
+  actionHeader: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '15px 20px', borderBottom: '1px solid #1f2233', backgroundColor: '#12141f',
   },
-  
-  docHeader: { display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '20px' },
-  docHeaderLeft: { width: '30%', display: 'flex', alignItems: 'center' },
-  logoText: { fontSize: '24px', margin: 0, fontWeight: '900', letterSpacing: '-1px' },
-  docHeaderCenter: { width: '40%', textAlign: 'center' },
-  companyInfo: { margin: '2px 0', fontSize: '10px' },
+  rightActions: { display: 'flex', gap: '10px' },
+  btnBack: {
+    backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0',
+    padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex',
+    alignItems: 'center', gap: '6px', fontSize: '13px',
+  },
+  btnOutline: {
+    backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0',
+    padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex',
+    alignItems: 'center', gap: '6px', fontSize: '13px',
+  },
+  btnPrimary: {
+    backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '8px 16px',
+    borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+    gap: '6px', fontSize: '13px', fontWeight: 'bold',
+  },
+  documentViewer: {
+    flex: 1, overflowY: 'auto', padding: '40px', display: 'flex', justifyContent: 'center',
+    backgroundColor: '#0b0d14',
+  },
+  a4Page: {
+    width: '210mm', minHeight: '297mm', backgroundColor: '#fff', color: '#000',
+    padding: '15mm', boxShadow: '0 0 20px rgba(0,0,0,0.5)', boxSizing: 'border-box',
+    fontFamily: 'Arial, sans-serif', fontSize: '11px',
+  },
+  docHeader: {
+    display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #000',
+    paddingBottom: '10px', marginBottom: '15px', gap: '12px',
+  },
+  docHeaderLeft: { width: '25%', display: 'flex', alignItems: 'center' },
+  docHeaderCenter: { width: '45%', textAlign: 'center' },
   docHeaderRight: { width: '30%', textAlign: 'right' },
+  logoText: { margin: 0, fontSize: '22px', fontWeight: 'bold', color: '#111' },
+  logoImg: { maxWidth: '90px', maxHeight: '70px', objectFit: 'contain' },
+  companyInfo: { margin: '2px 0', fontSize: '10px' },
   docInfo: { margin: '2px 0', fontSize: '10px' },
-
-  docTitle: { textAlign: 'center', fontSize: '14px', fontWeight: 'bold', margin: '20px 0', textDecoration: 'underline' },
-
-  table: { width: '100%', borderCollapse: 'collapse', marginBottom: '20px', fontSize: '10px' },
-  thTitle: { backgroundColor: '#f3f4f6', border: '1px solid #000', padding: '4px', textAlign: 'left', fontSize: '10px', fontWeight: 'bold' },
-  th: { border: '1px solid #000', padding: '4px', backgroundColor: '#ffffff', fontWeight: 'bold' },
-  td: { border: '1px solid #000', padding: '4px' },
+  docTitle: {
+    textAlign: 'center', fontSize: '14px', fontWeight: 'bold', margin: '15px 0',
+    textDecoration: 'underline',
+  },
+  table: { width: '100%', borderCollapse: 'collapse', marginBottom: '15px', fontSize: '10px' },
+  thTitle: {
+    backgroundColor: '#eee', border: '1px solid #000', padding: '4px', textAlign: 'left',
+    fontWeight: 'bold',
+  },
+  th: { border: '1px solid #000', padding: '4px', textAlign: 'left', backgroundColor: '#f9f9f9' },
+  td: { border: '1px solid #000', padding: '4px', verticalAlign: 'top' },
   tdHeader: { border: '1px solid #000', padding: '4px', fontWeight: 'bold' },
   tdValue: { fontWeight: 'normal' },
-
-  legalTextContainer: { marginTop: '20px', fontSize: '9px', lineHeight: '1.4', textAlign: 'justify' },
-  legalTitle: { fontSize: '11px', fontWeight: 'bold', marginBottom: '10px' },
-  legalText: { marginBottom: '8px' },
-
-  signaturesArea: { display: 'flex', justifyContent: 'space-around', marginTop: '60px' },
+  legalTextContainer: { marginTop: '20px', fontSize: '9px', textAlign: 'justify' },
+  legalTitle: { fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' },
+  legalText: { marginBottom: '6px', lineHeight: '1.4' },
+  signaturesArea: {
+    display: 'flex', justifyContent: 'space-between', marginTop: '40px', padding: '0 20px',
+  },
   signatureBox: { width: '40%', textAlign: 'center' },
   signatureLine: { borderTop: '1px solid #000', marginBottom: '5px' },
-  signatureName: { fontSize: '11px', fontWeight: 'bold', margin: '0' },
-  signatureRole: { fontSize: '10px', margin: '0' },
-
-  footerMsg: { textAlign: 'center', marginTop: '40px', fontSize: '12px', fontWeight: 'bold', fontStyle: 'italic' },
-
-  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  modalContentSmall: { backgroundColor: '#11131c', border: '1px solid #2a2e3f', borderRadius: '8px', width: '400px', padding: '24px', display: 'flex', flexDirection: 'column' },
-  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1f2233', paddingBottom: '15px' },
-  modalFooter: { marginTop: '10px', display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid #1f2233', paddingTop: '15px' },
-  btnSaveModal: { color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }
+  signatureName: { margin: '0', fontWeight: 'bold', fontSize: '10px' },
+  signatureRole: { margin: '0', fontSize: '9px' },
+  footerMsg: {
+    textAlign: 'center', marginTop: '30px', fontWeight: 'bold', fontSize: '12px',
+  },
 };
 
 export default ReciboGarantia;

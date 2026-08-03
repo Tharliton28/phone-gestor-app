@@ -11,6 +11,12 @@ import LojaCreditosPanel from './LojaCreditosPanel';
 import LojaPlanoPanel from './LojaPlanoPanel';
 import { uploadLogoLoja } from '../services/lojaLogoService';
 import {
+  mapLojaToEmpresaForm,
+  REGIMES_TRIBUTARIOS,
+  updateLojaEmpresa,
+} from '../services/lojaService';
+import { formatCnpj, onlyDigits } from '../utils/formatters';
+import {
   getLojaConfig,
   mapConfigToToggles,
   updateLojaConfigToggles,
@@ -91,7 +97,9 @@ const Configuracoes = () => {
   const [salvando, setSalvando] = useState(false);
   const [enviandoLogo, setEnviandoLogo] = useState(false);
   const [carregandoConfig, setCarregandoConfig] = useState(true);
-  const podeEditarLogo = temPermissao('owner', 'admin');
+  const podeEditarEmpresa = temPermissao('owner', 'admin');
+  const podeEditarLogo = podeEditarEmpresa;
+  const [empresaForm, setEmpresaForm] = useState(() => mapLojaToEmpresaForm(null));
   
   const [toggles, setToggles] = useState({
     vendaSemEstoque: false,
@@ -150,6 +158,14 @@ const Configuracoes = () => {
   useEffect(() => {
     if (dadosNavegacao?.aba) setAbaAtiva(dadosNavegacao.aba);
   }, [dadosNavegacao?.aba]);
+
+  useEffect(() => {
+    setEmpresaForm(mapLojaToEmpresaForm(lojaAtiva));
+  }, [lojaAtiva]);
+
+  const setEmpresaCampo = (campo, valor) => {
+    setEmpresaForm((prev) => ({ ...prev, [campo]: valor }));
+  };
 
   useEffect(() => {
     if (!lojaAtivaId) {
@@ -225,8 +241,17 @@ const Configuracoes = () => {
       return;
     }
 
+    if (!podeEditarEmpresa) {
+      await alert('Somente owner/admin podem alterar dados da empresa e configurações sensíveis.', {
+        type: 'warning',
+        title: 'Permissão',
+      });
+      return;
+    }
+
     setSalvando(true);
-    const [toggleResult, docResult, fiscalResult] = await Promise.all([
+    const [empresaResult, toggleResult, docResult, fiscalResult] = await Promise.all([
+      updateLojaEmpresa(lojaAtivaId, empresaForm),
       updateLojaConfigToggles(lojaAtivaId, toggles),
       updateLojaConfigDocumentos(lojaAtivaId, {
         termoGarantia,
@@ -242,9 +267,10 @@ const Configuracoes = () => {
     ]);
     setSalvando(false);
 
-    if (toggleResult.error || docResult.error || fiscalResult.error) {
+    if (empresaResult.error || toggleResult.error || docResult.error || fiscalResult.error) {
       await alert(
-        toggleResult.error?.message
+        empresaResult.error?.message
+          ?? toggleResult.error?.message
           ?? docResult.error?.message
           ?? fiscalResult.error?.message
           ?? 'Não foi possível salvar as configurações.',
@@ -257,6 +283,7 @@ const Configuracoes = () => {
       setFiscal(mapConfigToFiscal(fiscalResult.data));
     }
 
+    await recarregar?.();
     await alert('Configurações salvas com sucesso!', { type: 'success', title: 'Sucesso' });
   };
 
@@ -447,15 +474,17 @@ const Configuracoes = () => {
   // Função para transformar as tags em dados reais no preview
   const gerarPreview = (texto) => {
     if (!texto) return '';
+    const nomeEmpresa = empresaForm.razaoSocial || lojaAtiva?.razao_social || 'Sua Empresa';
+    const cnpjEmpresa = formatCnpj(onlyDigits(empresaForm.cnpj || lojaAtiva?.cnpj)) || '—';
     return texto
-      .replace(/\[NOME_EMPRESA\]/g, 'Biscoito Imports LTDA')
-      .replace(/\[CNPJ_EMPRESA\]/g, '64.951.713/0001-13')
-      .replace(/\[NOME_CLIENTE\]/g, 'João da Silva')
-      .replace(/\[CPF_CLIENTE\]/g, '123.456.789-00')
-      .replace(/\[DATA_VENDA\]/g, '14/07/2026')
-      .replace(/\[NOME_VENDEDOR\]/g, 'Wesley de Sousa')
+      .replace(/\[NOME_EMPRESA\]/g, nomeEmpresa)
+      .replace(/\[CNPJ_EMPRESA\]/g, cnpjEmpresa)
+      .replace(/\[NOME_CLIENTE\]/g, 'Cliente Exemplo')
+      .replace(/\[CPF_CLIENTE\]/g, '000.000.000-00')
+      .replace(/\[DATA_VENDA\]/g, new Date().toLocaleDateString('pt-BR'))
+      .replace(/\[NOME_VENDEDOR\]/g, 'Vendedor')
       .replace(/\[PRAZO_GARANTIA\]/g, '90 dias')
-      .replace(/\[NUMERO_RECIBO\]/g, 'MP0004146187');
+      .replace(/\[NUMERO_RECIBO\]/g, 'MP000000');
   };
 
   const Switch = ({ ativo, onClick }) => (
@@ -514,39 +543,91 @@ const Configuracoes = () => {
           {/* --- DADOS DA EMPRESA --- */}
           {abaAtiva === 'empresa' && (
             <div style={styles.formSection}>
+              {!podeEditarEmpresa && (
+                <p style={{ color: '#fbbf24', fontSize: '12px', marginBottom: '12px' }}>
+                  Visualização: somente owner/admin podem salvar alterações da empresa.
+                </p>
+              )}
               <h3 style={styles.sectionTitle}>Informações Básicas</h3>
               <div style={styles.grid2}>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}><span style={styles.required}>*</span> Nome da Empresa (Razão Social):</label>
-                  <input style={styles.input} defaultValue="Biscoito imports LTDA" />
+                  <label style={styles.label}><span style={styles.required}>*</span> Razão Social:</label>
+                  <input
+                    style={styles.input}
+                    value={empresaForm.razaoSocial}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => setEmpresaCampo('razaoSocial', e.target.value)}
+                  />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Nome Fantasia:</label>
+                  <input
+                    style={styles.input}
+                    value={empresaForm.nomeFantasia}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => setEmpresaCampo('nomeFantasia', e.target.value)}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Regime Tributário:</label>
-                  <select style={styles.input}>
-                    <option>Simples Nacional</option>
-                    <option>Lucro Presumido</option>
-                    <option>Lucro Real</option>
+                  <select
+                    style={styles.input}
+                    value={empresaForm.regimeTributario}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => setEmpresaCampo('regimeTributario', e.target.value)}
+                  >
+                    {REGIMES_TRIBUTARIOS.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
                   </select>
                 </div>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>CNPJ:</label>
-                  <input style={styles.input} defaultValue="64.951.713/0001-13" />
+                  <label style={styles.label}><span style={styles.required}>*</span> CNPJ:</label>
+                  <input
+                    style={styles.input}
+                    value={empresaForm.cnpj}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => setEmpresaCampo('cnpj', formatCnpj(onlyDigits(e.target.value).slice(0, 14)))}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Inscrição Estadual (IE):</label>
-                  <input style={styles.input} placeholder="Isento ou Número da IE" />
+                  <input
+                    style={styles.input}
+                    value={empresaForm.inscricaoEstadual}
+                    disabled={!podeEditarEmpresa}
+                    placeholder="Isento ou número da IE"
+                    onChange={(e) => setEmpresaCampo('inscricaoEstadual', e.target.value)}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Inscrição Municipal:</label>
-                  <input style={styles.input} placeholder="Número da IM" />
+                  <input
+                    style={styles.input}
+                    value={empresaForm.inscricaoMunicipal}
+                    disabled={!podeEditarEmpresa}
+                    placeholder="Número da IM"
+                    onChange={(e) => setEmpresaCampo('inscricaoMunicipal', e.target.value)}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>E-mail de Contato:</label>
-                  <input style={styles.input} defaultValue="wesleydesousaviana007@gmail.com" />
+                  <input
+                    style={styles.input}
+                    type="email"
+                    value={empresaForm.email}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => setEmpresaCampo('email', e.target.value)}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Telefone / WhatsApp:</label>
-                  <input style={styles.input} defaultValue="85985892506" />
+                  <input
+                    style={styles.input}
+                    value={empresaForm.telefone}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => setEmpresaCampo('telefone', e.target.value)}
+                  />
                 </div>
               </div>
 
@@ -554,41 +635,86 @@ const Configuracoes = () => {
               <div style={styles.grid2}>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>CEP:</label>
-                  <input style={styles.input} defaultValue="61.900-540" />
+                  <input
+                    style={styles.input}
+                    value={empresaForm.cep}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => {
+                      const d = onlyDigits(e.target.value).slice(0, 8);
+                      setEmpresaCampo('cep', d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d);
+                    }}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Rua / Logradouro:</label>
-                  <input style={styles.input} defaultValue="Avenida Narciso Pessoa de Araújo" />
+                  <input
+                    style={styles.input}
+                    value={empresaForm.logradouro}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => setEmpresaCampo('logradouro', e.target.value)}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Número:</label>
-                  <input style={styles.input} defaultValue="113" />
+                  <input
+                    style={styles.input}
+                    value={empresaForm.numero}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => setEmpresaCampo('numero', e.target.value)}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Complemento:</label>
-                  <input style={styles.input} placeholder="Sala, Loja, Apartamento..." />
+                  <input
+                    style={styles.input}
+                    value={empresaForm.complemento}
+                    disabled={!podeEditarEmpresa}
+                    placeholder="Sala, Loja, Apartamento..."
+                    onChange={(e) => setEmpresaCampo('complemento', e.target.value)}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Bairro:</label>
-                  <input style={styles.input} defaultValue="Jereissati I" />
+                  <input
+                    style={styles.input}
+                    value={empresaForm.bairro}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => setEmpresaCampo('bairro', e.target.value)}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}><span style={styles.required}>*</span> Cidade:</label>
-                  <select style={styles.input}>
-                    <option>2307650 - Maracanaú - CE</option>
-                  </select>
+                  <input
+                    style={styles.input}
+                    value={empresaForm.cidade}
+                    disabled={!podeEditarEmpresa}
+                    onChange={(e) => setEmpresaCampo('cidade', e.target.value)}
+                  />
                 </div>
-              </div>
-
-              <h3 style={{...styles.sectionTitle, marginTop: '30px'}}>Contabilidade e Imagem</h3>
-              <div style={styles.grid2}>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>CPF/CNPJ do Contador:</label>
-                  <input style={styles.input} placeholder="Dados da Contabilidade" />
+                  <label style={styles.label}>UF:</label>
+                  <input
+                    style={styles.input}
+                    value={empresaForm.estado}
+                    disabled={!podeEditarEmpresa}
+                    maxLength={2}
+                    placeholder="CE"
+                    onChange={(e) => setEmpresaCampo('estado', e.target.value.toUpperCase().slice(0, 2))}
+                  />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Código IBGE:</label>
+                  <input
+                    style={styles.input}
+                    value={empresaForm.codigoIbge}
+                    disabled={!podeEditarEmpresa}
+                    placeholder="Ex: 2307650"
+                    onChange={(e) => setEmpresaCampo('codigoIbge', onlyDigits(e.target.value).slice(0, 7))}
+                  />
                 </div>
               </div>
 
-              {/* Informação do tamanho ideal da imagem */}
+              <h3 style={{...styles.sectionTitle, marginTop: '30px'}}>Imagem</h3>
               <div style={{...styles.logoUploadArea, marginTop: '20px'}}>
                 {lojaAtiva?.logo_url ? (
                   <img src={lojaAtiva.logo_url} alt="Logo da loja" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '1px solid #2a2e3f' }} />
