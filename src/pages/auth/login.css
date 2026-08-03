@@ -78,6 +78,7 @@
   transition: color 0.3s;
   font-family: inherit;
   padding: 0;
+  text-decoration: none;
 }
 
 .login-page .btn-back:hover {
@@ -187,17 +188,30 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  font-size: 1rem;
+  font-size: 16px; /* evita zoom automático no iOS */
   color: var(--text-primary);
   width: 100%;
+  max-width: 100%;
   transition: border-color 0.3s, background 0.3s;
   font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .login-page .login-form input:focus {
   outline: none;
   border-color: var(--primary-color);
   background: rgba(255, 255, 255, 0.05);
+}
+
+/* Autofill do browser não deve “clarear” o campo no tema escuro */
+.login-page .login-form input:-webkit-autofill,
+.login-page .login-form input:-webkit-autofill:hover,
+.login-page .login-form input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff;
+  caret-color: #ffffff;
+  box-shadow: 0 0 0 1000px #0a0a0a inset;
+  transition: background-color 99999s ease-out;
 }
 
 .login-page .login-options {
@@ -305,8 +319,39 @@
   color: #86efac;
 }
 
+@media (max-width: 768px) {
+  .login-page {
+    padding: 1.5rem 0;
+    align-items: flex-start;
+  }
+
+  .login-page .login-wrapper {
+    padding: 1rem 1rem 2rem;
+    max-width: 100%;
+  }
+
+  .login-page .login-header h2 {
+    font-size: 1.45rem;
+  }
+
+  .login-page .btn-back {
+    margin-bottom: 1.25rem;
+  }
+}
+
 @media (max-width: 480px) {
   .login-page .login-card {
-    padding: 2rem 1.25rem;
+    padding: 1.5rem 1rem;
+    border-radius: 18px;
+  }
+
+  .login-page .login-options {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .login-page .btn-submit {
+    padding: 1rem;
+    font-size: 1rem;
   }
 }

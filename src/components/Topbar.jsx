@@ -14,7 +14,7 @@ export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos, onAbri
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { alert } = useDialog();
-  const { perfil, lojaAtiva, lojas, lojaAtivaId, setLojaAtiva } = useLoja();
+  const { perfil, lojaAtiva, lojas, lojaAtivaId, setLojaAtiva, papelAtivo } = useLoja();
   const planoDef = getPlanoDef(lojaAtiva?.plano);
   const [menuAberto, setMenuAberto] = useState(false);
   const [saldoCreditos, setSaldoCreditos] = useState(null);

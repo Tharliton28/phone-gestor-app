@@ -63,14 +63,6 @@ export default function LoginPage() {
     });
   };
 
-  const handleBack = () => {
-    if (LANDING_URL) {
-      window.location.href = LANDING_URL;
-      return;
-    }
-    navigate(-1);
-  };
-
   useEffect(() => {
     const saved = localStorage.getItem('pg_remember_email');
     if (saved) {
@@ -87,9 +79,11 @@ export default function LoginPage() {
       <div className="bg-glow glow-top" />
 
       <div className="login-wrapper">
-        <button type="button" className="btn-back" onClick={handleBack}>
-          ← Voltar para o site
-        </button>
+        {LANDING_URL ? (
+          <a className="btn-back" href={LANDING_URL}>
+            ← Voltar para o site
+          </a>
+        ) : null}
 
         <div className="login-card gemini-border">
           <div className="login-header">
