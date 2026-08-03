@@ -40,10 +40,10 @@ const ROUTE_TO_TELA = Object.fromEntries(
 const normalizePath = (pathname) => pathname.replace(/\/+$/, '') || '/';
 
 export const pathToTela = (pathname) =>
-  ROUTE_TO_TELA[normalizePath(pathname)] ?? 'listagem';
+  ROUTE_TO_TELA[normalizePath(pathname)] ?? 'home';
 
 export const telaToPath = (tela) =>
-  TELA_ROUTES[tela] ?? TELA_ROUTES.listagem;
+  TELA_ROUTES[tela] ?? TELA_ROUTES.home;
 
 /** Paths relativos a /app para <Route path="..." /> */
 export const ERP_ROUTE_ENTRIES = Object.entries(TELA_ROUTES).map(([tela, rota]) => ({

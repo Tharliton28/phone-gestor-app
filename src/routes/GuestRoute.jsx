@@ -24,7 +24,7 @@ export default function GuestRoute({ children }) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/app/vendas" replace />;
+    return <Navigate to="/app/inicio" replace />;
   }
 
   return children;

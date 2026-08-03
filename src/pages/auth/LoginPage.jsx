@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
-  const redirectTo = location.state?.from ?? '/app/vendas';
+  const redirectTo = location.state?.from ?? '/app/inicio';
 
   const handleSubmit = async (event) => {
     event.preventDefault();

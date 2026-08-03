@@ -224,12 +224,12 @@ async function createVendaLegacy(lojaId, payload, operadorId) {
   return { data: { ...venda, valor_troco: valorTroco }, error: null };
 }
 
-export async function listVendas(lojaId, { status = null } = {}) {
+export async function listVendas(lojaId, { status = null, limit = null } = {}) {
   let query = supabase
     .from('vendas')
     .select(
       `
-      id, codigo, status, tipo_venda, valor_total, valor_troco, data_venda, created_at,
+      id, codigo, status, tipo_venda, valor_total, valor_desconto, valor_troco, data_venda, created_at,
       cliente:pessoas (id, nome),
       vendedor:usuarios!vendas_vendedor_id_fkey (id, nome),
       itens:venda_itens (id, descricao, quantidade, valor_total, produto:produtos (nome))
@@ -240,6 +240,10 @@ export async function listVendas(lojaId, { status = null } = {}) {
 
   if (status) {
     query = query.eq('status', status);
+  }
+
+  if (limit) {
+    query = query.limit(limit);
   }
 
   return query;

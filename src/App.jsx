@@ -34,13 +34,13 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/app/vendas" replace />} />
+        <Route index element={<Navigate to="/app/inicio" replace />} />
         <Route path="os" element={<Navigate to="/app/assistencia/os" replace />} />
         <Route path="os/nova" element={<Navigate to="/app/assistencia/os/nova" replace />} />
         {ERP_ROUTE_ENTRIES.map(({ relativePath }) => (
           <Route key={relativePath} path={relativePath} element={<ErpContent />} />
         ))}
-        <Route path="*" element={<Navigate to="/app/vendas" replace />} />
+        <Route path="*" element={<Navigate to="/app/inicio" replace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
