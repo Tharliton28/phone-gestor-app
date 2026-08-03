@@ -1,0 +1,42 @@
+import { describe, expect, it } from 'vitest';
+import {
+  assinaturaEstaAtiva,
+  entitlementsDoPlano,
+  getPlanoDef,
+  mensagemConsultaIndisponivel,
+  mensagemUpgradeNfce,
+  normalizarPlano,
+} from './lojaPlanos';
+
+describe('lojaPlanos', () => {
+  it('normaliza plano inválido para essencial', () => {
+    expect(normalizarPlano(null)).toBe('essencial');
+    expect(normalizarPlano('xyz')).toBe('essencial');
+  });
+
+  it('limites batem com a landing', () => {
+    expect(getPlanoDef('essencial').maxUsuarios).toBe(2);
+    expect(getPlanoDef('profissional').maxUsuarios).toBe(5);
+    expect(getPlanoDef('essencial').podeNfce).toBe(false);
+    expect(getPlanoDef('profissional').podeNfce).toBe(true);
+    expect(getPlanoDef('rede').podeConsultas).toBe(true);
+  });
+
+  it('assinatura suspensa bloqueia features', () => {
+    const e = entitlementsDoPlano('profissional', 'suspensa', { usuariosAtivos: 1 });
+    expect(assinaturaEstaAtiva('suspensa')).toBe(false);
+    expect(e.podeNfce).toBe(false);
+    expect(e.podeAdicionarUsuario).toBe(false);
+  });
+
+  it('essencial com 2 usuários não adiciona mais', () => {
+    const e = entitlementsDoPlano('essencial', 'ativa', { usuariosAtivos: 2 });
+    expect(e.podeAdicionarUsuario).toBe(false);
+  });
+
+  it('mensagens honestas de upgrade/consulta', () => {
+    expect(mensagemUpgradeNfce('essencial')).toMatch(/Profissional/);
+    expect(mensagemConsultaIndisponivel({ podeConsultas: false })).toMatch(/Rede/);
+    expect(mensagemConsultaIndisponivel({ podeConsultas: true })).toMatch(/ainda não/);
+  });
+});

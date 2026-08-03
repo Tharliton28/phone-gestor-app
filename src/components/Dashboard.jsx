@@ -111,9 +111,15 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
         <div style={styles.bannerCard}>
           <div style={styles.bannerContent}>
             <h2 style={styles.bannerTitle}>PhoneGestor <span style={{color: '#38bdf8'}}>ERP</span></h2>
-            <p style={styles.bannerSubtitle}>O sistema definitivo para a sua loja de celulares.</p>
-            <p style={styles.bannerText}>Configure os módulos e aumente suas vendas em até 40%.</p>
-            <button style={styles.bannerBtn}>Começar agora</button>
+            <p style={styles.bannerSubtitle}>PDV, IMEI, OS com evidências e financeiro na mesma loja.</p>
+            <p style={styles.bannerText}>Use os atalhos ao lado. Relatórios reais ficam em Relatórios; widgets abaixo ainda são layout demonstrativo.</p>
+            <button
+              type="button"
+              style={styles.bannerBtn}
+              onClick={() => aoMudarTela ? aoMudarTela('relatorios') : aoClicarEmNovaVenda?.()}
+            >
+              Ver relatórios
+            </button>
           </div>
           <div style={styles.dots}>
              <span style={styles.dotActive}></span>
@@ -128,6 +134,7 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
       <div style={styles.widgetsSection}>
         <div style={styles.widgetsHeader}>
           <h3 style={styles.sectionTitle}>Meus Widgets</h3>
+          <span style={{ color: '#64748b', fontSize: '12px' }}>Layout ilustrativo — números do gráfico não vêm do banco</span>
         </div>
 
         <div style={styles.filterBar}>

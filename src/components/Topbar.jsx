@@ -5,15 +5,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { formatCnpj, getInitials, truncate } from '../utils/formatters';
+import { getPlanoDef } from '../domain/lojaPlanos';
 import { getSaldoCreditos } from '../services/lojaCreditoService';
 import { CREDITOS_ATUALIZADOS_EVENT } from '../utils/creditosEvents';
 import './topbar.css';
 
-export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos }) {
+export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos, onAbrirPlano }) {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { alert } = useDialog();
-  const { perfil, lojaAtiva, lojas, lojaAtivaId, setLojaAtiva, papelAtivo } = useLoja();
+  const { perfil, lojaAtiva, lojas, lojaAtivaId, setLojaAtiva } = useLoja();
+  const planoDef = getPlanoDef(lojaAtiva?.plano);
   const [menuAberto, setMenuAberto] = useState(false);
   const [saldoCreditos, setSaldoCreditos] = useState(null);
 
@@ -119,9 +121,23 @@ export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos }) {
             </button>
           )}
 
-          <button type="button" className="topbar__btn-upgrade" onClick={() => alert('Abrir planos de assinatura...', { type: 'info', title: 'Planos' })}>
+          <button
+            type="button"
+            className="topbar__btn-upgrade"
+            title={`Plano ${planoDef.label}`}
+            onClick={() => {
+              if (typeof onAbrirPlano === 'function') {
+                onAbrirPlano();
+                return;
+              }
+              alert(
+                `Plano atual: ${planoDef.label}. Abra Configurações → Plano para ver limites ou alterar (manual até o gateway).`,
+                { type: 'info', title: 'Plano da loja' }
+              );
+            }}
+          >
             <Zap size={14} color="#fbbf24" fill="#fbbf24" />
-            <span className="topbar__upgrade-text">Upgrade PRO</span>
+            <span className="topbar__upgrade-text">{planoDef.label}</span>
           </button>
 
           <span className="topbar__icon-wrap" title="Ajuda">

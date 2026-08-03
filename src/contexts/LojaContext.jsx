@@ -47,7 +47,11 @@ export function LojaProvider({ children }) {
               nome_fantasia,
               cnpj,
               logo_url,
-              ativo
+              ativo,
+              plano,
+              assinatura_status,
+              assinatura_origem,
+              plano_atualizado_em
             )
           `
           )

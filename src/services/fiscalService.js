@@ -1,9 +1,11 @@
 import { supabase } from '../lib/supabaseClient';
 import { CUSTO_CREDITOS, temSaldoSuficiente } from '../domain/lojaCreditos';
+import { mensagemUpgradeNfce } from '../domain/lojaPlanos';
 import { statusFiscalEhSucesso } from '../domain/nfce';
 import { consumirCreditos, getSaldoCreditos } from './lojaCreditoService';
 import { emitirNfceMock } from './fiscal/mockNfceProvider';
 import { getLojaConfigFiscal } from './lojaConfigService';
+import { getLojaEntitlements } from './lojaPlanoService';
 
 export async function listDocumentosFiscais(lojaId, { limit = 40 } = {}) {
   if (!lojaId) return { data: [], error: new Error('Loja não informada.') };
@@ -198,6 +200,15 @@ export async function emitirNfceParaVenda({
 
   const { data: config, error: configError } = await getLojaConfigFiscal(lojaId);
   if (configError) return { data: null, error: configError };
+
+  const { data: entitlements, error: planoError } = await getLojaEntitlements(lojaId);
+  if (planoError) return { data: null, error: planoError };
+  if (!entitlements?.podeNfce) {
+    return {
+      data: null,
+      error: new Error(mensagemUpgradeNfce(entitlements?.plano)),
+    };
+  }
 
   if (!forcar && !config?.fiscal_emitir_nfce_auto) {
     return { data: null, skipped: true, error: null };

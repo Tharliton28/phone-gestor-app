@@ -167,6 +167,29 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const { data: entitlements, error: entitlementsError } = await userClient.rpc(
+      "loja_entitlements",
+      { p_loja_id: lojaId },
+    );
+    if (entitlementsError) {
+      return new Response(JSON.stringify({ error: entitlementsError.message }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!entitlements?.pode_nfce) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "NFC-e está no plano Profissional. Faça upgrade da loja em Configurações → Plano.",
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     const { data: config } = await userClient
       .from("loja_configuracoes")
       .select("fiscal_provider, fiscal_emitir_nfce_auto, nfe_ambiente, nfce_serie, nfce_ultimo_numero")

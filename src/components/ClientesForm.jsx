@@ -14,6 +14,8 @@ import {
   updatePessoa,
 } from '../services/pessoaService';
 import { validateCpfCnpj } from '../utils/formatters';
+import { consultarDocumento } from '../domain/consultaProviders';
+import { mensagemConsultaIndisponivel } from '../domain/lojaPlanos';
 
 const DIALOG_TYPE = {
   erro: 'error',
@@ -166,7 +168,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
     }
   };
 
-  const consultarCpfCnpj = () => {
+  const consultarCpfCnpj = async () => {
     const documentoLimpo = formData.cpf.replace(/\D/g, '');
 
     if (documentoLimpo.length !== 11 && documentoLimpo.length !== 14) {
@@ -183,33 +185,15 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
     }
 
     setBuscandoCpf(true);
+    const result = await consultarDocumento(formData.cpf);
+    setBuscandoCpf(false);
+    setDadosConsulta(null);
 
-    setTimeout(() => {
-      setBuscandoCpf(false);
-      
-      const relatorio = {
-        nome: documentoLimpo.length === 11 ? 'THARLITON DANTAS DUARTE' : 'EMPRESA SIMULADA LTDA',
-        nascimento: documentoLimpo.length === 11 ? '1999-11-28' : 'N/A',
-        idade: documentoLimpo.length === 11 ? '26' : 'N/A',
-        cpf: formData.cpf,
-        sexo: 'Masculino',
-        nomeMae: 'MARIA LUSENIR PEREIRA DANTAS',
-        situacao: 'REGULAR',
-        atualizadoEm: '2018-10-16',
-        protocolo: 'cd6d85fc-0d11-4f97-971c-7846783bd62f'
-      };
-      
-      setDadosConsulta(relatorio);
-      
-      setFormData(prev => ({
-        ...prev,
-        nome: relatorio.nome,
-        dataNascimento: relatorio.nascimento !== 'N/A' ? relatorio.nascimento : '',
-        genero: relatorio.sexo
-      }));
-
-      setAbaAtiva('consulta-cpf');
-    }, 1500);
+    return mostrarAviso(
+      'Consulta em breve',
+      result.error?.message || mensagemConsultaIndisponivel({ podeConsultas: false }),
+      'info'
+    );
   };
 
   return (

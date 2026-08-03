@@ -62,9 +62,9 @@ export default function LojaCreditosPanel() {
     carregar();
   }, [carregar]);
 
-  const comprarPacote = async (pacote) => {
+  const provisionarPacote = async (pacote) => {
     if (!podeCreditar) {
-      await alert('Apenas owner/admin podem adicionar créditos.', {
+      await alert('Apenas owner/admin podem provisionar créditos.', {
         type: 'warning',
         title: 'Sem permissão',
       });
@@ -72,10 +72,10 @@ export default function LojaCreditosPanel() {
     }
 
     const ok = await confirm(
-      `Adicionar ${pacote.creditos} créditos (${pacote.label})?\n\nPagamento online ainda não está ligado — isto credita a carteira para validar o motor (gateway depois).`,
+      `Provisionar ${pacote.creditos} créditos (${pacote.label})?\n\nNão há cobrança automática: isto é crédito interno até o gateway de pagamento.`,
       {
-        title: 'Adicionar créditos',
-        confirmLabel: 'Creditar agora',
+        title: 'Provisionar créditos',
+        confirmLabel: 'Provisionar',
         confirmVariant: 'primary',
       }
     );
@@ -86,7 +86,7 @@ export default function LojaCreditosPanel() {
       lojaId: lojaAtivaId,
       quantidade: pacote.creditos,
       acao: 'compra_pacote',
-      descricao: `${pacote.label} — ${pacote.precoHint} (simulado até gateway)`,
+      descricao: `${pacote.label} — provisionamento interno (sem gateway)`,
     });
     setComprando(null);
 
@@ -100,7 +100,7 @@ export default function LojaCreditosPanel() {
 
     setSaldo(result.saldo);
     emitirCreditosAtualizados(result.saldo);
-    await alert(`${result.creditado} créditos adicionados. Saldo: ${result.saldo}.`, {
+    await alert(`${result.creditado} créditos provisionados. Saldo: ${result.saldo}.`, {
       type: 'success',
       title: 'Carteira atualizada',
     });
@@ -125,8 +125,9 @@ export default function LojaCreditosPanel() {
       </div>
 
       <p style={styles.ajuda}>
-        Créditos pagam operações com custo variável: NFC-e, consulta CPF/CNPJ e IMEI.
-        O débito só ocorre quando a operação for bem-sucedida.
+        Créditos pagam NFC-e (já no ar). Consulta CPF/CNPJ e IMEI têm custo previsto, mas a API
+        ainda não está ligada — então não debitamos nessas operações. Compra online de pacotes
+        entra com o gateway; até lá use provisionamento interno (owner/admin).
       </p>
 
       <h3 style={styles.titulo}>Tabela de consumo</h3>
@@ -139,7 +140,7 @@ export default function LojaCreditosPanel() {
         ))}
       </div>
 
-      <h3 style={styles.titulo}>Pacotes</h3>
+      <h3 style={styles.titulo}>Pacotes (referência de preço — sem checkout)</h3>
       <div style={styles.pacotes}>
         {PACOTES_CREDITOS.map((pacote) => (
           <button
@@ -147,13 +148,13 @@ export default function LojaCreditosPanel() {
             type="button"
             style={styles.pacote}
             disabled={!podeCreditar || comprando === pacote.id}
-            onClick={() => comprarPacote(pacote)}
+            onClick={() => provisionarPacote(pacote)}
           >
             <strong>{pacote.label}</strong>
             <span>{pacote.creditos} créditos</span>
-            <span style={styles.preco}>{pacote.precoHint}</span>
+            <span style={styles.preco}>{pacote.precoHint} · sem pagamento automático</span>
             <span style={styles.pacoteAcao}>
-              {comprando === pacote.id ? 'Creditando...' : podeCreditar ? 'Adicionar' : 'Só admin'}
+              {comprando === pacote.id ? 'Provisionando...' : podeCreditar ? 'Provisionar' : 'Só admin'}
             </span>
           </button>
         ))}

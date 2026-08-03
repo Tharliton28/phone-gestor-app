@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Building, ShoppingCart, Package, DollarSign, FileText, 
   BarChart2, Save, UploadCloud, ToggleRight, ToggleLeft,
-  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff, RotateCcw, Coins
+  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff, RotateCcw, Coins, Zap
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 import { useLoja } from '../contexts/LojaContext';
 import { useErpNavigation } from '../hooks/useErpNavigation';
 import LojaCreditosPanel from './LojaCreditosPanel';
+import LojaPlanoPanel from './LojaPlanoPanel';
 import {
   getLojaConfig,
   mapConfigToToggles,
@@ -487,6 +488,9 @@ const Configuracoes = () => {
           </button>
           <button style={abaAtiva === 'financeiro' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('financeiro')}>
             <DollarSign size={16} /> Financeiro e Taxas
+          </button>
+          <button style={abaAtiva === 'plano' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('plano')}>
+            <Zap size={16} /> Plano
           </button>
           <button style={abaAtiva === 'creditos' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('creditos')}>
             <Coins size={16} /> Créditos da loja
@@ -1018,6 +1022,13 @@ const Configuracoes = () => {
             </div>
           )}
 
+          {abaAtiva === 'plano' && (
+            <div style={styles.formSection}>
+              <h3 style={styles.sectionTitle}>Plano da loja</h3>
+              <LojaPlanoPanel />
+            </div>
+          )}
+
           {abaAtiva === 'creditos' && (
             <div style={styles.formSection}>
               <h3 style={styles.sectionTitle}>Créditos da loja</h3>
@@ -1030,8 +1041,8 @@ const Configuracoes = () => {
             <div style={styles.formSection}>
               <h3 style={styles.sectionTitle}>NFC-e / NF-e</h3>
               <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px', lineHeight: 1.45 }}>
-                Mock gera documento local. Focus envia à SEFAZ (homologação/produção) via Edge Function —
-                cadastre o token da empresa na Focus e preencha NCM nos produtos.
+                NFC-e exige plano Profissional ou Rede. Mock gera documento local; Focus envia à SEFAZ
+                (homologação/produção) via Edge Function — cadastre o token e preencha NCM nos produtos.
               </p>
               <div style={styles.grid2}>
                 <div style={styles.inputGroup}>
