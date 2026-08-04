@@ -265,6 +265,11 @@ export async function gerarReciboVendaPdf({ empresa, venda, mode = 'download' })
   doc.text('OBRIGADO PELA PREFERÊNCIA!', pageW / 2, y, { align: 'center' });
 
   const fileName = `recibo-${numero || 'venda'}.pdf`;
+  const blob = doc.output('blob');
+
+  if (mode === 'blob') {
+    return { ok: true, blob, fileName, doc };
+  }
 
   if (mode === 'print') {
     doc.autoPrint();
@@ -272,11 +277,11 @@ export async function gerarReciboVendaPdf({ empresa, venda, mode = 'download' })
     const win = window.open(blobUrl, '_blank');
     if (!win) {
       doc.save(fileName);
-      return { ok: true, fallbackDownload: true };
+      return { ok: true, fallbackDownload: true, blob, fileName };
     }
-    return { ok: true };
+    return { ok: true, blob, fileName };
   }
 
   doc.save(fileName);
-  return { ok: true };
+  return { ok: true, blob, fileName };
 }
