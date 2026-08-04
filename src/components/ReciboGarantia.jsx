@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Printer, Download } from 'lucide-react';
+import { ArrowLeft, Printer, Download, MessageCircle } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 import { useLoja } from '../contexts/LojaContext';
 import { formatBRL, formatCnpj, formatCpfCnpj } from '../utils/formatters';
 import { gerarReciboVendaPdf } from '../utils/reciboVendaPdf';
+import { enviarReciboPorWhatsApp } from '../services/reciboWhatsAppService';
 
 function formatDataRecibo(value) {
   if (!value) return '—';
@@ -21,7 +22,7 @@ function money(value) {
 }
 
 const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
-  const { lojaAtiva } = useLoja();
+  const { lojaAtiva, lojaAtivaId } = useLoja();
   const { alert } = useDialog();
   const [gerandoPdf, setGerandoPdf] = useState(false);
 
@@ -63,6 +64,47 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
     }
   };
 
+  const enviarWhatsApp = async () => {
+    if (!venda || gerandoPdf) return;
+    setGerandoPdf(true);
+    try {
+      const result = await enviarReciboPorWhatsApp({
+        lojaId: lojaAtivaId,
+        loja: lojaAtiva,
+        venda: {
+          cliente: {
+            nome: venda.cliente,
+            telefone: venda.telefone,
+            telefone_alternativo: venda.telefone,
+          },
+          codigo: venda.id,
+          valor_total: venda.valorTotal,
+        },
+        recibo: venda,
+      });
+      if (!result.ok) {
+        await alert(result.error?.message ?? 'Não foi possível abrir o WhatsApp.', {
+          type: 'warning',
+          title: 'WhatsApp',
+        });
+        return;
+      }
+      if (result.baixouAnexo) {
+        await alert(
+          'WhatsApp aberto. O PDF foi baixado neste computador — anexe o arquivo na conversa (o envio automático de anexo pelo navegador não é permitido pelo WhatsApp Web).',
+          { type: 'info', title: 'WhatsApp' }
+        );
+      }
+    } catch (err) {
+      await alert(err?.message ?? 'Falha ao preparar o recibo para WhatsApp.', {
+        type: 'error',
+        title: 'WhatsApp',
+      });
+    } finally {
+      setGerandoPdf(false);
+    }
+  };
+
   if (!venda?.vendaId && !venda?.id) {
     return (
       <div style={styles.container}>
@@ -87,6 +129,14 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
         <div style={styles.rightActions}>
           <button
             type="button"
+            style={{ ...styles.btnWhatsapp, opacity: gerandoPdf ? 0.6 : 1 }}
+            disabled={gerandoPdf}
+            onClick={enviarWhatsApp}
+          >
+            <MessageCircle size={14} /> WhatsApp
+          </button>
+          <button
+            type="button"
             style={{ ...styles.btnOutline, opacity: gerandoPdf ? 0.6 : 1 }}
             disabled={gerandoPdf}
             onClick={() => gerarPdf('download')}
@@ -99,7 +149,7 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
             disabled={gerandoPdf}
             onClick={() => gerarPdf('print')}
           >
-            <Printer size={16} /> {gerandoPdf ? 'Gerando…' : 'Imprimir Recibo'}
+            <Printer size={16} /> {gerandoPdf ? 'Gerando…' : 'Imprimir'}
           </button>
         </div>
       </div>
@@ -285,6 +335,11 @@ const styles = {
     backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '8px 16px',
     borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center',
     gap: '6px', fontSize: '13px', fontWeight: 'bold',
+  },
+  btnWhatsapp: {
+    backgroundColor: 'transparent', border: '1px solid #22c55e', color: '#4ade80',
+    padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex',
+    alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 'bold',
   },
   documentViewer: {
     flex: 1, overflowY: 'auto', padding: '40px', display: 'flex', justifyContent: 'center',

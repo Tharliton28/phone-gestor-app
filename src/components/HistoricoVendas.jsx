@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Eraser, ChevronDown, 
-  List, FilePen, Search,
+  List, Search, Download, MessageCircle, Printer,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
+import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useDialog } from '../contexts/DialogContext';
 import { useLoja } from '../contexts/LojaContext';
-import { formatBRL, formatCpfCnpj } from '../utils/formatters';
-import { listVendas, resumoProdutoVenda, STATUS_LABEL } from '../services/vendaService';
+import { formatBRL, formatCnpj, formatCpfCnpj } from '../utils/formatters';
+import { getVendaById, listVendas, mapVendaToRecibo, resumoProdutoVenda, STATUS_LABEL } from '../services/vendaService';
+import { gerarReciboVendaPdf } from '../utils/reciboVendaPdf';
+import { enviarReciboPorWhatsApp } from '../services/reciboWhatsAppService';
 
 function formatDataHora(isoDate, createdAt) {
   const base = createdAt ? new Date(createdAt) : new Date(`${isoDate}T12:00:00`);
@@ -18,10 +21,11 @@ function formatDataHora(isoDate, createdAt) {
 }
 
 const HistoricoVendas = ({ aoMudarTela }) => {
-  const { lojaAtivaId } = useLoja();
+  const { lojaAtivaId, lojaAtiva } = useLoja();
   const { alert } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [processando, setProcessando] = useState(false);
   const [vendas, setVendas] = useState([]);
   
   const [filtros, setFiltros] = useState({
@@ -79,6 +83,73 @@ const HistoricoVendas = ({ aoMudarTela }) => {
 
   const qtdFiltrosAtivos = Object.values(filtros).filter(val => val !== '').length;
 
+  const carregarVendaCompleta = async (vendaId) => {
+    const { data, error } = await getVendaById(lojaAtivaId, vendaId);
+    if (error || !data) {
+      throw new Error(error?.message ?? 'Não foi possível carregar a venda.');
+    }
+    return data;
+  };
+
+  const handleBaixarPdf = async (item) => {
+    setMenuAberto(null);
+    if (!lojaAtivaId || processando) return;
+    setProcessando(true);
+    try {
+      const venda = await carregarVendaCompleta(item.id);
+      const loja = lojaAtiva ?? {};
+      await gerarReciboVendaPdf({
+        empresa: {
+          razaoSocial: loja.razao_social || 'Empresa',
+          nomeFantasia: loja.nome_fantasia || loja.razao_social || 'Loja',
+          cnpj: formatCnpj(loja.cnpj) || '—',
+          endereco: [loja.logradouro, loja.numero].filter(Boolean).join(', ') || '—',
+          cidade: loja.cidade || '—',
+          uf: loja.estado || '—',
+          telefone: loja.telefone || '—',
+          logoUrl: loja.logo_url || null,
+        },
+        venda: mapVendaToRecibo(venda),
+        mode: 'download',
+      });
+    } catch (err) {
+      await alert(err?.message ?? 'Falha ao gerar PDF.', { type: 'error', title: 'PDF' });
+    } finally {
+      setProcessando(false);
+    }
+  };
+
+  const handleWhatsApp = async (item) => {
+    setMenuAberto(null);
+    if (!lojaAtivaId || processando) return;
+    setProcessando(true);
+    try {
+      const venda = await carregarVendaCompleta(item.id);
+      const result = await enviarReciboPorWhatsApp({
+        lojaId: lojaAtivaId,
+        loja: lojaAtiva,
+        venda,
+      });
+      if (!result.ok) {
+        await alert(result.error?.message ?? 'Não foi possível abrir o WhatsApp.', {
+          type: 'warning',
+          title: 'WhatsApp',
+        });
+        return;
+      }
+      if (result.baixouAnexo) {
+        await alert(
+          'WhatsApp aberto. O PDF foi baixado — anexe o arquivo na conversa se o link não aparecer.',
+          { type: 'info', title: 'WhatsApp' }
+        );
+      }
+    } catch (err) {
+      await alert(err?.message ?? 'Falha ao enviar recibo.', { type: 'error', title: 'WhatsApp' });
+    } finally {
+      setProcessando(false);
+    }
+  };
+
   return (
     <div style={styles.container}>
       
@@ -124,13 +195,13 @@ const HistoricoVendas = ({ aoMudarTela }) => {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{...styles.th, width: '50px', minWidth: '50px'}}></th>
               <th style={styles.th}>Cód. Venda</th>
               <th style={styles.th}>Cliente</th>
               <th style={styles.th}>Data venda</th>
               <th style={styles.th}>Status</th>
               <th style={styles.th}>Aparelho</th>
               <th style={{...styles.th, textAlign: 'right'}}>Valor (R$)</th>
+              <th style={{...styles.th, textAlign: 'center'}}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -141,27 +212,42 @@ const HistoricoVendas = ({ aoMudarTela }) => {
                 const { data, hora } = formatDataHora(item.data_venda, item.created_at);
                 return (
                 <tr key={item.id} style={styles.tr}>
-                  <td style={styles.td}>
-                    <div style={{display: 'flex', alignItems: 'center', position: 'relative'}}>
-                      <button style={styles.gridActionBtn} onClick={(e) => toggleMenu(index, e)}>
-                        <FilePen size={14} /> <ChevronDown size={12} />
-                      </button>
-
-                      {menuAberto === index && (
-                        <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                          <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); aoMudarTela('venda-detalhes', 'historico', { vendaId: item.id }); }}>
-                            <List size={14} color="#e2e8f0" /> Detalhes da Venda
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </td>
                   <td style={{...styles.td, color: '#e2e8f0'}}>{item.codigo}</td>
                   <td style={{...styles.td, whiteSpace: 'normal', minWidth: '150px', fontWeight: 'bold'}}>{item.cliente?.nome ?? 'Consumidor Final'}</td>
                   <td style={styles.td}>{data} {hora}</td>
                   <td style={styles.td}><span style={styles.statusPill}>{STATUS_LABEL[item.status] ?? item.status}</span></td>
                   <td style={{...styles.td, color: '#93c5fd'}}>{resumoProdutoVenda(item)}</td>
                   <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#e2e8f0'}}>{formatBRL(item.valor_total)}</td>
+                  <td style={{...styles.td, textAlign: 'center', overflow: 'visible'}}>
+                    <RowActionsMenu open={menuAberto === index} onToggle={(e) => toggleMenu(index, e)}>
+                      <RowActionsItem onClick={() => { setMenuAberto(null); aoMudarTela('venda-detalhes', 'historico', { vendaId: item.id }); }}>
+                        <List size={14} color="#e2e8f0" /> Detalhes da Venda
+                      </RowActionsItem>
+                      <RowActionsItem onClick={() => handleBaixarPdf(item)}>
+                        <Download size={14} color="#38bdf8" /> Baixar PDF do recibo
+                      </RowActionsItem>
+                      <RowActionsItem
+                        onClick={async () => {
+                          setMenuAberto(null);
+                          if (processando || !lojaAtivaId) return;
+                          setProcessando(true);
+                          try {
+                            const venda = await carregarVendaCompleta(item.id);
+                            aoMudarTela('recibo-garantia', 'historico', mapVendaToRecibo(venda));
+                          } catch (err) {
+                            await alert(err?.message ?? 'Falha ao abrir recibo.', { type: 'error', title: 'Recibo' });
+                          } finally {
+                            setProcessando(false);
+                          }
+                        }}
+                      >
+                        <Printer size={14} color="#94a3b8" /> Ver / Imprimir recibo
+                      </RowActionsItem>
+                      <RowActionsItem style={{ color: '#4ade80' }} onClick={() => handleWhatsApp(item)}>
+                        <MessageCircle size={14} color="#4ade80" /> Enviar recibo no WhatsApp
+                      </RowActionsItem>
+                    </RowActionsMenu>
+                  </td>
                 </tr>
               );})
             )}
@@ -210,10 +296,8 @@ const styles = {
   td: { padding: '14px 10px', color: '#94a3b8', fontSize: '12px', borderBottom: '1px solid #1f2233', whiteSpace: 'nowrap' },
   tr: { backgroundColor: '#11131c', transition: 'background-color 0.2s' },
   
-  gridActionBtn: { display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#161925', border: '1px solid #2a2e3f', padding: '6px 8px', borderRadius: '4px', color: '#e2e8f0', cursor: 'pointer' },
   statusPill: { backgroundColor: 'rgba(74, 222, 128, 0.1)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.2)', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', display: 'inline-block' },
   
-  dropdownMenu: { position: 'absolute', top: '30px', left: '25px', backgroundColor: '#0f111a', border: '1px solid #2a2e3f', borderRadius: '6px', padding: '8px 0', minWidth: '210px', boxShadow: '0 10px 25px rgba(0,0,0,0.8)', zIndex: 9999 },
   dropdownExport: { position: 'absolute', top: '35px', right: '0', backgroundColor: '#0f111a', border: '1px solid #2a2e3f', borderRadius: '6px', padding: '8px 0', minWidth: '180px', boxShadow: '0 10px 25px rgba(0,0,0,0.8)', zIndex: 9999, textAlign: 'left' },
   dropdownItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer', transition: 'background-color 0.2s' },
 

@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Plus, Eraser, ChevronDown, 
-  Settings, Edit, List, Printer, Ban, 
+  Edit, List, Printer, Ban, Download, MessageCircle,
   Search, CheckCircle, AlertCircle, Info,
   ChevronLeft, ChevronRight, RefreshCw
 } from 'lucide-react';
+import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
-import { formatBRL } from '../utils/formatters';
+import { formatBRL, formatCnpj } from '../utils/formatters';
 import {
   cancelarVenda,
   concluirPreVenda,
@@ -17,6 +18,8 @@ import {
   resumoProdutoVenda,
   STATUS_LABEL,
 } from '../services/vendaService';
+import { gerarReciboVendaPdf } from '../utils/reciboVendaPdf';
+import { enviarReciboPorWhatsApp } from '../services/reciboWhatsAppService';
 
 function formatDataVenda(isoDate) {
   if (!isoDate) return '—';
@@ -41,10 +44,11 @@ function mapVendaRow(venda) {
 }
 
 const VendasList = ({ aoClicarEmNovaVenda, aoMudarTela, mensagemFlash = null }) => {
-  const { lojaAtivaId, perfil } = useLoja();
+  const { lojaAtivaId, lojaAtiva, perfil } = useLoja();
   const { alert, confirm } = useDialog();
   const [menuAberto, setMenuAberto] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [processandoRecibo, setProcessandoRecibo] = useState(false);
   const [erro, setErro] = useState(null);
   const [vendas, setVendas] = useState([]);
   
@@ -157,6 +161,67 @@ const VendasList = ({ aoClicarEmNovaVenda, aoMudarTela, mensagemFlash = null }) 
     }
 
     aoMudarTela('recibo-garantia', 'listagem', mapVendaToRecibo(data));
+  };
+
+  const handleBaixarPdf = async (item) => {
+    setMenuAberto(null);
+    if (!lojaAtivaId || processandoRecibo) return;
+    setProcessandoRecibo(true);
+    try {
+      const { data, error } = await getVendaById(lojaAtivaId, item.id);
+      if (error || !data) throw new Error(error?.message ?? 'Não foi possível carregar a venda.');
+      const loja = lojaAtiva ?? {};
+      await gerarReciboVendaPdf({
+        empresa: {
+          razaoSocial: loja.razao_social || 'Empresa',
+          nomeFantasia: loja.nome_fantasia || loja.razao_social || 'Loja',
+          cnpj: formatCnpj(loja.cnpj) || '—',
+          endereco: [loja.logradouro, loja.numero].filter(Boolean).join(', ') || '—',
+          cidade: loja.cidade || '—',
+          uf: loja.estado || '—',
+          telefone: loja.telefone || '—',
+          logoUrl: loja.logo_url || null,
+        },
+        venda: mapVendaToRecibo(data),
+        mode: 'download',
+      });
+    } catch (err) {
+      await alert(err?.message ?? 'Falha ao gerar PDF.', { type: 'error', title: 'PDF' });
+    } finally {
+      setProcessandoRecibo(false);
+    }
+  };
+
+  const handleWhatsAppRecibo = async (item) => {
+    setMenuAberto(null);
+    if (!lojaAtivaId || processandoRecibo) return;
+    setProcessandoRecibo(true);
+    try {
+      const { data, error } = await getVendaById(lojaAtivaId, item.id);
+      if (error || !data) throw new Error(error?.message ?? 'Não foi possível carregar a venda.');
+      const result = await enviarReciboPorWhatsApp({
+        lojaId: lojaAtivaId,
+        loja: lojaAtiva,
+        venda: data,
+      });
+      if (!result.ok) {
+        await alert(result.error?.message ?? 'Não foi possível abrir o WhatsApp.', {
+          type: 'warning',
+          title: 'WhatsApp',
+        });
+        return;
+      }
+      if (result.baixouAnexo) {
+        await alert(
+          'WhatsApp aberto. O PDF foi baixado — anexe o arquivo na conversa se o link não aparecer.',
+          { type: 'info', title: 'WhatsApp' }
+        );
+      }
+    } catch (err) {
+      await alert(err?.message ?? 'Falha ao enviar recibo.', { type: 'error', title: 'WhatsApp' });
+    } finally {
+      setProcessandoRecibo(false);
+    }
   };
 
   const vendedoresUnicos = useMemo(() => {
@@ -292,41 +357,41 @@ const VendasList = ({ aoClicarEmNovaVenda, aoMudarTela, mensagemFlash = null }) 
                   <td style={styles.td}>{renderStatus(item.status)}</td>
                   
                   {/* MENU DE AÇÕES INTELIGENTE */}
-                  <td style={{...styles.td, textAlign: 'center'}}>
-                    <div style={{position: 'relative', display: 'inline-block'}}>
-                      <button style={styles.gridActionBtn} onClick={(e) => toggleMenu(index, e)}>
-                        <Settings size={14} /> <ChevronDown size={12} />
-                      </button>
+                  <td style={{...styles.td, textAlign: 'center', overflow: 'visible'}}>
+                    <RowActionsMenu open={menuAberto === index} onToggle={(e) => toggleMenu(index, e)}>
+                      <RowActionsItem onClick={() => { setMenuAberto(null); aoMudarTela('venda-detalhes', 'listagem', { vendaId: item.id }); }}>
+                        <List size={14} color="#38bdf8" /> Detalhes da Venda
+                      </RowActionsItem>
 
-                      {menuAberto === index && (
-                        <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                          
-                          <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); aoMudarTela('venda-detalhes', 'listagem', { vendaId: item.id }); }}>
-                            <List size={14} color="#38bdf8" /> Detalhes da Venda
-                          </div>
-                          
-                          {item.status === 'Concluído' && (
-                            <div style={styles.dropdownItem} onClick={() => handleImprimirRecibo(item)}>
-                              <Printer size={14} color="#4ade80" /> Imprimir Recibo/Garantia
-                            </div>
-                          )}
-
-                          {item.status === 'Pré-Venda' && (
-                            <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); handleConcluirPreVenda(item.id); }}>
-                              <CheckCircle size={14} color="#4ade80" /> Concluir Pré-Venda
-                            </div>
-                          )}
-
-                          {item.status !== 'Cancelada' && (
-                            <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px'}} 
-                                 onClick={() => { setMenuAberto(null); handleCancelarVenda(item.id); }}>
-                              <Ban size={14} color="#ef4444" /> Cancelar Venda
-                            </div>
-                          )}
-
-                        </div>
+                      {item.status === 'Concluído' && (
+                        <>
+                          <RowActionsItem onClick={() => handleImprimirRecibo(item)}>
+                            <Printer size={14} color="#94a3b8" /> Ver / Imprimir recibo
+                          </RowActionsItem>
+                          <RowActionsItem onClick={() => handleBaixarPdf(item)}>
+                            <Download size={14} color="#38bdf8" /> Baixar PDF do recibo
+                          </RowActionsItem>
+                          <RowActionsItem style={{ color: '#4ade80' }} onClick={() => handleWhatsAppRecibo(item)}>
+                            <MessageCircle size={14} color="#4ade80" /> Enviar recibo no WhatsApp
+                          </RowActionsItem>
+                        </>
                       )}
-                    </div>
+
+                      {item.status === 'Pré-Venda' && (
+                        <RowActionsItem onClick={() => { setMenuAberto(null); handleConcluirPreVenda(item.id); }}>
+                          <CheckCircle size={14} color="#4ade80" /> Concluir Pré-Venda
+                        </RowActionsItem>
+                      )}
+
+                      {item.status !== 'Cancelada' && (
+                        <RowActionsItem
+                          style={{ color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }}
+                          onClick={() => { setMenuAberto(null); handleCancelarVenda(item.id); }}
+                        >
+                          <Ban size={14} color="#ef4444" /> Cancelar Venda
+                        </RowActionsItem>
+                      )}
+                    </RowActionsMenu>
                   </td>
                 </tr>
               ))

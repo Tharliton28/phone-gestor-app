@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   AlertCircle, RefreshCw, Download, ChevronDown,
-  Search, FilePen, TrendingDown, PackagePlus,
+  Search, TrendingDown, PackagePlus,
   Package, ShoppingCart, Shield
 } from 'lucide-react';
+import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { TIPO_LABEL } from '../services/produtoService';
@@ -207,7 +208,6 @@ const RupturaEstoque = ({ aoMudarTela }) => {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={{ ...styles.th, width: '60px' }}></th>
                 <th style={styles.th}>Cód.</th>
                 <th style={styles.th}>Produto</th>
                 <th style={styles.th}>Categoria</th>
@@ -215,9 +215,9 @@ const RupturaEstoque = ({ aoMudarTela }) => {
                 <th style={{ ...styles.th, textAlign: 'right' }}>Valor Unit. (R$)</th>
                 <th style={{ ...styles.th, textAlign: 'right' }}>Impacto Estimado (R$)</th>
                 <th style={styles.th}>Atualizado em</th>
+                <th style={{ ...styles.th, textAlign: 'center' }}>Ações</th>
               </tr>
               <tr style={styles.filterRow}>
-                <td style={styles.tdFilter}></td>
                 <td style={styles.tdFilter}>
                   <input
                     type="text"
@@ -239,6 +239,7 @@ const RupturaEstoque = ({ aoMudarTela }) => {
                     <Search size={14} style={styles.innerIcon} />
                   </div>
                 </td>
+                <td style={styles.tdFilter}></td>
               </tr>
             </thead>
             <tbody>
@@ -256,41 +257,6 @@ const RupturaEstoque = ({ aoMudarTela }) => {
 
                   return (
                     <tr key={item.id} style={styles.tr}>
-                      <td style={styles.td}>
-                        <div style={{ position: 'relative', display: 'inline-block' }}>
-                          <button style={styles.gridActionBtn} onClick={(e) => toggleMenu(item.id, e)}>
-                            <FilePen size={14} /> <ChevronDown size={12} />
-                          </button>
-
-                          {menuAberto === item.id && (
-                            <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                              <div
-                                style={styles.dropdownItem}
-                                onClick={() => { setMenuAberto(null); handleAjustarSaldo(item); }}
-                              >
-                                <PackagePlus size={14} color="#4ade80" /> Ajustar Saldo (Entrada)
-                              </div>
-                              <div
-                                style={styles.dropdownItem}
-                                onClick={() => { setMenuAberto(null); handleVerProduto(item); }}
-                              >
-                                <Package size={14} color="#38bdf8" /> Acessar Ficha do Produto
-                              </div>
-                              <div
-                                style={{
-                                  ...styles.dropdownItem,
-                                  borderTop: '1px solid #1f2233',
-                                  marginTop: '4px',
-                                  paddingTop: '8px',
-                                }}
-                                onClick={() => { setMenuAberto(null); handleGerarCompra(); }}
-                              >
-                                <ShoppingCart size={14} color="#fbbf24" /> Gerar Ordem de Compra
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </td>
                       <td style={{ ...styles.td, color: '#64748b' }}>{item.codigo}</td>
                       <td style={{ ...styles.td, fontWeight: '500', color: '#e2e8f0' }}>{item.produto}</td>
                       <td style={styles.td}>{TIPO_LABEL[item.tipo] ?? item.categoria}</td>
@@ -302,6 +268,22 @@ const RupturaEstoque = ({ aoMudarTela }) => {
                         {formatBRL(impactoItem)}
                       </td>
                       <td style={styles.td}>{formatDateTime(item.atualizado_em)}</td>
+                      <td style={{ ...styles.td, textAlign: 'center', overflow: 'visible' }}>
+                        <RowActionsMenu open={menuAberto === item.id} onToggle={(e) => toggleMenu(item.id, e)}>
+                          <RowActionsItem onClick={() => { setMenuAberto(null); handleAjustarSaldo(item); }}>
+                            <PackagePlus size={14} color="#4ade80" /> Ajustar Saldo (Entrada)
+                          </RowActionsItem>
+                          <RowActionsItem onClick={() => { setMenuAberto(null); handleVerProduto(item); }}>
+                            <Package size={14} color="#38bdf8" /> Acessar Ficha do Produto
+                          </RowActionsItem>
+                          <RowActionsItem
+                            style={{ borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }}
+                            onClick={() => { setMenuAberto(null); handleGerarCompra(); }}
+                          >
+                            <ShoppingCart size={14} color="#fbbf24" /> Gerar Ordem de Compra
+                          </RowActionsItem>
+                        </RowActionsMenu>
+                      </td>
                     </tr>
                   );
                 })

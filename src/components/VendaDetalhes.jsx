@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  ArrowLeft, Printer, ShoppingCart, 
+  ArrowLeft, Printer, ShoppingCart, Download, MessageCircle,
   CreditCard, User, Calendar, MapPin, Tag 
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 import { useLoja } from '../contexts/LojaContext';
-import { formatBRL, formatCpfCnpj } from '../utils/formatters';
+import { formatBRL, formatCnpj, formatCpfCnpj } from '../utils/formatters';
 import { calcValorParcela } from '../domain/vendaCalculos';
 import { getVendaById, mapVendaToRecibo, STATUS_LABEL } from '../services/vendaService';
+import { gerarReciboVendaPdf } from '../utils/reciboVendaPdf';
+import { enviarReciboPorWhatsApp } from '../services/reciboWhatsAppService';
 
 function formatDataHora(isoDate, createdAt) {
   if (!isoDate && !createdAt) return '—';
@@ -22,10 +24,11 @@ function formatDataHora(isoDate, createdAt) {
 }
 
 const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
-  const { lojaAtivaId } = useLoja();
+  const { lojaAtivaId, lojaAtiva } = useLoja();
   const { alert } = useDialog();
   const [venda, setVenda] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [processandoRecibo, setProcessandoRecibo] = useState(false);
 
   useEffect(() => {
     if (!vendaId || !lojaAtivaId) {
@@ -58,9 +61,68 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- carregar sob vendaId/loja
   }, [vendaId, lojaAtivaId, alert]);
 
-  const handleImprimirRecibo = () => {
+  const handleVerRecibo = () => {
     if (!venda || !aoMudarTela) return;
     aoMudarTela('recibo-garantia', 'venda-detalhes', mapVendaToRecibo(venda));
+  };
+
+  const empresaFromLoja = () => {
+    const loja = lojaAtiva ?? {};
+    return {
+      razaoSocial: loja.razao_social || 'Empresa',
+      nomeFantasia: loja.nome_fantasia || loja.razao_social || 'Loja',
+      cnpj: formatCnpj(loja.cnpj) || '—',
+      endereco: [loja.logradouro, loja.numero].filter(Boolean).join(', ') || '—',
+      cidade: loja.cidade || '—',
+      uf: loja.estado || '—',
+      telefone: loja.telefone || '—',
+      logoUrl: loja.logo_url || null,
+    };
+  };
+
+  const handleBaixarPdf = async () => {
+    if (!venda || processandoRecibo) return;
+    setProcessandoRecibo(true);
+    try {
+      await gerarReciboVendaPdf({
+        empresa: empresaFromLoja(),
+        venda: mapVendaToRecibo(venda),
+        mode: 'download',
+      });
+    } catch (err) {
+      await alert(err?.message ?? 'Não foi possível gerar o PDF.', { type: 'error', title: 'PDF' });
+    } finally {
+      setProcessandoRecibo(false);
+    }
+  };
+
+  const handleWhatsApp = async () => {
+    if (!venda || processandoRecibo) return;
+    setProcessandoRecibo(true);
+    try {
+      const result = await enviarReciboPorWhatsApp({
+        lojaId: lojaAtivaId,
+        loja: lojaAtiva,
+        venda,
+      });
+      if (!result.ok) {
+        await alert(result.error?.message ?? 'Não foi possível abrir o WhatsApp.', {
+          type: 'warning',
+          title: 'WhatsApp',
+        });
+        return;
+      }
+      if (result.baixouAnexo) {
+        await alert(
+          'WhatsApp aberto. O PDF foi baixado — anexe o arquivo na conversa se o link não aparecer.',
+          { type: 'info', title: 'WhatsApp' }
+        );
+      }
+    } catch (err) {
+      await alert(err?.message ?? 'Falha ao enviar recibo.', { type: 'error', title: 'WhatsApp' });
+    } finally {
+      setProcessandoRecibo(false);
+    }
   };
 
   if (loading) {
@@ -99,8 +161,29 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
           <span style={styles.statusPill}>{STATUS_LABEL[venda.status] ?? venda.status}</span>
         </div>
         <div style={styles.rightActions}>
-          <button style={styles.btnPrimary} onClick={handleImprimirRecibo}>
-            <Printer size={14} /> Imprimir Recibo
+          <button
+            type="button"
+            style={{ ...styles.btnWhatsapp, opacity: processandoRecibo ? 0.6 : 1 }}
+            disabled={processandoRecibo}
+            onClick={handleWhatsApp}
+          >
+            <MessageCircle size={14} /> WhatsApp
+          </button>
+          <button
+            type="button"
+            style={{ ...styles.btnOutline, opacity: processandoRecibo ? 0.6 : 1 }}
+            disabled={processandoRecibo}
+            onClick={handleBaixarPdf}
+          >
+            <Download size={14} /> Baixar PDF
+          </button>
+          <button
+            type="button"
+            style={{ ...styles.btnPrimary, opacity: processandoRecibo ? 0.6 : 1 }}
+            disabled={processandoRecibo}
+            onClick={handleVerRecibo}
+          >
+            <Printer size={14} /> Ver / Imprimir
           </button>
         </div>
       </div>
@@ -268,8 +351,9 @@ const styles = {
   title: { color: '#fff', fontSize: '18px', fontWeight: '600' },
   statusPill: { backgroundColor: '#0d9488', color: '#ccfbf1', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' },
   
-  rightActions: { display: 'flex', gap: '10px' },
+  rightActions: { display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' },
   btnOutline: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '500' },
+  btnWhatsapp: { backgroundColor: 'transparent', border: '1px solid #22c55e', color: '#4ade80', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '500' },
   btnPrimary: { backgroundColor: '#3b82f6', border: 'none', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '500' },
 
   contentScroll: { padding: '25px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' },

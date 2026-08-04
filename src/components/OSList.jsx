@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, Search, Filter, ChevronDown, Wrench, Clock, CheckCircle,
-  FilePen, Edit, Printer, MessageCircle, DollarSign, Ban, FileText, AlertTriangle
+  Edit, Printer, MessageCircle, DollarSign, Ban, FileText, AlertTriangle
 } from 'lucide-react';
+import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { formatBRL } from '../utils/formatters';
@@ -339,7 +340,6 @@ const OSList = ({ aoClicarEmNova, aoMudarTela }) => {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={{ ...styles.th, width: '60px' }}></th>
                 <th style={styles.th}>Nº OS</th>
                 <th style={styles.th}>Cliente</th>
                 <th style={styles.th}>Aparelho</th>
@@ -347,6 +347,7 @@ const OSList = ({ aoClicarEmNova, aoMudarTela }) => {
                 <th style={styles.th}>Técnico</th>
                 <th style={styles.th}>Status</th>
                 <th style={{ ...styles.th, textAlign: 'right' }}>Valor (R$)</th>
+                <th style={{ ...styles.th, textAlign: 'center' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -361,69 +362,6 @@ const OSList = ({ aoClicarEmNova, aoMudarTela }) => {
               ) : (
                 ordensFiltradas.map((os) => (
                   <tr key={os.id} style={styles.tr}>
-                    <td style={styles.td}>
-                      <div style={{ position: 'relative', display: 'inline-block' }}>
-                        <button style={styles.gridActionBtn} onClick={(e) => toggleMenu(os.id, e)}>
-                          <FilePen size={14} /> <ChevronDown size={12} />
-                        </button>
-
-                        {menuAberto === os.id && (
-                          <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                            <div style={styles.dropdownItem} onClick={() => editarOS(os)}>
-                              <Edit size={14} color="#38bdf8" /> Editar / Atualizar OS
-                            </div>
-                            <div style={styles.dropdownItem} onClick={() => imprimirVia(os, 'entrada')}>
-                              <Printer size={14} color="#94a3b8" />
-                              {imprimindo === `${os.id}-entrada` ? 'Preparando via...' : 'Imprimir via do cliente — entrada'}
-                            </div>
-                            {os.status !== 'aberta' && (
-                              <div style={styles.dropdownItem} onClick={() => imprimirVia(os, 'saida')}>
-                                <Printer size={14} color="#94a3b8" />
-                                {imprimindo === `${os.id}-saida` ? 'Preparando via...' : 'Imprimir via do cliente — saída'}
-                              </div>
-                            )}
-                            <div style={styles.dropdownItem} onClick={() => verLaudo(os)}>
-                              <FileText size={14} color="#94a3b8" /> Ver Laudo Técnico
-                            </div>
-                            <div
-                              style={{ ...styles.dropdownItem, color: '#4ade80' }}
-                              onClick={() => notificarWhatsApp(os)}
-                            >
-                              <MessageCircle size={14} color="#4ade80" /> Notificar via WhatsApp
-                            </div>
-
-                            {!['finalizada', 'cancelada'].includes(os.status) && (
-                              <div
-                                style={{
-                                  ...styles.dropdownItem,
-                                  borderTop: '1px solid #1f2233',
-                                  marginTop: '4px',
-                                  paddingTop: '8px',
-                                }}
-                                onClick={() => handleFinalizar(os)}
-                              >
-                                <DollarSign size={14} color="#fbbf24" /> Finalizar OS
-                              </div>
-                            )}
-
-                            {os.status !== 'cancelada' && os.status !== 'finalizada' && (
-                              <div
-                                style={{
-                                  ...styles.dropdownItem,
-                                  color: '#ef4444',
-                                  borderTop: '1px solid #1f2233',
-                                  marginTop: '4px',
-                                  paddingTop: '8px',
-                                }}
-                                onClick={() => handleCancelar(os)}
-                              >
-                                <Ban size={14} color="#ef4444" /> Cancelar OS
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
                     <td style={{ ...styles.td, fontWeight: 'bold' }}>{os.codigo}</td>
                     <td style={{ ...styles.td, color: '#93c5fd' }}>{os.cliente?.nome ?? '—'}</td>
                     <td style={styles.td}>{os.aparelho_modelo}</td>
@@ -432,6 +370,45 @@ const OSList = ({ aoClicarEmNova, aoMudarTela }) => {
                     <td style={styles.td}>{renderStatus(os.status)}</td>
                     <td style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#e2e8f0' }}>
                       {formatBRL(os.valor_total)}
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'center', overflow: 'visible' }}>
+                      <RowActionsMenu open={menuAberto === os.id} onToggle={(e) => toggleMenu(os.id, e)}>
+                        <RowActionsItem onClick={() => editarOS(os)}>
+                          <Edit size={14} color="#38bdf8" /> Editar / Atualizar OS
+                        </RowActionsItem>
+                        <RowActionsItem onClick={() => imprimirVia(os, 'entrada')}>
+                          <Printer size={14} color="#94a3b8" />
+                          {imprimindo === `${os.id}-entrada` ? 'Preparando via...' : 'Imprimir via do cliente — entrada'}
+                        </RowActionsItem>
+                        {os.status !== 'aberta' && (
+                          <RowActionsItem onClick={() => imprimirVia(os, 'saida')}>
+                            <Printer size={14} color="#94a3b8" />
+                            {imprimindo === `${os.id}-saida` ? 'Preparando via...' : 'Imprimir via do cliente — saída'}
+                          </RowActionsItem>
+                        )}
+                        <RowActionsItem onClick={() => verLaudo(os)}>
+                          <FileText size={14} color="#94a3b8" /> Ver Laudo Técnico
+                        </RowActionsItem>
+                        <RowActionsItem style={{ color: '#4ade80' }} onClick={() => notificarWhatsApp(os)}>
+                          <MessageCircle size={14} color="#4ade80" /> Notificar via WhatsApp
+                        </RowActionsItem>
+                        {!['finalizada', 'cancelada'].includes(os.status) && (
+                          <RowActionsItem
+                            style={{ borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }}
+                            onClick={() => handleFinalizar(os)}
+                          >
+                            <DollarSign size={14} color="#fbbf24" /> Finalizar OS
+                          </RowActionsItem>
+                        )}
+                        {os.status !== 'cancelada' && os.status !== 'finalizada' && (
+                          <RowActionsItem
+                            style={{ color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }}
+                            onClick={() => handleCancelar(os)}
+                          >
+                            <Ban size={14} color="#ef4444" /> Cancelar OS
+                          </RowActionsItem>
+                        )}
+                      </RowActionsMenu>
                     </td>
                   </tr>
                 ))

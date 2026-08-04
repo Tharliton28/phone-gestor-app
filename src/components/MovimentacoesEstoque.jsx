@@ -3,6 +3,7 @@ import {
   ArrowUpRight, ArrowDownLeft, Calendar, Search, Filter, Download,
   ChevronDown, FilePen, FileText, RotateCcw, Plus, X
 } from 'lucide-react';
+import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { listProdutos } from '../services/produtoService';
@@ -197,7 +198,6 @@ const MovimentacoesEstoque = () => {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{ ...styles.th, width: '60px' }}></th>
               <th style={styles.th}>ID Mov.</th>
               <th style={styles.th}>Data / Hora</th>
               <th style={styles.th}>Produto</th>
@@ -205,9 +205,9 @@ const MovimentacoesEstoque = () => {
               <th style={{ ...styles.th, textAlign: 'center' }}>Qtd.</th>
               <th style={styles.th}>Motivo / Origem</th>
               <th style={styles.th}>Responsável</th>
+              <th style={{ ...styles.th, textAlign: 'center' }}>Ações</th>
             </tr>
             <tr style={styles.filterRow}>
-              <td style={styles.tdFilter}></td>
               <td style={styles.tdFilter}>
                 <input
                   type="text"
@@ -249,6 +249,7 @@ const MovimentacoesEstoque = () => {
                 </select>
               </td>
               <td colSpan="3" style={styles.tdFilter}></td>
+              <td style={styles.tdFilter}></td>
             </tr>
           </thead>
           <tbody>
@@ -271,45 +272,6 @@ const MovimentacoesEstoque = () => {
 
                 return (
                   <tr key={item.id} style={{ ...styles.tr, opacity: isEstornado ? 0.6 : 1 }}>
-                    <td style={styles.td}>
-                      <div style={{ position: 'relative', display: 'inline-block' }}>
-                        <button style={styles.gridActionBtn} onClick={(e) => toggleMenu(index, e)}>
-                          <FilePen size={14} /> <ChevronDown size={12} />
-                        </button>
-
-                        {menuAberto === index && (
-                          <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                            <div
-                              style={styles.dropdownItem}
-                              onClick={() => {
-                                setMenuAberto(null);
-                                handleVerDetalhes(item);
-                              }}
-                            >
-                              <FileText size={14} color="#94a3b8" /> Ver Detalhes / Log
-                            </div>
-
-                            {!isEstornado && item.origem === 'manual' && (
-                              <div
-                                style={{
-                                  ...styles.dropdownItem,
-                                  color: '#ef4444',
-                                  borderTop: '1px solid #1f2233',
-                                  marginTop: '4px',
-                                  paddingTop: '8px',
-                                }}
-                                onClick={() => {
-                                  setMenuAberto(null);
-                                  handleEstornar(item);
-                                }}
-                              >
-                                <RotateCcw size={14} color="#ef4444" /> Estornar Registro
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
                     <td
                       style={{
                         ...styles.td,
@@ -370,6 +332,35 @@ const MovimentacoesEstoque = () => {
                       {descricaoMotivo(item)}
                     </td>
                     <td style={styles.td}>{item.operador?.nome ?? '—'}</td>
+                    <td style={{ ...styles.td, textAlign: 'center', overflow: 'visible' }}>
+                      <RowActionsMenu open={menuAberto === index} onToggle={(e) => toggleMenu(index, e)}>
+                        <RowActionsItem
+                          onClick={() => {
+                            setMenuAberto(null);
+                            handleVerDetalhes(item);
+                          }}
+                        >
+                          <FileText size={14} color="#94a3b8" /> Ver Detalhes / Log
+                        </RowActionsItem>
+
+                        {!isEstornado && item.origem === 'manual' && (
+                          <RowActionsItem
+                            style={{
+                              color: '#ef4444',
+                              borderTop: '1px solid #1f2233',
+                              marginTop: '4px',
+                              paddingTop: '8px',
+                            }}
+                            onClick={() => {
+                              setMenuAberto(null);
+                              handleEstornar(item);
+                            }}
+                          >
+                            <RotateCcw size={14} color="#ef4444" /> Estornar Registro
+                          </RowActionsItem>
+                        )}
+                      </RowActionsMenu>
+                    </td>
                   </tr>
                 );
               })
@@ -477,15 +468,10 @@ const styles = {
   inputWithIcon: { position: 'relative', display: 'flex', alignItems: 'center', width: '100%' },
   innerIcon: { position: 'absolute', right: '10px', color: '#64748b' },
 
-  gridActionBtn: { display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#161925', border: '1px solid #2a2e3f', padding: '6px 8px', borderRadius: '4px', color: '#e2e8f0', cursor: 'pointer' },
-
   badgeEntrada: { display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#4ade80', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' },
   badgeSaida: { display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' },
   badgeAjuste: { display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(251, 191, 36, 0.1)', color: '#fbbf24', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' },
   badgeEstornado: { display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(100, 116, 139, 0.15)', color: '#94a3b8', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' },
-
-  dropdownMenu: { position: 'absolute', top: '30px', left: '0', backgroundColor: '#0f111a', border: '1px solid #2a2e3f', borderRadius: '6px', padding: '8px 0', minWidth: '180px', boxShadow: '0 10px 25px rgba(0,0,0,0.8)', zIndex: 9999 },
-  dropdownItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', fontSize: '12px', color: '#e2e8f0', cursor: 'pointer', transition: 'background-color 0.2s' },
 
   modalOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 },
   modal: { backgroundColor: '#161925', border: '1px solid #2a2e3f', borderRadius: '8px', width: '100%', maxWidth: '480px', margin: '20px' },

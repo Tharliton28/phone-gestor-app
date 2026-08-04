@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
-  Plus, Eraser, Download, Settings, ChevronDown, 
+  Plus, Eraser, Download, ChevronDown, 
   Edit, FileText, Trash2, Search,
   ChevronLeft, ChevronRight, CheckCircle, Clock, XCircle, AlertCircle, RefreshCw
 } from 'lucide-react';
+import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
 import { formatBRL } from '../utils/formatters';
 import { downloadCsv } from '../utils/csvExport';
@@ -312,49 +313,38 @@ const OrcamentosList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                 </td>
                 
                 <td style={{...styles.td, textAlign: 'center', overflow: 'visible'}}>
-                  <div style={{position: 'relative', display: 'inline-block'}}>
-                    <button style={styles.btnGerenciar} onClick={(e) => toggleMenu(index, e)}>
-                      <Settings size={12} /> <ChevronDown size={12} />
-                    </button>
+                  <RowActionsMenu open={menuAberto === index} onToggle={(e) => toggleMenu(index, e)}>
+                    <RowActionsItem onClick={() => { setMenuAberto(null); if(aoMudarTela) { aoMudarTela('novo-orcamento', 'orcamentos', { orcamentoId: orc.id }); } else { aoClicarEmCadastrar(); } }}>
+                      <Edit size={14} color="#94a3b8" /> {podeEditarOrcamento(orc.statusDb, orc.validadeIso) ? 'Editar Orçamento' : 'Visualizar Orçamento'}
+                    </RowActionsItem>
 
-                    {menuAberto === index && (
-                      <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                        
-                        <div style={styles.dropdownItem} onClick={() => { setMenuAberto(null); if(aoMudarTela) { aoMudarTela('novo-orcamento', 'orcamentos', { orcamentoId: orc.id }); } else { aoClicarEmCadastrar(); } }}>
-                          <Edit size={14} color="#94a3b8" /> {podeEditarOrcamento(orc.statusDb, orc.validadeIso) ? 'Editar Orçamento' : 'Visualizar Orçamento'}
-                        </div>
-
-                        {podeConverterOrcamento(orc.statusDb, orc.validadeIso) && (
-                          <div style={{...styles.dropdownItem, color: '#4ade80'}} onClick={() => irParaPdv(orc)}>
-                            <CheckCircle size={14} color="#4ade80" /> Gerar Venda (PDV)
-                          </div>
-                        )}
-                        
-                        <div style={styles.dropdownItem} onClick={() => handleGerarPdf(orc)}>
-                          <FileText size={14} color="#38bdf8" /> Gerar PDF / Imprimir
-                        </div>
-                        
-                        {/* Renderização Condicional baseada no status DESTE orçamento específico */}
-                        {podeAprovarOrcamento(orc.statusDb, orc.validadeIso) && (
-                          <>
-                            <div style={{...styles.dropdownItem, color: '#4ade80', borderTop: '1px solid #1f2233', paddingTop: '8px', marginTop: '4px'}} onClick={() => { setMenuAberto(null); setModalAprovarAberto({ aberto: true, id: orc.id }); }}>
-                              <CheckCircle size={14} color="#4ade80" /> Aprovar (Gerar Venda)
-                            </div>
-                            <div style={{...styles.dropdownItem, color: '#ef4444'}} onClick={() => { setMenuAberto(null); setModalRejeitarAberto({ aberto: true, id: orc.id }); }}>
-                              <XCircle size={14} color="#ef4444" /> Rejeitar Orçamento
-                            </div>
-                          </>
-                        )}
-
-                        {podeExcluirOrcamento(orc.statusDb) && (
-                          <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', paddingTop: '8px', marginTop: '4px'}} onClick={() => { setMenuAberto(null); setModalExcluirAberto({ aberto: true, id: orc.id }); }}>
-                            <Trash2 size={14} color="#ef4444" /> Excluir Registro
-                          </div>
-                        )}
-                        
-                      </div>
+                    {podeConverterOrcamento(orc.statusDb, orc.validadeIso) && (
+                      <RowActionsItem style={{ color: '#4ade80' }} onClick={() => irParaPdv(orc)}>
+                        <CheckCircle size={14} color="#4ade80" /> Gerar Venda (PDV)
+                      </RowActionsItem>
                     )}
-                  </div>
+
+                    <RowActionsItem onClick={() => handleGerarPdf(orc)}>
+                      <FileText size={14} color="#38bdf8" /> Gerar PDF / Imprimir
+                    </RowActionsItem>
+
+                    {podeAprovarOrcamento(orc.statusDb, orc.validadeIso) && (
+                      <>
+                        <RowActionsItem style={{ color: '#4ade80', borderTop: '1px solid #1f2233', paddingTop: '8px', marginTop: '4px' }} onClick={() => { setMenuAberto(null); setModalAprovarAberto({ aberto: true, id: orc.id }); }}>
+                          <CheckCircle size={14} color="#4ade80" /> Aprovar (Gerar Venda)
+                        </RowActionsItem>
+                        <RowActionsItem style={{ color: '#ef4444' }} onClick={() => { setMenuAberto(null); setModalRejeitarAberto({ aberto: true, id: orc.id }); }}>
+                          <XCircle size={14} color="#ef4444" /> Rejeitar Orçamento
+                        </RowActionsItem>
+                      </>
+                    )}
+
+                    {podeExcluirOrcamento(orc.statusDb) && (
+                      <RowActionsItem style={{ color: '#ef4444', borderTop: '1px solid #1f2233', paddingTop: '8px', marginTop: '4px' }} onClick={() => { setMenuAberto(null); setModalExcluirAberto({ aberto: true, id: orc.id }); }}>
+                        <Trash2 size={14} color="#ef4444" /> Excluir Registro
+                      </RowActionsItem>
+                    )}
+                  </RowActionsMenu>
                 </td>
               </tr>
             ))}

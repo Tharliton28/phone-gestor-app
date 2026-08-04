@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, Eraser, ChevronDown, 
-  Search, Package, Smartphone, Tags, FilePen, Edit, 
+  Search, Package, Smartphone, Tags, Edit, 
   PackagePlus, History, Trash2
 } from 'lucide-react';
+import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { desativarProduto, listProdutos, STATUS_LABEL, TIPO_LABEL } from '../services/produtoService';
@@ -129,7 +130,6 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar, aoMudarTela }) => {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{...styles.th, width: '60px'}}></th>
               <th style={styles.th}>Cód.</th>
               <th style={styles.th}>Produto</th>
               <th style={styles.th}>Categoria</th>
@@ -138,10 +138,10 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar, aoMudarTela }) => {
               <th style={{...styles.th, textAlign: 'right'}}>Preço Custo (R$)</th>
               <th style={{...styles.th, textAlign: 'right'}}>Preço Venda (R$)</th>
               <th style={styles.th}>Status</th>
+              <th style={{...styles.th, textAlign: 'center'}}>Ações</th>
             </tr>
             {/* Linha de Busca Rápida */}
             <tr style={styles.filterRow}>
-              <td style={styles.tdFilter}></td>
               <td style={styles.tdFilter}><input type="text" style={styles.filterInput} placeholder="Cód..." value={filtros.codigo} onChange={(e) => setFiltros({ ...filtros, codigo: e.target.value.replace(/\D/g, '') })} /></td>
               <td style={styles.tdFilter}>
                 <div style={styles.inputWithIcon}>
@@ -150,6 +150,7 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                 </div>
               </td>
               <td colSpan="6" style={styles.tdFilter}></td>
+              <td style={styles.tdFilter}></td>
             </tr>
           </thead>
           <tbody>
@@ -172,32 +173,6 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar, aoMudarTela }) => {
 
               return (
               <tr key={item.id} style={styles.tr}>
-                {/* --- OPÇÕES DE REGISTRO --- */}
-                <td style={styles.td}>
-                  <div style={{display: 'flex', alignItems: 'center', gap: '8px', position: 'relative'}}>
-                    <button style={styles.gridActionBtn} onClick={(e) => toggleMenu(index, e)}>
-                      <FilePen size={14} /> <ChevronDown size={12} />
-                    </button>
-
-                    {menuAberto === index && (
-                      <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                        {/* Redireciona para o formulário simulando "Edição" */}
-                        <div style={styles.dropdownItem} onClick={() => editarProduto(item)}>
-                          <Edit size={14} color="#38bdf8" /> Editar Produto
-                        </div>
-                        <div style={styles.dropdownItem}>
-                          <PackagePlus size={14} color="#22c55e" /> Ajustar Estoque Manual
-                        </div>
-                        <div style={styles.dropdownItem}>
-                          <History size={14} color="#a855f7" /> Ver Histórico do Item
-                        </div>
-                        <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px'}} onClick={() => excluirProduto(item)}>
-                          <Trash2 size={14} color="#ef4444" /> Excluir Registro
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </td>
                 <td style={styles.td}>{item.codigo}</td>
                 <td style={{...styles.td, fontWeight: '500', color: '#93c5fd'}}>{item.nome}</td>
                 <td style={styles.td}>{TIPO_LABEL[item.tipo] ?? item.categoria}</td>
@@ -207,6 +182,25 @@ const ConsultaEstoque = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                 <td style={{...styles.td, textAlign: 'right', color: '#4ade80'}}>{formatBRL(item.valor_venda)}</td>
                 <td style={styles.td}>
                   <span style={isBaixo ? styles.statusBaixo : styles.statusAtivo}>{statusLabel}</span>
+                </td>
+                <td style={{...styles.td, textAlign: 'center', overflow: 'visible'}}>
+                  <RowActionsMenu open={menuAberto === index} onToggle={(e) => toggleMenu(index, e)}>
+                    <RowActionsItem onClick={() => editarProduto(item)}>
+                      <Edit size={14} color="#38bdf8" /> Editar Produto
+                    </RowActionsItem>
+                    <RowActionsItem>
+                      <PackagePlus size={14} color="#22c55e" /> Ajustar Estoque Manual
+                    </RowActionsItem>
+                    <RowActionsItem>
+                      <History size={14} color="#a855f7" /> Ver Histórico do Item
+                    </RowActionsItem>
+                    <RowActionsItem
+                      style={{ color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }}
+                      onClick={() => excluirProduto(item)}
+                    >
+                      <Trash2 size={14} color="#ef4444" /> Excluir Registro
+                    </RowActionsItem>
+                  </RowActionsMenu>
                 </td>
               </tr>
             );

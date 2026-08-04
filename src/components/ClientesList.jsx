@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Users, UserCheck, RefreshCw, Plus, Eraser, ChevronDown, 
-  Search, Settings, Edit, ShoppingBag, MessageCircle, Trash2,
+  Search, Edit, ShoppingBag, MessageCircle, Trash2,
   ChevronLeft, ChevronRight,
   X
 } from 'lucide-react';
+import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import {
@@ -299,34 +300,24 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                     <td style={styles.td}>—</td>
                     
                     {/* MENU DE AÇÕES INTELIGENTE */}
-                    <td style={{...styles.td, textAlign: 'center'}}>
-                      <div style={{position: 'relative', display: 'inline-block'}}>
-                        <button style={styles.gridActionBtn} onClick={(e) => toggleMenu(index, e)}>
-                          <Settings size={14} /> <ChevronDown size={12} />
-                        </button>
-
-                        {menuAberto === index && (
-                          <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                            <div style={styles.dropdownItem} onClick={() => editarCliente(item)}>
-                              <Edit size={14} color="#e2e8f0" /> Editar Cadastro
-                            </div>
-                            
-                            {/* ABRE O MODAL DEDICADO DO CLIENTE */}
-                            <div style={styles.dropdownItem} onClick={() => abrirHistoricoCliente(item)}>
-                              <ShoppingBag size={14} color="#38bdf8" /> Histórico de Compras
-                            </div>
-                            
-                            <div style={{...styles.dropdownItem, color: '#4ade80'}} onClick={() => chamarWhatsApp(item)}>
-                              <MessageCircle size={14} color="#4ade80" /> Chamar no WhatsApp
-                            </div>
-
-                            <div style={{...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px'}} 
-                                 onClick={() => excluirCliente(item)}>
-                              <Trash2 size={14} color="#ef4444" /> Excluir Registro
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                    <td style={{...styles.td, textAlign: 'center', overflow: 'visible'}}>
+                      <RowActionsMenu open={menuAberto === index} onToggle={(e) => toggleMenu(index, e)}>
+                        <RowActionsItem onClick={() => editarCliente(item)}>
+                          <Edit size={14} color="#e2e8f0" /> Editar Cadastro
+                        </RowActionsItem>
+                        <RowActionsItem onClick={() => abrirHistoricoCliente(item)}>
+                          <ShoppingBag size={14} color="#38bdf8" /> Histórico de Compras
+                        </RowActionsItem>
+                        <RowActionsItem style={{ color: '#4ade80' }} onClick={() => chamarWhatsApp(item)}>
+                          <MessageCircle size={14} color="#4ade80" /> Chamar no WhatsApp
+                        </RowActionsItem>
+                        <RowActionsItem
+                          style={{ color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }}
+                          onClick={() => excluirCliente(item)}
+                        >
+                          <Trash2 size={14} color="#ef4444" /> Excluir Registro
+                        </RowActionsItem>
+                      </RowActionsMenu>
                     </td>
                   </tr>
                 ))

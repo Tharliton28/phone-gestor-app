@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Search, Filter, ChevronDown,
   TrendingUp, TrendingDown, DollarSign, Calendar,
-  FilePen, CheckCircle, Clock, XCircle, Edit, Trash2, FileText, RefreshCw
+  CheckCircle, Clock, XCircle, Edit, Trash2, FileText, RefreshCw
 } from 'lucide-react';
+import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useDialog } from '../contexts/DialogContext';
 import { useLoja } from '../contexts/LojaContext';
 import { formatBRL } from '../utils/formatters';
@@ -171,7 +172,6 @@ const FinanceiroList = ({ tipo, aoClicarEmNovo }) => {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{ ...styles.th, width: '60px' }}></th>
               <th style={styles.th}>Documento</th>
               <th style={styles.th}>Descrição</th>
               <th style={styles.th}>{isReceber ? 'Cliente / Origem' : 'Fornecedor / Favorecido'}</th>
@@ -179,9 +179,9 @@ const FinanceiroList = ({ tipo, aoClicarEmNovo }) => {
               <th style={styles.th}>Forma Prevista</th>
               <th style={{ ...styles.th, textAlign: 'right' }}>Valor (R$)</th>
               <th style={styles.th}>Status</th>
+              <th style={{ ...styles.th, textAlign: 'center' }}>Ações</th>
             </tr>
             <tr style={styles.filterRow}>
-              <td style={styles.tdFilter}></td>
               <td style={styles.tdFilter}></td>
               <td style={styles.tdFilter}>
                 <div style={styles.inputWithIcon}>
@@ -211,6 +211,7 @@ const FinanceiroList = ({ tipo, aoClicarEmNovo }) => {
                   <option>Atrasado</option>
                 </select>
               </td>
+              <td style={styles.tdFilter}></td>
             </tr>
           </thead>
           <tbody>
@@ -220,26 +221,6 @@ const FinanceiroList = ({ tipo, aoClicarEmNovo }) => {
               <tr><td colSpan="8" style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>Nenhum lançamento encontrado.</td></tr>
             ) : dados.map((item, index) => (
               <tr key={item.id} style={styles.tr}>
-                <td style={styles.td}>
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    <button style={styles.gridActionBtn} onClick={(e) => toggleMenu(index, e)}>
-                      <FilePen size={14} /> <ChevronDown size={12} />
-                    </button>
-
-                    {menuAberto === index && (
-                      <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                        {(item.status === 'Pendente' || item.status === 'Atrasado') && (
-                          <div style={{ ...styles.dropdownItem, color: '#4ade80', fontWeight: 'bold' }} onClick={() => handleDarBaixa(item)}>
-                            <DollarSign size={14} color="#4ade80" /> Dar Baixa ({isReceber ? 'Receber' : 'Pagar'})
-                          </div>
-                        )}
-                        <div style={{ ...styles.dropdownItem, color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }} onClick={() => handleExcluir(item)}>
-                          <Trash2 size={14} color="#ef4444" /> Cancelar Título
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </td>
                 <td style={{ ...styles.td, fontFamily: 'monospace', color: '#64748b' }}>{item.codigo}</td>
                 <td style={{ ...styles.td, fontWeight: '500', color: '#e2e8f0' }}>{item.descricao}</td>
                 <td style={{ ...styles.td, color: '#93c5fd' }}>{item.pessoa}</td>
@@ -249,6 +230,21 @@ const FinanceiroList = ({ tipo, aoClicarEmNovo }) => {
                   {isReceber ? '+' : '-'} {formatBRL(item.valor)}
                 </td>
                 <td style={styles.td}>{renderStatus(item.status)}</td>
+                <td style={{ ...styles.td, textAlign: 'center', overflow: 'visible' }}>
+                  <RowActionsMenu open={menuAberto === index} onToggle={(e) => toggleMenu(index, e)}>
+                    {(item.status === 'Pendente' || item.status === 'Atrasado') && (
+                      <RowActionsItem style={{ color: '#4ade80', fontWeight: 'bold' }} onClick={() => handleDarBaixa(item)}>
+                        <DollarSign size={14} color="#4ade80" /> Dar Baixa ({isReceber ? 'Receber' : 'Pagar'})
+                      </RowActionsItem>
+                    )}
+                    <RowActionsItem
+                      style={{ color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }}
+                      onClick={() => handleExcluir(item)}
+                    >
+                      <Trash2 size={14} color="#ef4444" /> Cancelar Título
+                    </RowActionsItem>
+                  </RowActionsMenu>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -286,10 +282,6 @@ const styles = {
   inputWithIcon: { position: 'relative', display: 'flex', alignItems: 'center', width: '100%' },
   innerIcon: { position: 'absolute', right: '10px', color: '#64748b' },
 
-  gridActionBtn: { display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#161925', border: '1px solid #2a2e3f', padding: '6px 8px', borderRadius: '4px', color: '#e2e8f0', cursor: 'pointer' },
-
-  dropdownMenu: { position: 'absolute', top: '30px', left: '0', backgroundColor: '#0f111a', border: '1px solid #2a2e3f', borderRadius: '6px', padding: '8px 0', minWidth: '200px', boxShadow: '0 10px 25px rgba(0,0,0,0.8)', zIndex: 9999 },
-  dropdownItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer', transition: 'background-color 0.2s' },
 };
 
 export default FinanceiroList;

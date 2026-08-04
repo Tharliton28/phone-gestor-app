@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Eraser, ChevronDown,
-  Search, Calendar, FilePen, Edit, FileText,
+  Search, Calendar, Edit, FileText,
   PackageCheck, Printer, XCircle
 } from 'lucide-react';
+import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import {
@@ -170,16 +171,15 @@ const OrdemCompraList = ({ aoClicarEmNova, aoMudarTela }) => {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{ ...styles.th, width: '60px' }}></th>
               <th style={styles.th}>Código</th>
               <th style={styles.th}>Fornecedor</th>
               <th style={styles.th}>Data de Emissão</th>
               <th style={styles.th}>Previsão de Entrega</th>
               <th style={{ ...styles.th, textAlign: 'right' }}>Valor Total (R$)</th>
               <th style={styles.th}>Status</th>
+              <th style={{ ...styles.th, textAlign: 'center' }}>Ações</th>
             </tr>
             <tr style={styles.filterRow}>
-              <td style={styles.tdFilter}></td>
               <td style={styles.tdFilter}>
                 <input
                   type="text"
@@ -216,6 +216,7 @@ const OrdemCompraList = ({ aoClicarEmNova, aoMudarTela }) => {
                   <option>Cancelado</option>
                 </select>
               </td>
+              <td style={styles.tdFilter}></td>
             </tr>
           </thead>
           <tbody>
@@ -234,52 +235,38 @@ const OrdemCompraList = ({ aoClicarEmNova, aoMudarTela }) => {
             ) : (
               ordensFiltradas.map((item, index) => (
                 <tr key={item.id} style={styles.tr}>
-                  <td style={styles.td}>
-                    <div style={{ position: 'relative', display: 'inline-block' }}>
-                      <button style={styles.gridActionBtn} onClick={(e) => toggleMenu(index, e)}>
-                        <FilePen size={14} /> <ChevronDown size={12} />
-                      </button>
-
-                      {menuAberto === index && (
-                        <div style={styles.dropdownMenu} onClick={(e) => e.stopPropagation()}>
-                          <div style={styles.dropdownItem} onClick={() => editarOrdem(item)}>
-                            <Edit size={14} color="#38bdf8" /> Editar / Ver Ordem
-                          </div>
-                          <div style={styles.dropdownItem} onClick={() => handleVerDetalhes(item)}>
-                            <FileText size={14} color="#94a3b8" /> Ver Detalhes
-                          </div>
-                          {item.status === 'pendente' && (
-                            <div style={styles.dropdownItem} onClick={() => handleDarEntrada(item)}>
-                              <PackageCheck size={14} color="#22c55e" /> Dar Entrada (Receber)
-                            </div>
-                          )}
-                          <div style={styles.dropdownItem} onClick={() => alert('Impressão/PDF em breve.', { type: 'info', title: 'Em breve' })}>
-                            <Printer size={14} color="#94a3b8" /> Imprimir / PDF
-                          </div>
-                          {item.status === 'pendente' && (
-                            <div
-                              style={{
-                                ...styles.dropdownItem,
-                                color: '#ef4444',
-                                borderTop: '1px solid #1f2233',
-                                marginTop: '4px',
-                                paddingTop: '8px',
-                              }}
-                              onClick={() => handleCancelar(item)}
-                            >
-                              <XCircle size={14} color="#ef4444" /> Cancelar Ordem
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </td>
                   <td style={{ ...styles.td, fontWeight: '500', color: '#e2e8f0' }}>{item.codigo}</td>
                   <td style={{ ...styles.td, color: '#93c5fd' }}>{item.fornecedor?.nome ?? '—'}</td>
                   <td style={styles.td}>{formatData(item.data_emissao)}</td>
                   <td style={styles.td}>{formatData(item.previsao_entrega)}</td>
                   <td style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold' }}>{formatBRL(item.valor_total)}</td>
                   <td style={styles.td}>{renderStatus(item.status)}</td>
+                  <td style={{ ...styles.td, textAlign: 'center', overflow: 'visible' }}>
+                    <RowActionsMenu open={menuAberto === index} onToggle={(e) => toggleMenu(index, e)}>
+                      <RowActionsItem onClick={() => editarOrdem(item)}>
+                        <Edit size={14} color="#38bdf8" /> Editar / Ver Ordem
+                      </RowActionsItem>
+                      <RowActionsItem onClick={() => handleVerDetalhes(item)}>
+                        <FileText size={14} color="#94a3b8" /> Ver Detalhes
+                      </RowActionsItem>
+                      {item.status === 'pendente' && (
+                        <RowActionsItem onClick={() => handleDarEntrada(item)}>
+                          <PackageCheck size={14} color="#22c55e" /> Dar Entrada (Receber)
+                        </RowActionsItem>
+                      )}
+                      <RowActionsItem onClick={() => alert('Impressão/PDF em breve.', { type: 'info', title: 'Em breve' })}>
+                        <Printer size={14} color="#94a3b8" /> Imprimir / PDF
+                      </RowActionsItem>
+                      {item.status === 'pendente' && (
+                        <RowActionsItem
+                          style={{ color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }}
+                          onClick={() => handleCancelar(item)}
+                        >
+                          <XCircle size={14} color="#ef4444" /> Cancelar Ordem
+                        </RowActionsItem>
+                      )}
+                    </RowActionsMenu>
+                  </td>
                 </tr>
               ))
             )}
@@ -309,8 +296,6 @@ const styles = {
   filterInput: { width: '100%', padding: '8px', backgroundColor: '#161925', border: '1px solid #2a2e3f', borderRadius: '4px', color: '#fff', fontSize: '12px' },
   inputWithIcon: { position: 'relative', display: 'flex', alignItems: 'center', width: '100%' },
   innerIcon: { position: 'absolute', right: '10px', color: '#64748b' },
-  gridActionBtn: { display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#161925', border: '1px solid #2a2e3f', padding: '6px 8px', borderRadius: '4px', color: '#e2e8f0', cursor: 'pointer' },
-  dropdownMenu: { position: 'absolute', top: '30px', left: '0', backgroundColor: '#0f111a', border: '1px solid #2a2e3f', borderRadius: '6px', padding: '8px 0', minWidth: '220px', boxShadow: '0 10px 25px rgba(0,0,0,0.8)', zIndex: 9999 },
   dropdownItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', fontSize: '12px', color: '#e2e8f0', cursor: 'pointer', transition: 'background-color 0.2s' },
 };
 
