@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Topbar from '../components/Topbar';
 import { useLoja } from '../contexts/LojaContext';
@@ -57,25 +57,7 @@ export default function AppLayout() {
   }
 
   if (!temLoja) {
-    return (
-      <div
-        className="app-layout"
-        style={{
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: '12px',
-          color: '#94a3b8',
-          padding: '24px',
-          textAlign: 'center',
-        }}
-      >
-        <p>Nenhuma loja vinculada a este usuário.</p>
-        <p style={{ fontSize: '13px', color: '#64748b' }}>
-          Peça ao administrador para vincular sua conta a uma loja.
-        </p>
-      </div>
-    );
+    return <Navigate to="/onboarding/empresa" replace />;
   }
 
   return (

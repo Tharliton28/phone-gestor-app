@@ -65,6 +65,39 @@ export function AuthProvider({ children }) {
     return { data, error: null };
   }, []);
 
+  const signUp = useCallback(async (email, password, { nome } = {}) => {
+    setAuthError(null);
+
+    if (!isSupabaseConfigured()) {
+      const message =
+        'Supabase não configurado. Preencha VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env';
+      setAuthError(message);
+      return { data: null, error: { message } };
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          nome: nome?.trim() || email.split('@')[0],
+        },
+      },
+    });
+
+    if (error) {
+      setAuthError(error.message);
+      return { data: null, error };
+    }
+
+    if (data.session) {
+      setSession(data.session);
+      setUser(data.user);
+    }
+
+    return { data, error: null };
+  }, []);
+
   const signOut = useCallback(async () => {
     setAuthError(null);
     const { error } = await supabase.auth.signOut();
@@ -105,11 +138,12 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(session),
       isSupabaseConfigured: isSupabaseConfigured(),
       signIn,
+      signUp,
       signOut,
       resetPassword,
       clearAuthError: () => setAuthError(null),
     }),
-    [session, user, loading, authError, signIn, signOut, resetPassword]
+    [session, user, loading, authError, signIn, signUp, signOut, resetPassword]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -165,12 +165,13 @@ export default function LoginPage() {
 
           <div className="login-footer">
             <p>
-              Ainda não tem uma conta?{' '}
+              Ainda não tem uma conta? <Link to="/cadastro">Criar conta</Link>
               {LANDING_URL ? (
-                <a href={`${LANDING_URL}#planos`}>Escolha um plano</a>
-              ) : (
-                <Link to="/login">Escolha um plano</Link>
-              )}
+                <>
+                  {' '}
+                  · <a href={`${LANDING_URL}#planos`}>Ver planos</a>
+                </>
+              ) : null}
             </p>
           </div>
         </div>
