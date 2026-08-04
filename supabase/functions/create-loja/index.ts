@@ -123,8 +123,9 @@ Deno.serve(async (req) => {
         plano: "essencial",
         assinatura_status: "trial",
         assinatura_origem: "manual",
+        assinatura_expira_em: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       })
-      .select("id, razao_social, cnpj, plano, assinatura_status")
+      .select("id, razao_social, cnpj, plano, assinatura_status, assinatura_expira_em")
       .single();
 
     if (lojaError || !loja) {

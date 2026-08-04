@@ -97,7 +97,11 @@ export default function LojaPlanoPanel() {
             {entitlements.podeConsultas ? 'no contrato (API depois)' : 'plano Rede'}
           </p>
           <p style={styles.meta}>
-            Origem: {entitlements.assinaturaOrigem || 'manual'} — gateway de pagamento entra depois
+            Origem: {entitlements.assinaturaOrigem || 'manual'}
+            {entitlements.assinaturaExpiraEm
+              ? ` · vigência até ${new Date(entitlements.assinaturaExpiraEm).toLocaleDateString('pt-BR')}`
+              : ' · sem data de expiração'}
+            {!entitlements.assinaturaAtiva ? ' · BLOQUEADA' : ''}
           </p>
         </div>
         <button type="button" style={styles.btnGhost} onClick={carregar} disabled={salvando}>

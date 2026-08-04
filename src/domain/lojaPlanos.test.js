@@ -29,6 +29,18 @@ describe('lojaPlanos', () => {
     expect(e.podeAdicionarUsuario).toBe(false);
   });
 
+  it('trial expirado bloqueia mesmo com status trial', () => {
+    const ontem = new Date(Date.now() - 86400000).toISOString();
+    expect(assinaturaEstaAtiva('trial', ontem)).toBe(false);
+    const e = entitlementsDoPlano('essencial', 'trial', { usuariosAtivos: 1, expiraEm: ontem });
+    expect(e.assinaturaAtiva).toBe(false);
+  });
+
+  it('trial vigente libera acesso', () => {
+    const amanha = new Date(Date.now() + 86400000).toISOString();
+    expect(assinaturaEstaAtiva('trial', amanha)).toBe(true);
+  });
+
   it('essencial com 2 usuários não adiciona mais', () => {
     const e = entitlementsDoPlano('essencial', 'ativa', { usuariosAtivos: 2 });
     expect(e.podeAdicionarUsuario).toBe(false);

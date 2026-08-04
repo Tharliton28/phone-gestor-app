@@ -55,6 +55,9 @@ export const PLANOS_IDS = Object.keys(PLANOS);
 
 export const ASSINATURA_STATUS_ATIVOS = ['trial', 'ativa'];
 
+/** Dias de trial no onboarding self-serve (espelho da migration 028). */
+export const TRIAL_DIAS = 14;
+
 export function normalizarPlano(plano) {
   if (plano && PLANOS[plano]) return plano;
   return 'essencial';
@@ -64,13 +67,22 @@ export function getPlanoDef(plano) {
   return PLANOS[normalizarPlano(plano)];
 }
 
-export function assinaturaEstaAtiva(status) {
-  return ASSINATURA_STATUS_ATIVOS.includes(status);
+/**
+ * Vigência comercial: status ativo e, se houver data, ainda dentro do prazo.
+ * @param {string} status
+ * @param {string|Date|null} [expiraEm]
+ */
+export function assinaturaEstaAtiva(status, expiraEm = null) {
+  if (!ASSINATURA_STATUS_ATIVOS.includes(status)) return false;
+  if (!expiraEm) return true;
+  const fim = expiraEm instanceof Date ? expiraEm : new Date(expiraEm);
+  if (Number.isNaN(fim.getTime())) return true;
+  return fim.getTime() > Date.now();
 }
 
 export function entitlementsDoPlano(plano, status = 'ativa', extras = {}) {
   const def = getPlanoDef(plano);
-  const ativa = assinaturaEstaAtiva(status);
+  const ativa = assinaturaEstaAtiva(status, extras.expiraEm ?? null);
   const usuariosAtivos = Number(extras.usuariosAtivos) || 0;
 
   return {
@@ -78,6 +90,7 @@ export function entitlementsDoPlano(plano, status = 'ativa', extras = {}) {
     label: def.label,
     precoHint: def.precoHint,
     assinaturaStatus: status,
+    assinaturaExpiraEm: extras.expiraEm ?? null,
     assinaturaAtiva: ativa,
     maxUsuarios: def.maxUsuarios,
     usuariosAtivos,

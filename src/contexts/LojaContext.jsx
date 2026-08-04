@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { assinaturaEstaAtiva } from '../domain/lojaPlanos';
+import { getLojaEntitlements } from '../services/lojaPlanoService';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
 
@@ -64,6 +66,7 @@ export function LojaProvider({ children }) {
               plano,
               assinatura_status,
               assinatura_origem,
+              assinatura_expira_em,
               plano_atualizado_em
             )
           `
@@ -82,12 +85,9 @@ export function LojaProvider({ children }) {
         avatar_url: null,
       };
 
-      const lojasAtivas = (membershipsResult.data ?? []).filter(
+      let lojasAtivas = (membershipsResult.data ?? []).filter(
         (item) => item.loja?.ativo !== false
       );
-
-      setPerfil(perfilData);
-      setMemberships(lojasAtivas);
 
       const idsValidos = lojasAtivas.map((m) => m.loja.id);
       const salvo = localStorage.getItem(LOJA_ATIVA_KEY);
@@ -98,6 +98,28 @@ export function LojaProvider({ children }) {
         idsValidos[0] ||
         null;
 
+      // Sincroniza expiração no banco (trial/ativa vencidos → suspensa)
+      if (proxima) {
+        const { data: ent } = await getLojaEntitlements(proxima);
+        if (ent) {
+          lojasAtivas = lojasAtivas.map((m) =>
+            m.loja?.id === proxima
+              ? {
+                  ...m,
+                  loja: {
+                    ...m.loja,
+                    assinatura_status: ent.assinaturaStatus,
+                    assinatura_expira_em: ent.assinaturaExpiraEm,
+                    plano: ent.plano,
+                  },
+                }
+              : m
+          );
+        }
+      }
+
+      setPerfil(perfilData);
+      setMemberships(lojasAtivas);
       setLojaAtivaIdState(proxima);
       if (proxima) localStorage.setItem(LOJA_ATIVA_KEY, proxima);
       else localStorage.removeItem(LOJA_ATIVA_KEY);
@@ -152,6 +174,12 @@ export function LojaProvider({ children }) {
     [papelAtivo]
   );
 
+  const assinaturaStatus = lojaAtiva?.assinatura_status ?? null;
+  const assinaturaExpiraEm = lojaAtiva?.assinatura_expira_em ?? null;
+  const assinaturaAtiva = Boolean(
+    lojaAtiva && assinaturaEstaAtiva(assinaturaStatus, assinaturaExpiraEm)
+  );
+
   const value = useMemo(
     () => ({
       perfil,
@@ -166,6 +194,9 @@ export function LojaProvider({ children }) {
       recarregar: carregarDados,
       temPermissao,
       temLoja: Boolean(lojaAtiva),
+      assinaturaStatus,
+      assinaturaExpiraEm,
+      assinaturaAtiva,
     }),
     [
       perfil,
@@ -179,6 +210,9 @@ export function LojaProvider({ children }) {
       setLojaAtiva,
       carregarDados,
       temPermissao,
+      assinaturaStatus,
+      assinaturaExpiraEm,
+      assinaturaAtiva,
     ]
   );
 

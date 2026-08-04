@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Topbar from '../components/Topbar';
+import AssinaturaBloqueadaPage from '../pages/assinatura/AssinaturaBloqueadaPage';
 import { useLoja } from '../contexts/LojaContext';
 import { useErpNavigation } from '../hooks/useErpNavigation';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -14,7 +15,7 @@ export default function AppLayout() {
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [sidebarAberta, setSidebarAberta] = useState(!isMobile);
   const { telaAtiva, mudarTela } = useErpNavigation();
-  const { loading, error, temLoja } = useLoja();
+  const { loading, error, temLoja, assinaturaAtiva } = useLoja();
 
   useEffect(() => {
     setSidebarAberta(!isMobile);
@@ -58,6 +59,10 @@ export default function AppLayout() {
 
   if (!temLoja) {
     return <Navigate to="/onboarding/empresa" replace />;
+  }
+
+  if (!assinaturaAtiva) {
+    return <AssinaturaBloqueadaPage />;
   }
 
   return (

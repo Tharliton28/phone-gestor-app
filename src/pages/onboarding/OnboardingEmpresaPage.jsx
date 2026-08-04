@@ -79,7 +79,8 @@ export default function OnboardingEmpresaPage() {
             </div>
             <h2>Dados da sua loja</h2>
             <p>
-              Último passo: cadastramos a empresa e liberamos o plano <strong>Essencial (trial)</strong>.
+              Último passo: cadastramos a empresa e liberamos o plano{' '}
+              <strong>Essencial</strong> com <strong>14 dias de trial</strong>.
             </p>
           </div>
 

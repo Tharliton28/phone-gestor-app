@@ -22,8 +22,10 @@ export async function getLojaEntitlements(lojaId) {
   const mapped = {
     ...entitlementsDoPlano(data.plano, data.assinatura_status, {
       usuariosAtivos: data.usuarios_ativos,
+      expiraEm: data.assinatura_expira_em,
     }),
     assinaturaOrigem: data.assinatura_origem,
+    assinaturaExpiraEm: data.assinatura_expira_em ?? null,
     planoAtualizadoEm: data.plano_atualizado_em,
     // Prefer values from SQL (source of truth)
     maxUsuarios: data.max_usuarios,
