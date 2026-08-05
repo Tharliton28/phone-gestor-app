@@ -61,6 +61,24 @@ export async function atualizarPlanoLoja(lojaId, plano, status = 'ativa') {
   }));
 }
 
+async function mensagemErroFunction(error, data) {
+  if (data?.error) return String(data.error);
+
+  // supabase-js: em non-2xx o corpo costuma vir em error.context (Response)
+  try {
+    const ctx = error?.context;
+    if (ctx && typeof ctx.json === 'function') {
+      const body = await ctx.json();
+      if (body?.error) return String(body.error);
+      if (body?.message) return String(body.message);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return error?.message || 'Falha ao iniciar checkout.';
+}
+
 /** Cria assinatura no Asaas e devolve link da fatura (PIX/boleto/cartão). */
 export async function criarCheckoutAsaas(lojaId, plano) {
   if (!lojaId) {
@@ -72,8 +90,7 @@ export async function criarCheckoutAsaas(lojaId, plano) {
   });
 
   if (error) {
-    const msg = error.message || 'Falha ao iniciar checkout.';
-    return { data: null, error: new Error(msg) };
+    return { data: null, error: new Error(await mensagemErroFunction(error, data)) };
   }
 
   if (data?.error) {

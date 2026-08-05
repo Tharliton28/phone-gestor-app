@@ -132,18 +132,26 @@ Deno.serve(async (req) => {
 
     let customerId = loja.asaas_customer_id as string | null;
     if (!customerId) {
-      const customer = await asaasFetch("/customers", {
-        method: "POST",
-        body: JSON.stringify({
-          name: loja.nome_fantasia || loja.razao_social,
-          cpfCnpj: cnpj,
-          email: loja.email || user.email,
-          mobilePhone: onlyDigits(loja.telefone) || undefined,
-          externalReference: loja.id,
-          notificationDisabled: false,
-        }),
-      });
-      customerId = String(customer.id);
+      try {
+        const customer = await asaasFetch("/customers", {
+          method: "POST",
+          body: JSON.stringify({
+            name: loja.nome_fantasia || loja.razao_social,
+            cpfCnpj: cnpj,
+            email: loja.email || user.email,
+            mobilePhone: onlyDigits(loja.telefone) || undefined,
+            externalReference: loja.id,
+            notificationDisabled: false,
+          }),
+        });
+        customerId = String(customer.id);
+      } catch (createErr) {
+        // CNPJ já existe no Asaas: reaproveita o cliente
+        const listed = await asaasFetch(`/customers?cpfCnpj=${encodeURIComponent(cnpj)}&limit=1`);
+        const existing = Array.isArray(listed.data) ? listed.data[0] : null;
+        if (!existing?.id) throw createErr;
+        customerId = String(existing.id);
+      }
       await admin.from("lojas").update({ asaas_customer_id: customerId }).eq("id", lojaId);
     }
 
