@@ -69,6 +69,11 @@ export default function AssinaturaBloqueadaPage() {
 
   const pagar = async (planoId) => {
     if (!lojaAtivaId || !podePagar || aguardandoPlanoId || faseCheckout) return;
+    try {
+      sessionStorage.setItem('phonegestor_config_aba', 'plano');
+    } catch {
+      /* ignore */
+    }
     setBusy(true);
     setPlanoCheckoutId(planoId);
     setFaseCheckout('preparando');

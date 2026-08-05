@@ -101,6 +101,13 @@ export default function LojaPlanoPanel() {
     );
     if (!ok) return;
 
+    // Garante retorno na aba Plano após o checkout / remount
+    try {
+      sessionStorage.setItem('phonegestor_config_aba', 'plano');
+    } catch {
+      /* ignore */
+    }
+
     setPlanoCheckoutId(planoId);
     setFaseCheckout('preparando');
     const baseline = entitlements;

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { assinaturaEstaAtiva } from '../domain/lojaPlanos';
 import { getLojaEntitlements } from '../services/lojaPlanoService';
 import { supabase } from '../lib/supabaseClient';
@@ -15,17 +15,21 @@ export function LojaProvider({ children }) {
   const [lojaAtivaId, setLojaAtivaIdState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const jaCarregouRef = useRef(false);
 
-  const carregarDados = useCallback(async () => {
+  const carregarDados = useCallback(async (opts = {}) => {
     if (!user?.id) {
       setPerfil(null);
       setMemberships([]);
       setLojaAtivaIdState(null);
       setLoading(false);
+      jaCarregouRef.current = false;
       return;
     }
 
-    setLoading(true);
+    // Silent refresh: não desmonta o ERP (evita perder aba Plano após pagamento)
+    const silent = opts.silent === true || (opts.silent !== false && jaCarregouRef.current);
+    if (!silent) setLoading(true);
     setError(null);
 
     try {
@@ -121,6 +125,7 @@ export function LojaProvider({ children }) {
       setPerfil(perfilData);
       setMemberships(lojasAtivas);
       setLojaAtivaIdState(proxima);
+      jaCarregouRef.current = true;
       if (proxima) localStorage.setItem(LOJA_ATIVA_KEY, proxima);
       else localStorage.removeItem(LOJA_ATIVA_KEY);
     } catch (err) {
@@ -128,6 +133,7 @@ export function LojaProvider({ children }) {
       setPerfil(null);
       setMemberships([]);
       setLojaAtivaIdState(null);
+      jaCarregouRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -139,9 +145,10 @@ export function LojaProvider({ children }) {
       setMemberships([]);
       setLojaAtivaIdState(null);
       setLoading(false);
+      jaCarregouRef.current = false;
       return;
     }
-    carregarDados();
+    carregarDados({ silent: false });
   }, [isAuthenticated, carregarDados]);
 
   const setLojaAtiva = useCallback((lojaId) => {

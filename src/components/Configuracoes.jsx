@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Building, ShoppingCart, Package, DollarSign, FileText, 
   BarChart2, Save, UploadCloud, ToggleRight, ToggleLeft,
@@ -94,7 +95,41 @@ const Configuracoes = () => {
   const { alert, confirm } = useDialog();
   const { lojaAtivaId, lojaAtiva, recarregar, temPermissao } = useLoja();
   const { dadosNavegacao } = useErpNavigation();
-  const [abaAtiva, setAbaAtiva] = useState(dadosNavegacao?.aba ?? 'empresa');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const CONFIG_ABA_KEY = 'phonegestor_config_aba';
+  const abaInicial = () => {
+    try {
+      return (
+        dadosNavegacao?.aba ||
+        sessionStorage.getItem(CONFIG_ABA_KEY) ||
+        'empresa'
+      );
+    } catch {
+      return dadosNavegacao?.aba ?? 'empresa';
+    }
+  };
+  const [abaAtiva, setAbaAtivaState] = useState(abaInicial);
+
+  const setAbaAtiva = (aba) => {
+    setAbaAtivaState(aba);
+    try {
+      sessionStorage.setItem(CONFIG_ABA_KEY, aba);
+    } catch {
+      /* ignore */
+    }
+    // Persiste aba no location.state sem poluir o histórico
+    navigate(location.pathname, {
+      replace: true,
+      state: {
+        ...(location.state || {}),
+        dadosNavegacao: {
+          ...(location.state?.dadosNavegacao || {}),
+          aba,
+        },
+      },
+    });
+  };
   const [salvando, setSalvando] = useState(false);
   const [enviandoLogo, setEnviandoLogo] = useState(false);
   const [carregandoConfig, setCarregandoConfig] = useState(true);
@@ -157,7 +192,13 @@ const Configuracoes = () => {
   const [salvandoToken, setSalvandoToken] = useState(false);
 
   useEffect(() => {
-    if (dadosNavegacao?.aba) setAbaAtiva(dadosNavegacao.aba);
+    if (!dadosNavegacao?.aba) return;
+    setAbaAtivaState(dadosNavegacao.aba);
+    try {
+      sessionStorage.setItem(CONFIG_ABA_KEY, dadosNavegacao.aba);
+    } catch {
+      /* ignore */
+    }
   }, [dadosNavegacao?.aba]);
 
   useEffect(() => {
