@@ -6,9 +6,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PRECOS: Record<string, number> = {
-  essencial: 97,
-  profissional: 197,
+const PLANOS_CHECKOUT: Record<
+  string,
+  { label: string; valor: number; descricao: string }
+> = {
+  essencial: {
+    label: "Essencial",
+    valor: 97,
+    descricao:
+      "PhoneGestor Assinatura Mensal — Plano Essencial (R$ 97/mês). Inclui PDV, estoque por IMEI, OS com evidências, orçamentos, financeiro e até 2 usuários.",
+  },
+  profissional: {
+    label: "Profissional",
+    valor: 197,
+    descricao:
+      "PhoneGestor Assinatura Mensal — Plano Profissional (R$ 197/mês). Inclui tudo do Essencial + NFC-e no PDV, painel fiscal e até 5 usuários.",
+  },
 };
 
 function json(status: number, body: Record<string, unknown>) {
@@ -106,7 +119,8 @@ Deno.serve(async (req) => {
     const plano = String(body.plano ?? "").trim().toLowerCase();
 
     if (!lojaId) return json(400, { error: "loja_id obrigatório." });
-    if (!PRECOS[plano]) {
+    const planoDef = PLANOS_CHECKOUT[plano];
+    if (!planoDef) {
       return json(400, {
         error: "Plano inválido para checkout. Rede é sob consulta.",
       });
@@ -176,7 +190,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const valor = PRECOS[plano];
+    const valor = planoDef.valor;
     const externalReference = `${lojaId}:${plano}`;
 
     const subscription = await asaasFetch("/subscriptions", {
@@ -187,7 +201,7 @@ Deno.serve(async (req) => {
         value: valor,
         nextDueDate: dueDatePlus(0),
         cycle: "MONTHLY",
-        description: `PhoneGestor — Plano ${plano}`,
+        description: planoDef.descricao.slice(0, 500),
         externalReference,
       }),
     });
@@ -205,7 +219,22 @@ Deno.serve(async (req) => {
     const payments = await asaasFetch(
       `/payments?subscription=${encodeURIComponent(subscriptionId)}&limit=1`
     );
-    const first = Array.isArray(payments.data) ? payments.data[0] : null;
+    let first = Array.isArray(payments.data) ? payments.data[0] : null;
+
+    // Garante a descrição detalhada também na cobrança da fatura
+    if (first?.id) {
+      try {
+        first = await asaasFetch(`/payments/${first.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            description: planoDef.descricao.slice(0, 500),
+          }),
+        });
+      } catch {
+        // se o update falhar, segue com a fatura mesmo assim
+      }
+    }
+
     const invoiceUrl =
       (first?.invoiceUrl as string | undefined) ||
       (subscription.invoiceUrl as string | undefined) ||
