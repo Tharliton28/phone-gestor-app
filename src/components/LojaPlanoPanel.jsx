@@ -112,6 +112,7 @@ export default function LojaPlanoPanel() {
 
   return (
     <div style={styles.wrap}>
+      <style>{`@keyframes pg-spin { to { transform: rotate(360deg); } }`}</style>
       <div style={styles.atualCard}>
         <CreditCard size={20} color="#38bdf8" />
         <div style={{ flex: 1 }}>
