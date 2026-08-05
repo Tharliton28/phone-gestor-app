@@ -141,7 +141,7 @@ export default function LojaPlanoPanel() {
       <CheckoutOverlay
         fase={faseCheckout}
         planoId={planoCheckoutId}
-        onDesistir={faseCheckout === 'preparando' ? undefined : desistirCheckout}
+        onDesistir={faseCheckout ? desistirCheckout : undefined}
       />
 
       <div style={styles.atualCard}>
