@@ -34,6 +34,9 @@ async function asaasFetch(path: string, init: RequestInit = {}) {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      Accept: "application/json",
+      // Obrigatório em contas Asaas criadas após 13/06/2024
+      "User-Agent": "PhoneGestor/1.0",
       access_token: apiKey,
       ...(init.headers || {}),
     },
