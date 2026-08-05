@@ -36,19 +36,24 @@ function onlyDigits(value: unknown) {
 }
 
 function asaasBaseUrl() {
-  const fallback = "https://api-sandbox.asaas.com/v3";
   const raw = String(Deno.env.get("ASAAS_API_URL") || "").trim().replace(/\/$/, "");
   // Evita "Url scheme 'c' not supported" quando a secret veio como caminho Windows
   if (raw && /^https:\/\//i.test(raw)) return raw;
-  return fallback;
+
+  const mode = String(Deno.env.get("ASAAS_ENV") || "sandbox").trim().toLowerCase();
+  if (mode === "production" || mode === "prod") {
+    return "https://api.asaas.com/v3";
+  }
+  return "https://api-sandbox.asaas.com/v3";
 }
 
 async function asaasFetch(path: string, init: RequestInit = {}) {
   const apiKey = String(Deno.env.get("ASAAS_API_KEY") || "").trim();
   if (!apiKey) throw new Error("ASAAS_API_KEY não configurada. Confira Edge Functions → Secrets.");
-  if (!apiKey.includes("aact_")) {
+  // Sandbox e produção usam chaves no formato $aact_...
+  if (!/\$?aact_/i.test(apiKey)) {
     throw new Error(
-      "ASAAS_API_KEY parece inválida. Cole a chave completa do Sandbox (começa com $aact_)."
+      "ASAAS_API_KEY parece inválida. Use a chave da API Asaas (começa com $aact_)."
     );
   }
 

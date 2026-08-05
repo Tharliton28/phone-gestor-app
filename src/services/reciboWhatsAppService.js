@@ -25,10 +25,11 @@ async function uploadReciboPdf(lojaId, codigo, blob) {
   if (!lojaId || !blob) return { url: null, error: null };
 
   const safeCodigo = String(codigo || 'venda').replace(/[^\w.-]+/g, '_');
-  const path = `${lojaId}/recibos/recibo-${safeCodigo}-${Date.now()}.pdf`;
+  const path = `${lojaId}/recibo-${safeCodigo}-${Date.now()}.pdf`;
+  const bucket = 'loja-recibos';
 
   const { error } = await supabase.storage
-    .from('loja-assets')
+    .from(bucket)
     .upload(path, blob, {
       contentType: 'application/pdf',
       upsert: true,
@@ -39,8 +40,16 @@ async function uploadReciboPdf(lojaId, codigo, blob) {
     return { url: null, error };
   }
 
-  const { data } = supabase.storage.from('loja-assets').getPublicUrl(path);
-  return { url: data?.publicUrl ?? null, error: null };
+  // Bucket privado: URL assinada (7 dias) para o cliente abrir pelo WhatsApp
+  const { data, error: signError } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, 60 * 60 * 24 * 7);
+
+  if (signError) {
+    return { url: null, error: signError };
+  }
+
+  return { url: data?.signedUrl ?? null, error: null };
 }
 
 /**

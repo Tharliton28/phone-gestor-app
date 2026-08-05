@@ -9,23 +9,21 @@ import {
   rotuloLancamento,
 } from '../domain/lojaCreditos';
 import {
-  creditarCreditos,
   getSaldoCreditos,
   listCustosCreditos,
   listLancamentosCreditos,
 } from '../services/lojaCreditoService';
 import { emitirCreditosAtualizados } from '../utils/creditosEvents';
 
+const WHATSAPP_CREDITOS = '5585989733574';
+
 export default function LojaCreditosPanel() {
-  const { lojaAtivaId, papelAtivo } = useLoja();
-  const { alert, confirm } = useDialog();
+  const { lojaAtivaId, lojaAtiva } = useLoja();
+  const { alert } = useDialog();
   const [saldo, setSaldo] = useState(0);
   const [lancamentos, setLancamentos] = useState([]);
   const [custos, setCustos] = useState([]);
   const [carregando, setCarregando] = useState(true);
-  const [comprando, setComprando] = useState(null);
-
-  const podeCreditar = ['owner', 'admin'].includes(papelAtivo);
 
   const carregar = useCallback(async () => {
     if (!lojaAtivaId) return;
@@ -62,49 +60,12 @@ export default function LojaCreditosPanel() {
     carregar();
   }, [carregar]);
 
-  const provisionarPacote = async (pacote) => {
-    if (!podeCreditar) {
-      await alert('Apenas owner/admin podem provisionar créditos.', {
-        type: 'warning',
-        title: 'Sem permissão',
-      });
-      return;
-    }
-
-    const ok = await confirm(
-      `Provisionar ${pacote.creditos} créditos (${pacote.label})?\n\nNão há cobrança automática: isto é crédito interno até o gateway de pagamento.`,
-      {
-        title: 'Provisionar créditos',
-        confirmLabel: 'Provisionar',
-        confirmVariant: 'primary',
-      }
+  const solicitarPacote = (pacote) => {
+    const lojaNome = lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'minha loja';
+    const msg = encodeURIComponent(
+      `Olá! Quero comprar o pacote de créditos "${pacote.label}" (${pacote.creditos} créditos) para a loja "${lojaNome}".`
     );
-    if (!ok) return;
-
-    setComprando(pacote.id);
-    const result = await creditarCreditos({
-      lojaId: lojaAtivaId,
-      quantidade: pacote.creditos,
-      acao: 'compra_pacote',
-      descricao: `${pacote.label} — provisionamento interno (sem gateway)`,
-    });
-    setComprando(null);
-
-    if (!result.ok) {
-      await alert(result.error?.message ?? 'Não foi possível creditar.', {
-        type: 'error',
-        title: 'Erro',
-      });
-      return;
-    }
-
-    setSaldo(result.saldo);
-    emitirCreditosAtualizados(result.saldo);
-    await alert(`${result.creditado} créditos provisionados. Saldo: ${result.saldo}.`, {
-      type: 'success',
-      title: 'Carteira atualizada',
-    });
-    carregar();
+    window.open(`https://wa.me/${WHATSAPP_CREDITOS}?text=${msg}`, '_blank', 'noopener,noreferrer');
   };
 
   if (carregando) {
@@ -125,9 +86,9 @@ export default function LojaCreditosPanel() {
       </div>
 
       <p style={styles.ajuda}>
-        Créditos pagam NFC-e (já no ar). Consulta CPF/CNPJ e IMEI têm custo previsto, mas a API
-        ainda não está ligada — então não debitamos nessas operações. Compra online de pacotes
-        entra com o gateway; até lá use provisionamento interno (owner/admin).
+        Créditos pagam NFC-e e, em breve, consultas CPF/CNPJ e IMEI. A compra automática via
+        gateway está em implementação — por enquanto solicite o pacote pelo WhatsApp e nós
+        creditamos na sua loja após a confirmação do pagamento.
       </p>
 
       <h3 style={styles.titulo}>Tabela de consumo</h3>
@@ -140,22 +101,19 @@ export default function LojaCreditosPanel() {
         ))}
       </div>
 
-      <h3 style={styles.titulo}>Pacotes (referência de preço — sem checkout)</h3>
+      <h3 style={styles.titulo}>Pacotes de créditos</h3>
       <div style={styles.pacotes}>
         {PACOTES_CREDITOS.map((pacote) => (
           <button
             key={pacote.id}
             type="button"
             style={styles.pacote}
-            disabled={!podeCreditar || comprando === pacote.id}
-            onClick={() => provisionarPacote(pacote)}
+            onClick={() => solicitarPacote(pacote)}
           >
             <strong>{pacote.label}</strong>
             <span>{pacote.creditos} créditos</span>
-            <span style={styles.preco}>{pacote.precoHint} · sem pagamento automático</span>
-            <span style={styles.pacoteAcao}>
-              {comprando === pacote.id ? 'Provisionando...' : podeCreditar ? 'Provisionar' : 'Só admin'}
-            </span>
+            <span style={styles.preco}>{pacote.precoHint}</span>
+            <span style={styles.pacoteAcao}>Solicitar no WhatsApp</span>
           </button>
         ))}
       </div>
