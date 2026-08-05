@@ -23,19 +23,28 @@ function onlyDigits(value: unknown) {
 }
 
 function asaasBaseUrl() {
-  return (Deno.env.get("ASAAS_API_URL") || "https://api-sandbox.asaas.com/v3").replace(/\/$/, "");
+  const fallback = "https://api-sandbox.asaas.com/v3";
+  const raw = String(Deno.env.get("ASAAS_API_URL") || "").trim().replace(/\/$/, "");
+  // Evita "Url scheme 'c' not supported" quando a secret veio como caminho Windows
+  if (raw && /^https:\/\//i.test(raw)) return raw;
+  return fallback;
 }
 
 async function asaasFetch(path: string, init: RequestInit = {}) {
-  const apiKey = Deno.env.get("ASAAS_API_KEY");
-  if (!apiKey) throw new Error("ASAAS_API_KEY não configurada.");
+  const apiKey = String(Deno.env.get("ASAAS_API_KEY") || "").trim();
+  if (!apiKey) throw new Error("ASAAS_API_KEY não configurada. Confira Edge Functions → Secrets.");
+  if (!apiKey.includes("aact_")) {
+    throw new Error(
+      "ASAAS_API_KEY parece inválida. Cole a chave completa do Sandbox (começa com $aact_)."
+    );
+  }
 
-  const res = await fetch(`${asaasBaseUrl()}${path}`, {
+  const url = `${asaasBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+  const res = await fetch(url, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      // Obrigatório em contas Asaas criadas após 13/06/2024
       "User-Agent": "PhoneGestor/1.0",
       access_token: apiKey,
       ...(init.headers || {}),
@@ -149,7 +158,6 @@ Deno.serve(async (req) => {
         });
         customerId = String(customer.id);
       } catch (createErr) {
-        // CNPJ já existe no Asaas: reaproveita o cliente
         const listed = await asaasFetch(`/customers?cpfCnpj=${encodeURIComponent(cnpj)}&limit=1`);
         const existing = Array.isArray(listed.data) ? listed.data[0] : null;
         if (!existing?.id) throw createErr;
@@ -158,7 +166,6 @@ Deno.serve(async (req) => {
       await admin.from("lojas").update({ asaas_customer_id: customerId }).eq("id", lojaId);
     }
 
-    // Cancela assinatura anterior se existir (troca de plano / reassinatura)
     if (loja.asaas_subscription_id) {
       try {
         await asaasFetch(`/subscriptions/${loja.asaas_subscription_id}`, {
@@ -195,7 +202,6 @@ Deno.serve(async (req) => {
       })
       .eq("id", lojaId);
 
-    // Busca primeira cobrança para pegar invoiceUrl
     const payments = await asaasFetch(
       `/payments?subscription=${encodeURIComponent(subscriptionId)}&limit=1`
     );
