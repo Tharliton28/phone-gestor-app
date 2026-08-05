@@ -145,7 +145,7 @@ export default function LojaPlanoPanel() {
 
       {planoAguardando ? (
         <div style={styles.waitingBanner}>
-          <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+          <Loader2 size={16} style={{ animation: 'pg-spin 1s linear infinite', flexShrink: 0 }} />
           <div>
             <strong>Aguardando confirmação do pagamento</strong>
             <p style={styles.waitingText}>
