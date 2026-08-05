@@ -55,9 +55,11 @@ const PainelFiscal = () => {
     return <span style={styles.badgeWarning}><RefreshCw size={12} /> {rotuloStatusFiscal(status)}</span>;
   };
 
-  const providerLabel = fiscal?.fiscalProvider === 'mock'
-    ? 'Mock (dev)'
-    : (fiscal?.fiscalProvider ?? '—');
+  const providerLabel = !fiscal?.fiscalProvider || fiscal.fiscalProvider === 'mock'
+    ? 'Focus NFe (configure o token)'
+    : fiscal.fiscalProvider === 'focus'
+      ? 'Focus NFe'
+      : String(fiscal.fiscalProvider);
 
   return (
     <div style={styles.container}>
@@ -121,8 +123,9 @@ const PainelFiscal = () => {
           <p style={{ color: '#94a3b8', fontSize: '13px' }}>Carregando…</p>
         ) : docs.length === 0 ? (
           <p style={{ color: '#94a3b8', fontSize: '13px', lineHeight: 1.5 }}>
-            Nenhuma NFC-e ainda. Ligue “Emitir NFC-e automaticamente no PDV” em Configurações → Fiscal
-            e conclua uma venda para gerar o primeiro documento (simulado enquanto o provedor for mock).
+            Nenhuma NFC-e ainda. No plano Profissional: configure o token Focus, mantenha créditos
+            na carteira (4 por emissão) e ligue “Emitir NFC-e automaticamente no PDV” em
+            Configurações → Fiscal. Só debita crédito se a SEFAZ autorizar.
           </p>
         ) : (
           <table style={styles.table}>

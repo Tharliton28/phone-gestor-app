@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  AlertCircle, RefreshCw, Download, ChevronDown,
+  AlertCircle, RefreshCw,
   Search, TrendingDown, PackagePlus,
   Package, ShoppingCart, Shield
 } from 'lucide-react';
@@ -154,11 +154,6 @@ const RupturaEstoque = ({ aoMudarTela }) => {
         <div style={styles.leftActions}>
           <button style={styles.btnRefresh} onClick={carregar} disabled={loading}>
             <RefreshCw size={14} /> {loading ? 'Atualizando...' : 'Atualizar Lista'}
-          </button>
-        </div>
-        <div style={styles.rightActions}>
-          <button style={styles.btnOutline} type="button">
-            <Download size={14} /> Exportar Relatório <ChevronDown size={14} />
           </button>
         </div>
       </div>

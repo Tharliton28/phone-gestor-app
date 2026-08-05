@@ -16,7 +16,7 @@ export const PLANOS = {
     podeMultiLoja: false,
     destaques: [
       'PDV + estoque por IMEI',
-      'OS com evidências',
+      'OS com evidências e aceite',
       'Orçamentos e financeiro',
       'Até 2 usuários',
     ],
@@ -33,9 +33,9 @@ export const PLANOS = {
     podeMultiLoja: false,
     destaques: [
       'Tudo do Essencial',
-      'NFC-e no PDV',
-      'Até 5 usuários',
+      'NFC-e no PDV (créditos + Focus)',
       'Painel fiscal',
+      'Até 5 usuários',
     ],
   },
   rede: {
@@ -51,7 +51,7 @@ export const PLANOS = {
     destaques: [
       'Tudo do Profissional',
       'Multi-loja (roadmap)',
-      'Consultas CPF/IMEI (API)',
+      'Consultas CPF/IMEI (créditos)',
       'Até 25 usuários',
     ],
   },
@@ -110,7 +110,7 @@ export function entitlementsDoPlano(plano, status = 'ativa', extras = {}) {
 
 export function mensagemUpgradeNfce(plano) {
   const atual = getPlanoDef(plano).label;
-  return `NFC-e está no plano Profissional. Sua loja está no ${atual}. Fale conosco para fazer upgrade.`;
+  return `NFC-e está no plano Profissional (módulo liberado + créditos por emissão via Focus). Sua loja está no ${atual}. Faça upgrade para usar.`;
 }
 
 export function mensagemConsultaIndisponivel({ podeConsultas = false } = {}) {

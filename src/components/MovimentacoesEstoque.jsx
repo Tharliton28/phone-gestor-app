@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  ArrowUpRight, ArrowDownLeft, Calendar, Search, Filter, Download,
-  ChevronDown, FilePen, FileText, RotateCcw, Plus, X
+  ArrowUpRight, ArrowDownLeft, Calendar, Search, Filter,
+  FilePen, FileText, RotateCcw, Plus, X
 } from 'lucide-react';
 import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
@@ -183,11 +183,6 @@ const MovimentacoesEstoque = () => {
           </button>
           <button style={styles.btnFilter}>
             <Filter size={14} /> Filtros Avançados
-          </button>
-        </div>
-        <div style={styles.rightActions}>
-          <button style={styles.btnOutline}>
-            <Download size={14} /> Exportar Extrato <ChevronDown size={14} />
           </button>
         </div>
       </div>

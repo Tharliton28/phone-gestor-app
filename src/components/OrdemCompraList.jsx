@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Eraser, ChevronDown,
   Search, Calendar, Edit, FileText,
-  PackageCheck, Printer, XCircle
+  PackageCheck, XCircle
 } from 'lucide-react';
 import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
@@ -254,9 +254,6 @@ const OrdemCompraList = ({ aoClicarEmNova, aoMudarTela }) => {
                           <PackageCheck size={14} color="#22c55e" /> Dar Entrada (Receber)
                         </RowActionsItem>
                       )}
-                      <RowActionsItem onClick={() => alert('Impressão/PDF em breve.', { type: 'info', title: 'Em breve' })}>
-                        <Printer size={14} color="#94a3b8" /> Imprimir / PDF
-                      </RowActionsItem>
                       {item.status === 'pendente' && (
                         <RowActionsItem
                           style={{ color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }}

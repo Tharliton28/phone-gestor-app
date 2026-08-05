@@ -23,7 +23,6 @@ import FinanceiroForm from '../../components/FinanceiroForm';
 import PainelFiscal from '../../components/PainelFiscal';
 import ReciboGarantia from '../../components/ReciboGarantia';
 import Configuracoes from '../../components/Configuracoes';
-import ComingSoon from '../../components/ComingSoon';
 import Relatorios from '../../components/Relatorios';
 import { useErpNavigation } from '../../hooks/useErpNavigation';
 
@@ -407,15 +406,34 @@ export default function ErpContent() {
       );
 
     case 'termos-os':
+      // Termos ficam em Configurações → Documentos (legado da rota antiga)
       return (
         <>
           <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '13px' }}>
             <span style={{ color: '#3b82f6' }}>Assistência Técnica</span> {'>'} Termos e Garantia
           </div>
-          <ComingSoon
-            title="Termos e Garantia de OS"
-            description="Configure e imprima termos de responsabilidade e garantia de serviço vinculados às ordens de serviço."
-          />
+          <div style={{ color: '#e2e8f0', maxWidth: 520 }}>
+            <h2 style={{ fontSize: 20, marginBottom: 8 }}>Termos de OS e garantia</h2>
+            <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.5, marginBottom: 16 }}>
+              Os textos legais são editados em Configurações → Documentos e Impressão, e saem
+              automaticamente na OS e no recibo de venda.
+            </p>
+            <button
+              type="button"
+              onClick={() => mudarTela('config', 'termos-os', { aba: 'documentos' })}
+              style={{
+                background: '#2563eb',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '10px 14px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              Abrir Documentos e Impressão
+            </button>
+          </div>
         </>
       );
 

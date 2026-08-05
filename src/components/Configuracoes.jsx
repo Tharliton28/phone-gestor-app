@@ -183,7 +183,7 @@ const Configuracoes = () => {
     nfeUltimoNumero: 0,
     nfceSerie: 1,
     nfceUltimoNumero: 0,
-    fiscalProvider: 'mock',
+    fiscalProvider: 'focus',
     emitirNfceAuto: false,
     certificadoPath: null,
   });
@@ -1248,8 +1248,9 @@ const Configuracoes = () => {
             <div style={styles.formSection}>
               <h3 style={styles.sectionTitle}>NFC-e / NF-e</h3>
               <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px', lineHeight: 1.45 }}>
-                NFC-e exige plano Profissional ou Rede. Mock gera documento local; Focus envia à SEFAZ
-                (homologação/produção) via Edge Function — cadastre o token e preencha NCM nos produtos.
+                NFC-e exige plano Profissional ou Rede (libera o módulo) + créditos na carteira
+                (4 por emissão autorizada) + token Focus. Cadastre o token, preencha NCM nos produtos
+                e use homologação até validar com a SEFAZ.
               </p>
               <div style={styles.grid2}>
                 <div style={styles.inputGroup}>
@@ -1267,13 +1268,15 @@ const Configuracoes = () => {
                   <label style={styles.label}>Provedor</label>
                   <select
                     style={styles.input}
-                    value={fiscal.fiscalProvider}
+                    value={fiscal.fiscalProvider === 'mock' ? 'focus' : fiscal.fiscalProvider}
                     onChange={(e) => setFiscal({ ...fiscal, fiscalProvider: e.target.value })}
                   >
-                    <option value="mock">Mock (desenvolvimento)</option>
                     <option value="focus">Focus NFe</option>
-                    <option value="enotas" disabled>eNotas (em breve)</option>
                   </select>
+                  <p style={{ color: '#94a3b8', fontSize: '11px', margin: '6px 0 0', lineHeight: 1.4 }}>
+                    Emissão real exige token Focus abaixo e créditos na carteira (4 por NFC-e autorizada).
+                    O plano Profissional libera o módulo; os créditos pagam o uso da API.
+                  </p>
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Série NFC-e</label>
@@ -1309,7 +1312,8 @@ const Configuracoes = () => {
                 <div>
                   <h4 style={styles.toggleTitle}>Emitir NFC-e automaticamente no PDV</h4>
                   <p style={styles.toggleDesc}>
-                    Ao concluir a venda, tenta emitir NFC-e e debita 4 créditos se autorizada (ou simulada).
+                    Ao concluir a venda, tenta emitir NFC-e na Focus e debita 4 créditos somente se autorizada.
+                    Falha ou rejeição não consome créditos.
                   </p>
                 </div>
                 <Switch
@@ -1382,14 +1386,15 @@ const Configuracoes = () => {
 
               <h3 style={{...styles.sectionTitle, marginTop: '30px'}}>Certificado Digital</h3>
               <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '10px' }}>
-                Upload A1 será exigido quando o provedor real estiver ativo.
+                Com Focus NFe, o certificado costuma ficar na conta Focus. Upload A1 no PhoneGestor
+                entra em uma próxima etapa se for necessário para o seu modelo.
               </p>
               <div style={{...styles.logoUploadArea, marginTop: '10px', opacity: 0.85}}>
                 <div style={{...styles.logoPlaceholder, width: '40px', height: '40px', borderRadius: '4px'}}><FileText size={20}/></div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '4px', flex: 1}}>
                   <span style={{color: '#e2e8f0', fontSize: '13px', fontWeight: 'bold'}}>Certificado (.pfx, .p12)</span>
                   <span style={{color: '#94a3b8', fontSize: '12px'}}>
-                    Upload A1 será liberado com o provedor fiscal ativo.
+                    Upload local ainda não disponível — configure o certificado na Focus por enquanto.
                     {fiscal.certificadoPath ? ` Arquivo atual: ${fiscal.certificadoPath}` : ''}
                   </span>
                 </div>

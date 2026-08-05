@@ -116,18 +116,21 @@ export function mapConfigToFiscal(config) {
     nfeUltimoNumero: config?.nfe_ultimo_numero ?? 0,
     nfceSerie: config?.nfce_serie ?? 1,
     nfceUltimoNumero: config?.nfce_ultimo_numero ?? 0,
-    fiscalProvider: config?.fiscal_provider ?? 'mock',
+    fiscalProvider: config?.fiscal_provider === 'mock'
+      ? 'focus'
+      : (config?.fiscal_provider ?? 'focus'),
     emitirNfceAuto: Boolean(config?.fiscal_emitir_nfce_auto),
     certificadoPath: config?.certificado_storage_path ?? null,
   };
 }
 
 export function mapFiscalToConfig(fiscal) {
+  const provider = fiscal.fiscalProvider === 'mock' ? 'focus' : (fiscal.fiscalProvider || 'focus');
   return {
     nfe_ambiente: fiscal.nfeAmbiente === 'producao' ? 'producao' : 'homologacao',
     nfe_serie: Math.max(1, Number(fiscal.nfeSerie) || 1),
     nfce_serie: Math.max(1, Number(fiscal.nfceSerie) || 1),
-    fiscal_provider: fiscal.fiscalProvider || 'mock',
+    fiscal_provider: provider,
     fiscal_emitir_nfce_auto: Boolean(fiscal.emitirNfceAuto),
   };
 }

@@ -20,7 +20,6 @@ const ASSISTENCIA_TELAS = [
   'nova-os',
   'painel-tecnico',
   'historico-os',
-  'termos-os',
 ];
 
 const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMobile }) => {
@@ -60,7 +59,6 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
         { label: 'Nova OS / Entrada', tela: 'nova-os' },
         { label: 'Painel do Técnico', tela: 'painel-tecnico' },
         { label: 'Histórico / Finalizadas', tela: 'historico-os' },
-        { label: 'Termos e Garantia', tela: 'termos-os' },
       ],
     },
     {

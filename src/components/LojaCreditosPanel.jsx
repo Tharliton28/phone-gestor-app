@@ -86,9 +86,10 @@ export default function LojaCreditosPanel() {
       </div>
 
       <p style={styles.ajuda}>
-        Créditos pagam NFC-e e, em breve, consultas CPF/CNPJ e IMEI. A compra automática via
-        gateway está em implementação — por enquanto solicite o pacote pelo WhatsApp e nós
-        creditamos na sua loja após a confirmação do pagamento.
+        Modelo: o plano libera o módulo (ex.: NFC-e no Profissional); os créditos pagam o
+        custo da API a cada uso. NFC-e autorizada = 4 créditos. Consultas CPF/CNPJ e IMEI
+        entram depois e também consumirão saldo. Solicite o pacote no WhatsApp — creditamos
+        após confirmar o pagamento.
       </p>
 
       <h3 style={styles.titulo}>Tabela de consumo</h3>

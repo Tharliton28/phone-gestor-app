@@ -20,7 +20,7 @@ const PLANOS_CHECKOUT: Record<
     label: "Profissional",
     valor: 197,
     descricao:
-      "PhoneGestor Assinatura Mensal — Plano Profissional (R$ 197/mês). Inclui tudo do Essencial + NFC-e no PDV, painel fiscal e até 5 usuários.",
+      "PhoneGestor Assinatura Mensal — Plano Profissional (R$ 197/mês). Inclui tudo do Essencial + módulo NFC-e no PDV (emissões via créditos/Focus), painel fiscal e até 5 usuários.",
   },
 };
 

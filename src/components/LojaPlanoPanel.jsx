@@ -161,8 +161,10 @@ export default function LojaPlanoPanel() {
           </p>
           <p style={styles.meta}>
             {entitlements.usuariosAtivos}/{entitlements.maxUsuarios} usuários · NFC-e{' '}
-            {entitlements.podeNfce ? 'liberada' : 'bloqueada'} · Consultas{' '}
-            {entitlements.podeConsultas ? 'no contrato (API depois)' : 'plano Rede'}
+            {entitlements.podeNfce
+              ? 'liberada (consome créditos + Focus)'
+              : 'no Profissional'}{' '}
+            · Consultas {entitlements.podeConsultas ? 'no contrato' : 'plano Rede'}
           </p>
           <p style={styles.meta}>
             {entitlements.assinaturaExpiraEm
@@ -182,8 +184,9 @@ export default function LojaPlanoPanel() {
       </div>
 
       <p style={styles.ajuda}>
-        Escolha um plano para assinar. O pagamento é processado com segurança e, após a
-        confirmação, os recursos do contrato são liberados na hora — com aviso no sistema.
+        A assinatura libera o software e os módulos do plano. NFC-e (Profissional) ainda
+        consome créditos da carteira a cada emissão autorizada — o plano não inclui
+        emissões ilimitadas. Após o pagamento, os recursos são liberados automaticamente.
       </p>
 
       <div style={styles.grid}>
