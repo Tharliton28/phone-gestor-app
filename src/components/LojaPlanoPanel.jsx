@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CreditCard, RefreshCw } from 'lucide-react';
+import { CreditCard, ExternalLink, RefreshCw } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { PLANOS, PLANOS_IDS } from '../domain/lojaPlanos';
-import { atualizarPlanoLoja, getLojaEntitlements } from '../services/lojaPlanoService';
+import { criarCheckoutAsaas, getLojaEntitlements } from '../services/lojaPlanoService';
+
+const WHATSAPP_REDE = '5585989733574';
 
 export default function LojaPlanoPanel() {
   const { lojaAtivaId, papelAtivo, recarregar } = useLoja();
@@ -31,39 +33,47 @@ export default function LojaPlanoPanel() {
     carregar();
   }, [carregar]);
 
-  const escolherPlano = async (planoId) => {
+  const assinarPlano = async (planoId) => {
     if (!podeEditar || !lojaAtivaId) return;
-    if (entitlements?.plano === planoId) return;
 
     const def = PLANOS[planoId];
+    if (!def.checkoutDisponivel) {
+      const texto = encodeURIComponent(
+        `Olá! Quero o plano Rede do PhoneGestor para a minha loja.`
+      );
+      window.open(`https://wa.me/${WHATSAPP_REDE}?text=${texto}`, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     const ok = await confirm(
-      `Definir plano ${def.label} (${def.precoHint}) nesta loja?\n\nAté o gateway de pagamento, a atribuição é manual — use para soft-launch e testes.`,
+      `Assinar ${def.label} (${def.precoHint})?\n\nVocê será redirecionado ao Asaas para pagar com PIX, boleto ou cartão. Após a confirmação, o acesso é liberado automaticamente.`,
       {
-        title: 'Alterar plano',
-        confirmLabel: 'Confirmar plano',
+        title: 'Assinar plano',
+        confirmLabel: 'Ir para pagamento',
         confirmVariant: 'primary',
       }
     );
     if (!ok) return;
 
     setSalvando(true);
-    const { data, error } = await atualizarPlanoLoja(lojaAtivaId, planoId, 'ativa');
+    const { data, error } = await criarCheckoutAsaas(lojaAtivaId, planoId);
     setSalvando(false);
 
     if (error) {
-      await alert(error.message ?? 'Não foi possível atualizar o plano.', {
+      await alert(error.message ?? 'Não foi possível iniciar o pagamento.', {
         type: 'error',
-        title: 'Erro',
+        title: 'Checkout',
       });
       return;
     }
 
-    setEntitlements(data);
+    window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+    await alert(
+      'Abra a aba do Asaas, conclua o pagamento e volte aqui. Clique em Atualizar após pagar.',
+      { type: 'info', title: 'Aguardando pagamento' }
+    );
+    await carregar();
     await recarregar?.();
-    await alert(`Plano ${def.label} ativo. Limites e NFC-e já respeitam este contrato.`, {
-      type: 'success',
-      title: 'Plano atualizado',
-    });
   };
 
   if (carregando) {
@@ -73,7 +83,7 @@ export default function LojaPlanoPanel() {
   if (!entitlements) {
     return (
       <div style={styles.wrap}>
-        <p style={styles.muted}>Não foi possível carregar o plano. Aplique a migration 025 se ainda não rodou.</p>
+        <p style={styles.muted}>Não foi possível carregar o plano.</p>
         <button type="button" style={styles.btnGhost} onClick={carregar}>
           <RefreshCw size={14} /> Tentar de novo
         </button>
@@ -110,14 +120,17 @@ export default function LojaPlanoPanel() {
       </div>
 
       <p style={styles.ajuda}>
-        Este contrato já limita usuários e NFC-e no banco. Quando o pagamento estiver ligado,
-        o webhook só muda status/origem — sem reescrever a regra de negócio.
+        Pagamento via Asaas (sandbox em testes). Após o PIX/cartão confirmar, o webhook ativa a
+        assinatura automaticamente.
       </p>
 
       <div style={styles.grid}>
         {PLANOS_IDS.map((id) => {
           const def = PLANOS[id];
-          const ativo = entitlements.plano === id;
+          const ativo =
+            entitlements.plano === id &&
+            entitlements.assinaturaAtiva &&
+            entitlements.assinaturaStatus === 'ativa';
           return (
             <button
               key={id}
@@ -126,8 +139,8 @@ export default function LojaPlanoPanel() {
                 ...styles.card,
                 ...(ativo ? styles.cardAtivo : {}),
               }}
-              disabled={!podeEditar || salvando || ativo}
-              onClick={() => escolherPlano(id)}
+              disabled={!podeEditar || salvando}
+              onClick={() => assinarPlano(id)}
             >
               <strong>{def.label}</strong>
               <span style={styles.preco}>{def.precoHint}</span>
@@ -137,7 +150,17 @@ export default function LojaPlanoPanel() {
                 ))}
               </ul>
               <span style={styles.cta}>
-                {ativo ? 'Plano atual' : podeEditar ? 'Definir (manual)' : 'Só owner/admin'}
+                {ativo ? (
+                  'Plano ativo'
+                ) : !podeEditar ? (
+                  'Só owner/admin'
+                ) : def.checkoutDisponivel ? (
+                  <>
+                    Assinar <ExternalLink size={12} style={{ marginLeft: 4 }} />
+                  </>
+                ) : (
+                  'Falar no WhatsApp'
+                )}
               </span>
             </button>
           );
@@ -209,7 +232,14 @@ const styles = {
     fontSize: '12px',
     lineHeight: 1.45,
   },
-  cta: { marginTop: '8px', color: '#38bdf8', fontSize: '12px', fontWeight: 'bold' },
+  cta: {
+    marginTop: '8px',
+    color: '#38bdf8',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    display: 'inline-flex',
+    alignItems: 'center',
+  },
   btnGhost: {
     marginLeft: 'auto',
     background: 'transparent',

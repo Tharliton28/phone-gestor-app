@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useLoja } from '../../contexts/LojaContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { getPlanoDef } from '../../domain/lojaPlanos';
+import { getPlanoDef, PLANOS } from '../../domain/lojaPlanos';
+import { criarCheckoutAsaas } from '../../services/lojaPlanoService';
 import '../auth/login.css';
 
 const LANDING_URL = import.meta.env.VITE_LANDING_URL?.trim() || 'https://phone-gestor-landing.vercel.app';
@@ -14,18 +16,36 @@ function formatData(iso) {
 }
 
 export default function AssinaturaBloqueadaPage() {
-  const { lojaAtiva, assinaturaStatus, assinaturaExpiraEm } = useLoja();
+  const { lojaAtiva, lojaAtivaId, assinaturaStatus, assinaturaExpiraEm, papelAtivo, recarregar } =
+    useLoja();
   const { signOut } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState(null);
 
-  const planoLabel = getPlanoDef(lojaAtiva?.plano).label;
+  const planoAtual = lojaAtiva?.plano || 'essencial';
+  const planoLabel = getPlanoDef(planoAtual).label;
   const status = assinaturaStatus || lojaAtiva?.assinatura_status || 'suspensa';
   const expiraLabel = formatData(assinaturaExpiraEm || lojaAtiva?.assinatura_expira_em);
   const lojaNome = lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'sua loja';
+  const podePagar = ['owner', 'admin'].includes(papelAtivo);
 
   const waText = encodeURIComponent(
     `Olá! Minha loja "${lojaNome}" está com assinatura bloqueada (${status}). Quero regularizar o plano ${planoLabel}.`
   );
   const waHref = `https://wa.me/${WHATSAPP}?text=${waText}`;
+
+  const pagar = async (planoId) => {
+    if (!lojaAtivaId || !podePagar) return;
+    setBusy(true);
+    setErro(null);
+    const { data, error } = await criarCheckoutAsaas(lojaAtivaId, planoId);
+    setBusy(false);
+    if (error) {
+      setErro(error.message);
+      return;
+    }
+    window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <div className="login-page dark-mode">
@@ -40,10 +60,8 @@ export default function AssinaturaBloqueadaPage() {
             <h2>Assinatura suspensa</h2>
             <p>
               O acesso de <strong>{lojaNome}</strong> foi bloqueado automaticamente
-              {status === 'trial' || expiraLabel
-                ? ` (vigência${expiraLabel ? ` até ${expiraLabel}` : ''} encerrada)`
-                : ''}
-              . Regularize o plano para continuar usando o sistema.
+              {expiraLabel ? ` (vigência até ${expiraLabel} encerrada)` : ''}. Regularize o plano
+              para continuar.
             </p>
           </div>
 
@@ -62,14 +80,76 @@ export default function AssinaturaBloqueadaPage() {
             ) : null}
           </div>
 
+          {erro ? (
+            <div className="login-alert login-alert-error" style={{ marginBottom: '1rem' }}>
+              {erro}
+            </div>
+          ) : null}
+
+          {podePagar ? (
+            <>
+              <button
+                type="button"
+                className="btn-submit btn-login-action"
+                disabled={busy || !PLANOS[planoAtual]?.checkoutDisponivel}
+                onClick={() => pagar(planoAtual)}
+                style={{ marginBottom: 10 }}
+              >
+                {busy ? 'Gerando cobrança...' : `Pagar ${planoLabel} agora`}
+              </button>
+              {planoAtual !== 'profissional' ? (
+                <button
+                  type="button"
+                  className="btn-submit btn-login-action"
+                  disabled={busy}
+                  onClick={() => pagar('profissional')}
+                  style={{
+                    marginBottom: 12,
+                    background: 'transparent',
+                    border: '1px solid #3b82f6',
+                  }}
+                >
+                  Assinar Profissional (R$ 197/mês)
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => recarregar?.()}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  marginBottom: 16,
+                  background: 'none',
+                  border: 'none',
+                  color: '#93c5fd',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                }}
+              >
+                Já paguei — atualizar status
+              </button>
+            </>
+          ) : (
+            <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 16 }}>
+              Peça ao proprietário ou admin da loja para regularizar o pagamento.
+            </p>
+          )}
+
           <a
             className="btn-submit btn-login-action"
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: 'block', textAlign: 'center', textDecoration: 'none', marginBottom: 12 }}
+            style={{
+              display: 'block',
+              textAlign: 'center',
+              textDecoration: 'none',
+              marginBottom: 12,
+              background: 'transparent',
+              border: '1px solid #2a2e3f',
+            }}
           >
-            Falar no WhatsApp para reativar
+            Falar no WhatsApp
           </a>
 
           <a

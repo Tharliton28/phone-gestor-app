@@ -60,3 +60,32 @@ export async function atualizarPlanoLoja(lojaId, plano, status = 'ativa') {
     raw: data,
   }));
 }
+
+/** Cria assinatura no Asaas e devolve link da fatura (PIX/boleto/cartão). */
+export async function criarCheckoutAsaas(lojaId, plano) {
+  if (!lojaId) {
+    return { data: null, error: new Error('Loja não informada.') };
+  }
+
+  const { data, error } = await supabase.functions.invoke('criar-checkout-asaas', {
+    body: { loja_id: lojaId, plano: normalizarPlano(plano) },
+  });
+
+  if (error) {
+    const msg = error.message || 'Falha ao iniciar checkout.';
+    return { data: null, error: new Error(msg) };
+  }
+
+  if (data?.error) {
+    return { data: null, error: new Error(data.error) };
+  }
+
+  if (!data?.invoice_url) {
+    return {
+      data: null,
+      error: new Error('Checkout criado, mas o link de pagamento não veio do Asaas.'),
+    };
+  }
+
+  return { data, error: null };
+}
