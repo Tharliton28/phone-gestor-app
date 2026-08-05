@@ -1,10 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CreditCard, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
+import { CreditCard, ExternalLink, RefreshCw } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { PLANOS, PLANOS_IDS } from '../domain/lojaPlanos';
-import { mensagemPlanoAtivado, useCheckoutAssinatura } from '../hooks/useCheckoutAssinatura';
+import {
+  mensagemPlanoAtivado,
+  reivindicarAvisoSucessoCheckout,
+  useCheckoutAssinatura,
+} from '../hooks/useCheckoutAssinatura';
 import { criarCheckoutAsaas, getLojaEntitlements } from '../services/lojaPlanoService';
+import CheckoutOverlay from './CheckoutOverlay';
 
 const WHATSAPP_REDE = '5585989733574';
 
@@ -13,7 +18,8 @@ export default function LojaPlanoPanel() {
   const { alert, confirm } = useDialog();
   const [entitlements, setEntitlements] = useState(null);
   const [carregando, setCarregando] = useState(true);
-  const [salvando, setSalvando] = useState(false);
+  const [faseCheckout, setFaseCheckout] = useState(null); // preparando | aguardando | null
+  const [planoCheckoutId, setPlanoCheckoutId] = useState(null);
 
   const podeEditar = ['owner', 'admin'].includes(papelAtivo);
 
@@ -38,24 +44,36 @@ export default function LojaPlanoPanel() {
   const { aguardandoPlanoId, iniciarMonitoramento } = useCheckoutAssinatura({
     lojaId: lojaAtivaId,
     onAtivado: async (data) => {
+      setFaseCheckout(null);
+      setPlanoCheckoutId(null);
       setEntitlements(data);
       await recarregar?.();
-      await alert(mensagemPlanoAtivado(data.plano), {
-        type: 'success',
-        title: 'Pagamento confirmado',
-      });
+      if (reivindicarAvisoSucessoCheckout()) {
+        await alert(mensagemPlanoAtivado(data.plano), {
+          type: 'success',
+          title: 'Pagamento confirmado',
+        });
+      }
     },
     onTimeout: async (planoId) => {
+      setFaseCheckout(null);
       const def = PLANOS[planoId];
       await alert(
-        `Ainda não recebemos a confirmação do plano ${def?.label || ''}. Se você já pagou, clique em Atualizar — o webhook pode levar alguns segundos.`,
+        `Ainda não recebemos a confirmação do plano ${def?.label || ''}. Se você já pagou, clique em Atualizar.`,
         { type: 'warning', title: 'Aguardando confirmação' }
       );
     },
   });
 
+  useEffect(() => {
+    if (aguardandoPlanoId) {
+      setFaseCheckout('aguardando');
+      setPlanoCheckoutId(aguardandoPlanoId);
+    }
+  }, [aguardandoPlanoId]);
+
   const assinarPlano = async (planoId) => {
-    if (!podeEditar || !lojaAtivaId || aguardandoPlanoId) return;
+    if (!podeEditar || !lojaAtivaId || faseCheckout) return;
 
     const def = PLANOS[planoId];
     if (!def.checkoutDisponivel) {
@@ -76,12 +94,14 @@ export default function LojaPlanoPanel() {
     );
     if (!ok) return;
 
-    setSalvando(true);
+    setPlanoCheckoutId(planoId);
+    setFaseCheckout('preparando');
     const baseline = entitlements;
     const { data, error } = await criarCheckoutAsaas(lojaAtivaId, planoId);
-    setSalvando(false);
 
     if (error) {
+      setFaseCheckout(null);
+      setPlanoCheckoutId(null);
       await alert(error.message ?? 'Não foi possível iniciar o pagamento.', {
         type: 'error',
         title: 'Checkout',
@@ -90,6 +110,7 @@ export default function LojaPlanoPanel() {
     }
 
     window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+    setFaseCheckout('aguardando');
     await iniciarMonitoramento(planoId, baseline);
   };
 
@@ -108,11 +129,10 @@ export default function LojaPlanoPanel() {
     );
   }
 
-  const planoAguardando = aguardandoPlanoId ? PLANOS[aguardandoPlanoId] : null;
-
   return (
     <div style={styles.wrap}>
-      <style>{`@keyframes pg-spin { to { transform: rotate(360deg); } }`}</style>
+      <CheckoutOverlay fase={faseCheckout} planoId={planoCheckoutId} />
+
       <div style={styles.atualCard}>
         <CreditCard size={20} color="#38bdf8" />
         <div style={{ flex: 1 }}>
@@ -137,29 +157,16 @@ export default function LojaPlanoPanel() {
           type="button"
           style={styles.btnGhost}
           onClick={carregar}
-          disabled={salvando || Boolean(aguardandoPlanoId)}
+          disabled={Boolean(faseCheckout)}
         >
           <RefreshCw size={14} /> Atualizar
         </button>
       </div>
 
-      {planoAguardando ? (
-        <div style={styles.waitingBanner}>
-          <Loader2 size={16} style={{ animation: 'pg-spin 1s linear infinite', flexShrink: 0 }} />
-          <div>
-            <strong>Aguardando confirmação do pagamento</strong>
-            <p style={styles.waitingText}>
-              Plano {planoAguardando.label}. Conclua na aba do Asaas e volte aqui — ativamos
-              automaticamente e avisamos quando estiver liberado.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <p style={styles.ajuda}>
-          Escolha um plano para assinar. O pagamento é processado com segurança e, após a
-          confirmação, os recursos do contrato são liberados na hora.
-        </p>
-      )}
+      <p style={styles.ajuda}>
+        Escolha um plano para assinar. O pagamento é processado com segurança e, após a
+        confirmação, os recursos do contrato são liberados na hora — com aviso no sistema.
+      </p>
 
       <div style={styles.grid}>
         {PLANOS_IDS.map((id) => {
@@ -168,7 +175,7 @@ export default function LojaPlanoPanel() {
             entitlements.plano === id &&
             entitlements.assinaturaAtiva &&
             entitlements.assinaturaStatus === 'ativa';
-          const aguardandoEste = aguardandoPlanoId === id;
+          const nesteCheckout = planoCheckoutId === id && Boolean(faseCheckout);
           return (
             <button
               key={id}
@@ -176,9 +183,9 @@ export default function LojaPlanoPanel() {
               style={{
                 ...styles.card,
                 ...(ativo ? styles.cardAtivo : {}),
-                ...(aguardandoEste ? styles.cardWaiting : {}),
+                ...(nesteCheckout ? styles.cardWaiting : {}),
               }}
-              disabled={!podeEditar || salvando || Boolean(aguardandoPlanoId)}
+              disabled={!podeEditar || Boolean(faseCheckout)}
               onClick={() => assinarPlano(id)}
             >
               <strong>{def.label}</strong>
@@ -189,8 +196,10 @@ export default function LojaPlanoPanel() {
                 ))}
               </ul>
               <span style={styles.cta}>
-                {aguardandoEste
-                  ? 'Aguardando pagamento...'
+                {nesteCheckout
+                  ? faseCheckout === 'preparando'
+                    ? 'Preparando checkout...'
+                    : 'Aguardando pagamento...'
                   : ativo
                     ? 'Plano ativo'
                     : !podeEditar
@@ -244,17 +253,6 @@ const styles = {
   },
   meta: { margin: '2px 0 0', color: '#94a3b8', fontSize: '12px', lineHeight: 1.45 },
   ajuda: { margin: 0, color: '#94a3b8', fontSize: '13px', lineHeight: 1.5 },
-  waitingBanner: {
-    display: 'flex',
-    gap: '12px',
-    alignItems: 'flex-start',
-    padding: '14px 16px',
-    borderRadius: '8px',
-    border: '1px solid rgba(56,189,248,0.45)',
-    background: 'rgba(56,189,248,0.08)',
-    color: '#e2e8f0',
-  },
-  waitingText: { margin: '4px 0 0', color: '#94a3b8', fontSize: '13px', lineHeight: 1.45 },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',

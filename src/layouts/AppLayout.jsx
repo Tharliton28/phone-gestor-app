@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Topbar from '../components/Topbar';
+import CheckoutMonitorGlobal from '../components/CheckoutMonitorGlobal';
 import AssinaturaBloqueadaPage from '../pages/assinatura/AssinaturaBloqueadaPage';
 import { useLoja } from '../contexts/LojaContext';
 import { useErpNavigation } from '../hooks/useErpNavigation';
@@ -67,6 +68,7 @@ export default function AppLayout() {
 
   return (
     <div className="app-layout">
+      <CheckoutMonitorGlobal />
       {isMobile && sidebarAberta && (
         <button
           type="button"

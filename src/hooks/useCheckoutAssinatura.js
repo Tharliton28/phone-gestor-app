@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getPlanoDef } from '../domain/lojaPlanos';
 import { getLojaEntitlements } from '../services/lojaPlanoService';
 
-const POLL_MS = 3000;
-const TIMEOUT_MS = 5 * 60 * 1000;
+const POLL_MS = 2500;
+const TIMEOUT_MS = 10 * 60 * 1000;
+const STORAGE_KEY = 'phonegestor_checkout_pendente';
 
 function pagamentoConfirmado(antes, agora, planoEsperado) {
   if (!agora?.assinaturaAtiva || agora.assinaturaStatus !== 'ativa') return false;
@@ -12,6 +13,32 @@ function pagamentoConfirmado(antes, agora, planoEsperado) {
   if (antes && antes.plano !== agora.plano) return true;
   if (antes && antes.assinaturaExpiraEm !== agora.assinaturaExpiraEm) return true;
   return false;
+}
+
+function lerPendente() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function salvarPendente(payload) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    /* ignore */
+  }
+}
+
+function limparPendente() {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function mensagemPlanoAtivado(planoId) {
@@ -24,13 +51,23 @@ export function mensagemPlanoAtivado(planoId) {
   );
 }
 
+/** Evita dois modais de sucesso se Plano + monitor global detectarem juntos. */
+let ultimoSucessoEm = 0;
+export function reivindicarAvisoSucessoCheckout() {
+  const agora = Date.now();
+  if (agora - ultimoSucessoEm < 8000) return false;
+  ultimoSucessoEm = agora;
+  return true;
+}
+
 /**
- * Após abrir o checkout Asaas: monitora webhook + foco da aba
- * e dispara callback quando o plano esperado fica ativo.
+ * Monitora ativação pós-checkout Asaas.
+ * Persiste em sessionStorage para sobreviver a reload / troca de aba.
  */
-export function useCheckoutAssinatura({ lojaId, onAtivado, onTimeout }) {
+export function useCheckoutAssinatura({ lojaId, onAtivado, onTimeout, autoResume = true }) {
   const [aguardando, setAguardando] = useState(null); // { planoId, desde }
   const baselineRef = useRef(null);
+  const ativadoRef = useRef(false);
   const onAtivadoRef = useRef(onAtivado);
   const onTimeoutRef = useRef(onTimeout);
 
@@ -42,6 +79,7 @@ export function useCheckoutAssinatura({ lojaId, onAtivado, onTimeout }) {
   const parar = useCallback(() => {
     setAguardando(null);
     baselineRef.current = null;
+    limparPendente();
   }, []);
 
   const iniciar = useCallback(
@@ -54,10 +92,32 @@ export function useCheckoutAssinatura({ lojaId, onAtivado, onTimeout }) {
         baseline = data;
       }
       baselineRef.current = baseline;
-      setAguardando({ planoId, desde: Date.now() });
+      ativadoRef.current = false;
+      const desde = Date.now();
+      const payload = {
+        lojaId,
+        planoId,
+        desde,
+        baseline,
+      };
+      salvarPendente(payload);
+      setAguardando({ planoId, desde });
     },
     [lojaId]
   );
+
+  // Retoma monitoramento após F5 / voltar à página
+  useEffect(() => {
+    if (!autoResume || !lojaId) return;
+    const pendente = lerPendente();
+    if (!pendente || pendente.lojaId !== lojaId || !pendente.planoId) return;
+    if (Date.now() - (pendente.desde || 0) > TIMEOUT_MS) {
+      limparPendente();
+      return;
+    }
+    baselineRef.current = pendente.baseline || null;
+    setAguardando({ planoId: pendente.planoId, desde: pendente.desde || Date.now() });
+  }, [autoResume, lojaId]);
 
   useEffect(() => {
     if (!aguardando || !lojaId) return;
@@ -66,18 +126,21 @@ export function useCheckoutAssinatura({ lojaId, onAtivado, onTimeout }) {
     const { planoId, desde } = aguardando;
 
     const verificar = async () => {
-      if (cancelled) return;
+      if (cancelled || ativadoRef.current) return;
       if (Date.now() - desde > TIMEOUT_MS) {
         setAguardando(null);
+        limparPendente();
         onTimeoutRef.current?.(planoId);
         return;
       }
 
       const { data } = await getLojaEntitlements(lojaId);
-      if (cancelled || !data) return;
+      if (cancelled || !data || ativadoRef.current) return;
 
       if (pagamentoConfirmado(baselineRef.current, data, planoId)) {
+        ativadoRef.current = true;
         setAguardando(null);
+        limparPendente();
         onAtivadoRef.current?.(data);
       }
     };
@@ -85,9 +148,7 @@ export function useCheckoutAssinatura({ lojaId, onAtivado, onTimeout }) {
     verificar();
     const id = window.setInterval(verificar, POLL_MS);
 
-    const onFocus = () => {
-      verificar();
-    };
+    const onFocus = () => verificar();
     const onVisible = () => {
       if (document.visibilityState === 'visible') verificar();
     };

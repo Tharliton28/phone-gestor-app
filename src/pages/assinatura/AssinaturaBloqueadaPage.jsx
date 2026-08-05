@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useLoja } from '../../contexts/LojaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getPlanoDef, PLANOS } from '../../domain/lojaPlanos';
-import { mensagemPlanoAtivado, useCheckoutAssinatura } from '../../hooks/useCheckoutAssinatura';
+import CheckoutOverlay from '../../components/CheckoutOverlay';
+import {
+  mensagemPlanoAtivado,
+  reivindicarAvisoSucessoCheckout,
+  useCheckoutAssinatura,
+} from '../../hooks/useCheckoutAssinatura';
 import { criarCheckoutAsaas } from '../../services/lojaPlanoService';
 import '../auth/login.css';
 
@@ -23,6 +28,8 @@ export default function AssinaturaBloqueadaPage() {
     useLoja();
   const { signOut } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [faseCheckout, setFaseCheckout] = useState(null);
+  const [planoCheckoutId, setPlanoCheckoutId] = useState(null);
   const [erro, setErro] = useState(null);
   const [sucesso, setSucesso] = useState(null);
 
@@ -36,8 +43,11 @@ export default function AssinaturaBloqueadaPage() {
   const { aguardandoPlanoId, iniciarMonitoramento } = useCheckoutAssinatura({
     lojaId: lojaAtivaId,
     onAtivado: async (data) => {
-      setSucesso(mensagemPlanoAtivado(data.plano));
+      setFaseCheckout(null);
       await recarregar?.();
+      if (reivindicarAvisoSucessoCheckout()) {
+        setSucesso(mensagemPlanoAtivado(data.plano));
+      }
       window.setTimeout(() => {
         navigate('/app/inicio', { replace: true });
       }, 2200);
@@ -50,17 +60,22 @@ export default function AssinaturaBloqueadaPage() {
   const waHref = `https://wa.me/${WHATSAPP}?text=${waText}`;
 
   const pagar = async (planoId) => {
-    if (!lojaAtivaId || !podePagar || aguardandoPlanoId) return;
+    if (!lojaAtivaId || !podePagar || aguardandoPlanoId || faseCheckout) return;
     setBusy(true);
+    setPlanoCheckoutId(planoId);
+    setFaseCheckout('preparando');
     setErro(null);
     setSucesso(null);
     const { data, error } = await criarCheckoutAsaas(lojaAtivaId, planoId);
     setBusy(false);
     if (error) {
+      setFaseCheckout(null);
+      setPlanoCheckoutId(null);
       setErro(error.message);
       return;
     }
     window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+    setFaseCheckout('aguardando');
     await iniciarMonitoramento(planoId);
   };
 
@@ -68,6 +83,7 @@ export default function AssinaturaBloqueadaPage() {
 
   return (
     <div className="login-page dark-mode">
+      <CheckoutOverlay fase={faseCheckout} planoId={aguardandoPlanoId || planoAtual} />
       <div className="bg-glow glow-top" />
       <div className="login-wrapper">
         <div className="login-card gemini-border" style={{ maxWidth: 480 }}>
