@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Building, ShoppingCart, Package, DollarSign, FileText, 
   BarChart2, Save, UploadCloud, ToggleRight, ToggleLeft,
-  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff, RotateCcw, Coins, Zap
+  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff, RotateCcw, Coins, Zap, Users
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 import { useLoja } from '../contexts/LojaContext';
 import { useErpNavigation } from '../hooks/useErpNavigation';
 import LojaCreditosPanel from './LojaCreditosPanel';
+import LojaEquipePanel from './LojaEquipePanel';
 import LojaPlanoPanel from './LojaPlanoPanel';
 import { uploadLogoLoja } from '../services/lojaLogoService';
 import {
@@ -523,6 +524,9 @@ const Configuracoes = () => {
           </button>
           <button style={abaAtiva === 'plano' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('plano')}>
             <Zap size={16} /> Plano
+          </button>
+          <button style={abaAtiva === 'equipe' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('equipe')}>
+            <Users size={16} /> Equipe
           </button>
           <button style={abaAtiva === 'creditos' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('creditos')}>
             <Coins size={16} /> Créditos da loja
@@ -1181,6 +1185,13 @@ const Configuracoes = () => {
             <div style={styles.formSection}>
               <h3 style={styles.sectionTitle}>Plano da loja</h3>
               <LojaPlanoPanel />
+            </div>
+          )}
+
+          {abaAtiva === 'equipe' && (
+            <div style={styles.formSection}>
+              <h3 style={styles.sectionTitle}>Equipe e convites</h3>
+              <LojaEquipePanel />
             </div>
           )}
 
