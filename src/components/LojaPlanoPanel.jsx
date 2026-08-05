@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CreditCard, ExternalLink, RefreshCw } from 'lucide-react';
+import { CreditCard, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { PLANOS, PLANOS_IDS } from '../domain/lojaPlanos';
+import { mensagemPlanoAtivado, useCheckoutAssinatura } from '../hooks/useCheckoutAssinatura';
 import { criarCheckoutAsaas, getLojaEntitlements } from '../services/lojaPlanoService';
 
 const WHATSAPP_REDE = '5585989733574';
@@ -27,14 +28,34 @@ export default function LojaPlanoPanel() {
       setEntitlements(data);
     }
     setCarregando(false);
+    return data;
   }, [lojaAtivaId, alert]);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
 
+  const { aguardandoPlanoId, iniciarMonitoramento } = useCheckoutAssinatura({
+    lojaId: lojaAtivaId,
+    onAtivado: async (data) => {
+      setEntitlements(data);
+      await recarregar?.();
+      await alert(mensagemPlanoAtivado(data.plano), {
+        type: 'success',
+        title: 'Pagamento confirmado',
+      });
+    },
+    onTimeout: async (planoId) => {
+      const def = PLANOS[planoId];
+      await alert(
+        `Ainda não recebemos a confirmação do plano ${def?.label || ''}. Se você já pagou, clique em Atualizar — o webhook pode levar alguns segundos.`,
+        { type: 'warning', title: 'Aguardando confirmação' }
+      );
+    },
+  });
+
   const assinarPlano = async (planoId) => {
-    if (!podeEditar || !lojaAtivaId) return;
+    if (!podeEditar || !lojaAtivaId || aguardandoPlanoId) return;
 
     const def = PLANOS[planoId];
     if (!def.checkoutDisponivel) {
@@ -46,7 +67,7 @@ export default function LojaPlanoPanel() {
     }
 
     const ok = await confirm(
-      `Assinar ${def.label} (${def.precoHint})?\n\nVocê será redirecionado ao Asaas para pagar com PIX, boleto ou cartão. Após a confirmação, o acesso é liberado automaticamente.`,
+      `Assinar ${def.label} (${def.precoHint})?\n\nVocê será levado ao checkout seguro (PIX, boleto ou cartão). Assim que o pagamento for confirmado, liberamos automaticamente os recursos deste plano.`,
       {
         title: 'Assinar plano',
         confirmLabel: 'Ir para pagamento',
@@ -56,6 +77,7 @@ export default function LojaPlanoPanel() {
     if (!ok) return;
 
     setSalvando(true);
+    const baseline = entitlements;
     const { data, error } = await criarCheckoutAsaas(lojaAtivaId, planoId);
     setSalvando(false);
 
@@ -68,12 +90,7 @@ export default function LojaPlanoPanel() {
     }
 
     window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
-    await alert(
-      'Abra a aba do Asaas, conclua o pagamento e volte aqui. Clique em Atualizar após pagar.',
-      { type: 'info', title: 'Aguardando pagamento' }
-    );
-    await carregar();
-    await recarregar?.();
+    await iniciarMonitoramento(planoId, baseline);
   };
 
   if (carregando) {
@@ -91,6 +108,8 @@ export default function LojaPlanoPanel() {
     );
   }
 
+  const planoAguardando = aguardandoPlanoId ? PLANOS[aguardandoPlanoId] : null;
+
   return (
     <div style={styles.wrap}>
       <div style={styles.atualCard}>
@@ -107,22 +126,39 @@ export default function LojaPlanoPanel() {
             {entitlements.podeConsultas ? 'no contrato (API depois)' : 'plano Rede'}
           </p>
           <p style={styles.meta}>
-            Origem: {entitlements.assinaturaOrigem || 'manual'}
             {entitlements.assinaturaExpiraEm
-              ? ` · vigência até ${new Date(entitlements.assinaturaExpiraEm).toLocaleDateString('pt-BR')}`
-              : ' · sem data de expiração'}
+              ? `Vigência até ${new Date(entitlements.assinaturaExpiraEm).toLocaleDateString('pt-BR')}`
+              : 'Sem data de expiração'}
             {!entitlements.assinaturaAtiva ? ' · BLOQUEADA' : ''}
           </p>
         </div>
-        <button type="button" style={styles.btnGhost} onClick={carregar} disabled={salvando}>
+        <button
+          type="button"
+          style={styles.btnGhost}
+          onClick={carregar}
+          disabled={salvando || Boolean(aguardandoPlanoId)}
+        >
           <RefreshCw size={14} /> Atualizar
         </button>
       </div>
 
-      <p style={styles.ajuda}>
-        Pagamento via Asaas (sandbox em testes). Após o PIX/cartão confirmar, o webhook ativa a
-        assinatura automaticamente.
-      </p>
+      {planoAguardando ? (
+        <div style={styles.waitingBanner}>
+          <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+          <div>
+            <strong>Aguardando confirmação do pagamento</strong>
+            <p style={styles.waitingText}>
+              Plano {planoAguardando.label}. Conclua na aba do Asaas e volte aqui — ativamos
+              automaticamente e avisamos quando estiver liberado.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <p style={styles.ajuda}>
+          Escolha um plano para assinar. O pagamento é processado com segurança e, após a
+          confirmação, os recursos do contrato são liberados na hora.
+        </p>
+      )}
 
       <div style={styles.grid}>
         {PLANOS_IDS.map((id) => {
@@ -131,6 +167,7 @@ export default function LojaPlanoPanel() {
             entitlements.plano === id &&
             entitlements.assinaturaAtiva &&
             entitlements.assinaturaStatus === 'ativa';
+          const aguardandoEste = aguardandoPlanoId === id;
           return (
             <button
               key={id}
@@ -138,8 +175,9 @@ export default function LojaPlanoPanel() {
               style={{
                 ...styles.card,
                 ...(ativo ? styles.cardAtivo : {}),
+                ...(aguardandoEste ? styles.cardWaiting : {}),
               }}
-              disabled={!podeEditar || salvando}
+              disabled={!podeEditar || salvando || Boolean(aguardandoPlanoId)}
               onClick={() => assinarPlano(id)}
             >
               <strong>{def.label}</strong>
@@ -150,17 +188,19 @@ export default function LojaPlanoPanel() {
                 ))}
               </ul>
               <span style={styles.cta}>
-                {ativo ? (
-                  'Plano ativo'
-                ) : !podeEditar ? (
-                  'Só owner/admin'
-                ) : def.checkoutDisponivel ? (
-                  <>
-                    Assinar <ExternalLink size={12} style={{ marginLeft: 4 }} />
-                  </>
-                ) : (
-                  'Falar no WhatsApp'
-                )}
+                {aguardandoEste
+                  ? 'Aguardando pagamento...'
+                  : ativo
+                    ? 'Plano ativo'
+                    : !podeEditar
+                      ? 'Só owner/admin'
+                      : def.checkoutDisponivel
+                        ? (
+                          <>
+                            Assinar <ExternalLink size={12} style={{ marginLeft: 4 }} />
+                          </>
+                          )
+                        : 'Falar no WhatsApp'}
               </span>
             </button>
           );
@@ -203,6 +243,17 @@ const styles = {
   },
   meta: { margin: '2px 0 0', color: '#94a3b8', fontSize: '12px', lineHeight: 1.45 },
   ajuda: { margin: 0, color: '#94a3b8', fontSize: '13px', lineHeight: 1.5 },
+  waitingBanner: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'flex-start',
+    padding: '14px 16px',
+    borderRadius: '8px',
+    border: '1px solid rgba(56,189,248,0.45)',
+    background: 'rgba(56,189,248,0.08)',
+    color: '#e2e8f0',
+  },
+  waitingText: { margin: '4px 0 0', color: '#94a3b8', fontSize: '13px', lineHeight: 1.45 },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -223,6 +274,10 @@ const styles = {
   cardAtivo: {
     borderColor: '#38bdf8',
     boxShadow: '0 0 0 1px rgba(56,189,248,0.35)',
+  },
+  cardWaiting: {
+    borderColor: '#fbbf24',
+    boxShadow: '0 0 0 1px rgba(251,191,36,0.35)',
   },
   preco: { color: '#94a3b8', fontSize: '12px' },
   lista: {

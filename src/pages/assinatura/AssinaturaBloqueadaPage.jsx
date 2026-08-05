@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLoja } from '../../contexts/LojaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getPlanoDef, PLANOS } from '../../domain/lojaPlanos';
+import { mensagemPlanoAtivado, useCheckoutAssinatura } from '../../hooks/useCheckoutAssinatura';
 import { criarCheckoutAsaas } from '../../services/lojaPlanoService';
 import '../auth/login.css';
 
@@ -16,11 +18,13 @@ function formatData(iso) {
 }
 
 export default function AssinaturaBloqueadaPage() {
+  const navigate = useNavigate();
   const { lojaAtiva, lojaAtivaId, assinaturaStatus, assinaturaExpiraEm, papelAtivo, recarregar } =
     useLoja();
   const { signOut } = useAuth();
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
+  const [sucesso, setSucesso] = useState(null);
 
   const planoAtual = lojaAtiva?.plano || 'essencial';
   const planoLabel = getPlanoDef(planoAtual).label;
@@ -29,15 +33,27 @@ export default function AssinaturaBloqueadaPage() {
   const lojaNome = lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'sua loja';
   const podePagar = ['owner', 'admin'].includes(papelAtivo);
 
+  const { aguardandoPlanoId, iniciarMonitoramento } = useCheckoutAssinatura({
+    lojaId: lojaAtivaId,
+    onAtivado: async (data) => {
+      setSucesso(mensagemPlanoAtivado(data.plano));
+      await recarregar?.();
+      window.setTimeout(() => {
+        navigate('/app/inicio', { replace: true });
+      }, 2200);
+    },
+  });
+
   const waText = encodeURIComponent(
     `Olá! Minha loja "${lojaNome}" está com assinatura bloqueada (${status}). Quero regularizar o plano ${planoLabel}.`
   );
   const waHref = `https://wa.me/${WHATSAPP}?text=${waText}`;
 
   const pagar = async (planoId) => {
-    if (!lojaAtivaId || !podePagar) return;
+    if (!lojaAtivaId || !podePagar || aguardandoPlanoId) return;
     setBusy(true);
     setErro(null);
+    setSucesso(null);
     const { data, error } = await criarCheckoutAsaas(lojaAtivaId, planoId);
     setBusy(false);
     if (error) {
@@ -45,7 +61,10 @@ export default function AssinaturaBloqueadaPage() {
       return;
     }
     window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+    await iniciarMonitoramento(planoId);
   };
+
+  const planoAguardando = aguardandoPlanoId ? getPlanoDef(aguardandoPlanoId).label : null;
 
   return (
     <div className="login-page dark-mode">
@@ -86,22 +105,41 @@ export default function AssinaturaBloqueadaPage() {
             </div>
           ) : null}
 
-          {podePagar ? (
+          {sucesso ? (
+            <div className="login-alert login-alert-success" style={{ marginBottom: '1rem', whiteSpace: 'pre-line' }}>
+              {sucesso}
+              <br />
+              <span style={{ opacity: 0.85 }}>Entrando no sistema...</span>
+            </div>
+          ) : null}
+
+          {planoAguardando && !sucesso ? (
+            <div className="login-alert login-alert-info" style={{ marginBottom: '1rem' }}>
+              Aguardando confirmação do plano <strong>{planoAguardando}</strong>. Conclua o
+              pagamento na aba do Asaas — liberamos automaticamente.
+            </div>
+          ) : null}
+
+          {podePagar && !sucesso ? (
             <>
               <button
                 type="button"
                 className="btn-submit btn-login-action"
-                disabled={busy || !PLANOS[planoAtual]?.checkoutDisponivel}
+                disabled={busy || Boolean(aguardandoPlanoId) || !PLANOS[planoAtual]?.checkoutDisponivel}
                 onClick={() => pagar(planoAtual)}
                 style={{ marginBottom: 10 }}
               >
-                {busy ? 'Gerando cobrança...' : `Pagar ${planoLabel} agora`}
+                {busy
+                  ? 'Gerando cobrança...'
+                  : aguardandoPlanoId
+                    ? 'Aguardando pagamento...'
+                    : `Pagar ${planoLabel} agora`}
               </button>
               {planoAtual !== 'profissional' ? (
                 <button
                   type="button"
                   className="btn-submit btn-login-action"
-                  disabled={busy}
+                  disabled={busy || Boolean(aguardandoPlanoId)}
                   onClick={() => pagar('profissional')}
                   style={{
                     marginBottom: 12,
@@ -129,11 +167,11 @@ export default function AssinaturaBloqueadaPage() {
                 Já paguei — atualizar status
               </button>
             </>
-          ) : (
+          ) : !sucesso ? (
             <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 16 }}>
               Peça ao proprietário ou admin da loja para regularizar o pagamento.
             </p>
-          )}
+          ) : null}
 
           <a
             className="btn-submit btn-login-action"
