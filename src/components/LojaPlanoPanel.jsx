@@ -41,7 +41,7 @@ export default function LojaPlanoPanel() {
     carregar();
   }, [carregar]);
 
-  const { aguardandoPlanoId, iniciarMonitoramento } = useCheckoutAssinatura({
+  const { aguardandoPlanoId, iniciarMonitoramento, pararMonitoramento } = useCheckoutAssinatura({
     lojaId: lojaAtivaId,
     onAtivado: async (data) => {
       setFaseCheckout(null);
@@ -57,6 +57,7 @@ export default function LojaPlanoPanel() {
     },
     onTimeout: async (planoId) => {
       setFaseCheckout(null);
+      setPlanoCheckoutId(null);
       const def = PLANOS[planoId];
       await alert(
         `Ainda não recebemos a confirmação do plano ${def?.label || ''}. Se você já pagou, clique em Atualizar.`,
@@ -71,6 +72,12 @@ export default function LojaPlanoPanel() {
       setPlanoCheckoutId(aguardandoPlanoId);
     }
   }, [aguardandoPlanoId]);
+
+  const desistirCheckout = () => {
+    pararMonitoramento();
+    setFaseCheckout(null);
+    setPlanoCheckoutId(null);
+  };
 
   const assinarPlano = async (planoId) => {
     if (!podeEditar || !lojaAtivaId || faseCheckout) return;
@@ -131,7 +138,11 @@ export default function LojaPlanoPanel() {
 
   return (
     <div style={styles.wrap}>
-      <CheckoutOverlay fase={faseCheckout} planoId={planoCheckoutId} />
+      <CheckoutOverlay
+        fase={faseCheckout}
+        planoId={planoCheckoutId}
+        onDesistir={faseCheckout === 'preparando' ? undefined : desistirCheckout}
+      />
 
       <div style={styles.atualCard}>
         <CreditCard size={20} color="#38bdf8" />

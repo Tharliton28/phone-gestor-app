@@ -40,10 +40,11 @@ export default function AssinaturaBloqueadaPage() {
   const lojaNome = lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'sua loja';
   const podePagar = ['owner', 'admin'].includes(papelAtivo);
 
-  const { aguardandoPlanoId, iniciarMonitoramento } = useCheckoutAssinatura({
+  const { aguardandoPlanoId, iniciarMonitoramento, pararMonitoramento } = useCheckoutAssinatura({
     lojaId: lojaAtivaId,
     onAtivado: async (data) => {
       setFaseCheckout(null);
+      setPlanoCheckoutId(null);
       await recarregar?.();
       if (reivindicarAvisoSucessoCheckout()) {
         setSucesso(mensagemPlanoAtivado(data.plano));
@@ -53,6 +54,13 @@ export default function AssinaturaBloqueadaPage() {
       }, 2200);
     },
   });
+
+  const desistirCheckout = () => {
+    pararMonitoramento();
+    setFaseCheckout(null);
+    setPlanoCheckoutId(null);
+    setBusy(false);
+  };
 
   const waText = encodeURIComponent(
     `Olá! Minha loja "${lojaNome}" está com assinatura bloqueada (${status}). Quero regularizar o plano ${planoLabel}.`
@@ -83,7 +91,15 @@ export default function AssinaturaBloqueadaPage() {
 
   return (
     <div className="login-page dark-mode">
-      <CheckoutOverlay fase={faseCheckout} planoId={aguardandoPlanoId || planoAtual} />
+      <CheckoutOverlay
+        fase={faseCheckout || (aguardandoPlanoId ? 'aguardando' : null)}
+        planoId={planoCheckoutId || aguardandoPlanoId}
+        onDesistir={
+          (faseCheckout === 'aguardando' || aguardandoPlanoId) && !sucesso
+            ? desistirCheckout
+            : undefined
+        }
+      />
       <div className="bg-glow glow-top" />
       <div className="login-wrapper">
         <div className="login-card gemini-border" style={{ maxWidth: 480 }}>

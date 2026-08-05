@@ -17,7 +17,7 @@ export default function CheckoutMonitorGlobal() {
   const { alert } = useDialog();
   const [mostrarOverlay, setMostrarOverlay] = useState(false);
 
-  const { aguardandoPlanoId } = useCheckoutAssinatura({
+  const { aguardandoPlanoId, pararMonitoramento } = useCheckoutAssinatura({
     lojaId: lojaAtivaId,
     autoResume: true,
     onAtivado: async (data) => {
@@ -41,5 +41,14 @@ export default function CheckoutMonitorGlobal() {
 
   if (!mostrarOverlay || !aguardandoPlanoId) return null;
 
-  return <CheckoutOverlay fase="aguardando" planoId={aguardandoPlanoId} />;
+  return (
+    <CheckoutOverlay
+      fase="aguardando"
+      planoId={aguardandoPlanoId}
+      onDesistir={() => {
+        pararMonitoramento();
+        setMostrarOverlay(false);
+      }}
+    />
+  );
 }
