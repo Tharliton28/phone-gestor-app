@@ -115,6 +115,7 @@ const VendaForm = ({ dadosNavegacao }) => {
   const { irParaListagemVendas } = useErpNavigation();
   const { lojaAtivaId, perfil } = useLoja();
   const orcamentoIdPreload = dadosNavegacao?.orcamentoId ?? null;
+  const clienteIdPreload = dadosNavegacao?.clienteId ?? null;
 
   // ==========================================
   // ESTADOS GERAIS E CADASTROS
@@ -236,6 +237,16 @@ const VendaForm = ({ dadosNavegacao }) => {
   useEffect(() => {
     carregarDados();
   }, [carregarDados]);
+
+  useEffect(() => {
+    if (!clienteIdPreload || !clientes.length || orcamentoIdPreload) return;
+    const pessoa = clientes.find((c) => c.id === clienteIdPreload);
+    if (!pessoa) return;
+    setClienteId(pessoa.id);
+    setClienteLabel(
+      pessoa.cpf_cnpj ? `${pessoa.nome} - ${formatCpfCnpj(pessoa.cpf_cnpj)}` : pessoa.nome
+    );
+  }, [clienteIdPreload, clientes, orcamentoIdPreload]);
 
   useEffect(() => {
     if (!lojaAtivaId || !orcamentoIdPreload || preloadOrcamentoFeito || !formasPagamento.length) {

@@ -224,7 +224,7 @@ async function createVendaLegacy(lojaId, payload, operadorId) {
   return { data: { ...venda, valor_troco: valorTroco }, error: null };
 }
 
-export async function listVendas(lojaId, { status = null, limit = null } = {}) {
+export async function listVendas(lojaId, { status = null, clienteId = null, limit = null } = {}) {
   let query = supabase
     .from('vendas')
     .select(
@@ -240,6 +240,10 @@ export async function listVendas(lojaId, { status = null, limit = null } = {}) {
 
   if (status) {
     query = query.eq('status', status);
+  }
+
+  if (clienteId) {
+    query = query.eq('cliente_id', clienteId);
   }
 
   if (limit) {

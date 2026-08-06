@@ -14,8 +14,9 @@ import {
   getPessoaStats,
   listPessoasResumo,
 } from '../services/pessoaService';
+import { listVendas, resumoProdutoVenda, STATUS_LABEL } from '../services/vendaService';
 import { buildWhatsAppLink, telefoneWhatsAppCliente } from '../domain/osEvidencias';
-import { formatCpfCnpj, onlyDigits } from '../utils/formatters';
+import { formatBRL, formatCpfCnpj, onlyDigits } from '../utils/formatters';
 
 const FILTRO_CATEGORIA = {
   Todos: null,
@@ -32,6 +33,51 @@ const DIALOG_TYPE = {
   warning: 'warning',
 };
 
+function formatDataVenda(dataVenda, createdAt) {
+  const raw = dataVenda || (createdAt ? String(createdAt).slice(0, 10) : null);
+  if (!raw) return '—';
+  const [y, m, d] = String(raw).slice(0, 10).split('-');
+  if (!y || !m || !d) return '—';
+  return `${d}/${m}/${y}`;
+}
+
+function badgeStatusStyle(status) {
+  if (status === 'cancelada') {
+    return {
+      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+      color: '#f87171',
+      border: '1px solid rgba(239, 68, 68, 0.25)',
+      padding: '4px 8px',
+      borderRadius: '4px',
+      fontSize: '11px',
+      fontWeight: 'bold',
+      display: 'inline-block',
+    };
+  }
+  if (status === 'pre_venda') {
+    return {
+      backgroundColor: 'rgba(245, 158, 11, 0.1)',
+      color: '#fbbf24',
+      border: '1px solid rgba(245, 158, 11, 0.25)',
+      padding: '4px 8px',
+      borderRadius: '4px',
+      fontSize: '11px',
+      fontWeight: 'bold',
+      display: 'inline-block',
+    };
+  }
+  return {
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    color: '#4ade80',
+    border: '1px solid rgba(34, 197, 94, 0.2)',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '11px',
+    fontWeight: 'bold',
+    display: 'inline-block',
+  };
+}
+
 const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const { lojaAtivaId } = useLoja();
   const { alert } = useDialog();
@@ -42,8 +88,13 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
   const [menuAberto, setMenuAberto] = useState(null);
   
-  // Modal de histórico (conteúdo rico — permanece local)
-  const [modalHistorico, setModalHistorico] = useState({ aberto: false, cliente: null });
+  const [modalHistorico, setModalHistorico] = useState({
+    aberto: false,
+    cliente: null,
+    vendas: [],
+    loading: false,
+    erro: null,
+  });
 
   const [filtros, setFiltros] = useState({
     codigo: '', nome: '', cpf: '', telefone: '', produto: '', data: ''
@@ -108,9 +159,39 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
     setFiltros({ codigo: '', nome: '', cpf: '', telefone: '', produto: '', data: '' });
   };
 
-  const abrirHistoricoCliente = (cliente) => {
+  const fecharHistorico = () => {
+    setModalHistorico({ aberto: false, cliente: null, vendas: [], loading: false, erro: null });
+  };
+
+  const abrirHistoricoCliente = async (cliente) => {
     setMenuAberto(null);
-    setModalHistorico({ aberto: true, cliente });
+    if (!lojaAtivaId || !cliente?.id) return;
+
+    setModalHistorico({
+      aberto: true,
+      cliente,
+      vendas: [],
+      loading: true,
+      erro: null,
+    });
+
+    const { data, error } = await listVendas(lojaAtivaId, { clienteId: cliente.id });
+    if (error) {
+      setModalHistorico((prev) => ({
+        ...prev,
+        loading: false,
+        erro: error.message ?? 'Não foi possível carregar o histórico.',
+        vendas: [],
+      }));
+      return;
+    }
+
+    setModalHistorico((prev) => ({
+      ...prev,
+      loading: false,
+      vendas: data ?? [],
+      erro: null,
+    }));
   };
 
   const editarCliente = (cliente) => {
@@ -353,43 +434,70 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                 </h3>
                 <span style={{color: '#94a3b8', fontSize: '13px'}}>Cliente: <strong style={{color: '#e2e8f0'}}>{modalHistorico.cliente?.nome}</strong></span>
               </div>
-              <button style={styles.btnClose} onClick={() => setModalHistorico({ aberto: false, cliente: null })}><X size={20}/></button>
+              <button style={styles.btnClose} onClick={fecharHistorico}><X size={20}/></button>
             </div>
             
             <div style={{padding: '20px 0', overflowY: 'auto', maxHeight: '400px'}}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Data</th>
-                    <th style={styles.th}>Cód. Venda</th>
-                    <th style={styles.th}>Produto(s)</th>
-                    <th style={{...styles.th, textAlign: 'right'}}>Valor Total</th>
-                    <th style={styles.th}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style={styles.tr}>
-                    <td style={styles.td}>{modalHistorico.cliente?.dataCompra}</td>
-                    <td style={{...styles.td, color: '#e2e8f0'}}>#6349496</td>
-                    <td style={{...styles.td, color: '#38bdf8'}}>{modalHistorico.cliente?.ultimoProduto}</td>
-                    <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>R$ 2.800,00</td>
-                    <td style={styles.td}><span style={styles.badgeSuccess}>Concluído</span></td>
-                  </tr>
-                  {/* Mock extra apenas para visualização de que o modal funciona como uma lista */}
-                  <tr style={styles.tr}>
-                    <td style={styles.td}>15/01/2026</td>
-                    <td style={{...styles.td, color: '#e2e8f0'}}>#5001223</td>
-                    <td style={{...styles.td, color: '#38bdf8'}}>Película de Vidro 3D</td>
-                    <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>R$ 50,00</td>
-                    <td style={styles.td}><span style={styles.badgeSuccess}>Concluído</span></td>
-                  </tr>
-                </tbody>
-              </table>
+              {modalHistorico.loading ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontSize: '13px' }}>
+                  Carregando histórico...
+                </div>
+              ) : modalHistorico.erro ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#f87171', fontSize: '13px' }}>
+                  {modalHistorico.erro}
+                </div>
+              ) : (
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Data</th>
+                      <th style={styles.th}>Cód. Venda</th>
+                      <th style={styles.th}>Produto(s)</th>
+                      <th style={{...styles.th, textAlign: 'right'}}>Valor Total</th>
+                      <th style={styles.th}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {modalHistorico.vendas.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                          Nenhuma venda vinculada a este cliente.
+                        </td>
+                      </tr>
+                    ) : (
+                      modalHistorico.vendas.map((venda) => (
+                        <tr key={venda.id} style={styles.tr}>
+                          <td style={styles.td}>{formatDataVenda(venda.data_venda, venda.created_at)}</td>
+                          <td style={{...styles.td, color: '#e2e8f0'}}>#{venda.codigo}</td>
+                          <td style={{...styles.td, color: '#38bdf8'}}>{resumoProdutoVenda(venda)}</td>
+                          <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold'}}>
+                            {formatBRL(venda.valor_total)}
+                          </td>
+                          <td style={styles.td}>
+                            <span style={badgeStatusStyle(venda.status)}>
+                              {STATUS_LABEL[venda.status] ?? venda.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div style={styles.modalFooter}>
-              <button style={styles.btnOutline} onClick={() => setModalHistorico({ aberto: false, cliente: null })}>Fechar Histórico</button>
-              <button style={styles.btnPrimary} onClick={() => { setModalHistorico({ aberto: false, cliente: null }); aoMudarTela('nova-venda'); }}>Nova Venda para este Cliente</button>
+              <button style={styles.btnOutline} onClick={fecharHistorico}>Fechar Histórico</button>
+              <button
+                style={styles.btnPrimary}
+                onClick={() => {
+                  const clienteId = modalHistorico.cliente?.id;
+                  fecharHistorico();
+                  aoMudarTela?.('nova-venda', 'clientes', clienteId ? { clienteId } : undefined);
+                }}
+              >
+                Nova Venda para este Cliente
+              </button>
             </div>
           </div>
         </div>
