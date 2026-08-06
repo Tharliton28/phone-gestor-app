@@ -219,7 +219,9 @@ export async function emitirNfceParaVenda({
     return { data: existente.data, skipped: true, error: null };
   }
 
-  const providerName = config?.fiscal_provider ?? 'mock';
+  const providerName = config?.fiscal_provider === 'mock'
+    ? 'focus'
+    : (config?.fiscal_provider ?? 'focus');
 
   if (providerName === 'focus') {
     return emitirViaFocusEdge({ lojaId, vendaId, forcar });
@@ -229,5 +231,10 @@ export async function emitirNfceParaVenda({
     return { data: null, error: new Error('Provedor eNotas ainda não está disponível.') };
   }
 
-  return emitirViaMock({ lojaId, vendaId, valorTotal, operadorId, config });
+  return {
+    data: null,
+    error: new Error(
+      'Configure o provedor Focus NFe e o token em Configurações → Fiscal para emitir NFC-e.'
+    ),
+  };
 }
