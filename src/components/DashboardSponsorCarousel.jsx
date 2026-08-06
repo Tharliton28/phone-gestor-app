@@ -17,6 +17,8 @@ export default function DashboardSponsorCarousel({ slots } = {}) {
     return () => window.clearInterval(id);
   }, [paused, itens.length]);
 
+  if (!itens.length) return null;
+
   const atual = itens[index] ?? itens[0];
   if (!atual) return null;
 

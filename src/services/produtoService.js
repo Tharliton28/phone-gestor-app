@@ -171,9 +171,12 @@ export async function createProduto(lojaId, payload) {
 }
 
 export async function updateProduto(lojaId, produtoId, payload) {
+  // Saldo só muda via movimentação / inventário / PDV — nunca pelo form de edição
+  const { quantidade_atual: _ignoreQty, ...safePayload } = payload ?? {};
+
   return supabase
     .from('produtos')
-    .update(payload)
+    .update(safePayload)
     .eq('loja_id', lojaId)
     .eq('id', produtoId)
     .select()

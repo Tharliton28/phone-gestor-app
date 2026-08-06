@@ -192,11 +192,7 @@ const PainelFiscal = () => {
 
       <p style={{ color: '#64748b', fontSize: '11px', marginTop: 8 }}>
         Exportação contábil de XMLs reais chega com o provedor de produção.
-        <button
-          type="button"
-          style={styles.linkBtn}
-          onClick={() => alert('Disponível quando Focus/eNotas estiver conectado.', { type: 'info', title: 'Exportação' })}
-        >
+        <button type="button" style={styles.linkBtnDisabled} disabled aria-disabled="true">
           <Download size={12} /> Em breve
         </button>
       </p>
@@ -227,6 +223,7 @@ const styles = {
   badgeError: { display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' },
   badgeWarning: { display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(251, 191, 36, 0.1)', color: '#fbbf24', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' },
   linkBtn: { marginLeft: 8, background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: 4 },
+  linkBtnDisabled: { marginLeft: 8, background: 'none', border: 'none', color: '#64748b', cursor: 'not-allowed', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: 0.7 },
 };
 
 export default PainelFiscal;

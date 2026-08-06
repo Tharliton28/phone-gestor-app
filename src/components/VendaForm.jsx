@@ -643,7 +643,6 @@ const VendaForm = ({ dadosNavegacao }) => {
               >
                 <option value="Concluído" style={styles.optionItem}>Concluído</option>
                 <option value="Pré-Venda" style={styles.optionItem}>Pré-Venda</option>
-                <option value="Cancelada" style={styles.optionItem}>Cancelada</option>
               </select>
             </div>
           </div>

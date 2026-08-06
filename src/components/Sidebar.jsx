@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Home,
   ShoppingCart,
@@ -11,8 +11,11 @@ import {
   ChevronDown,
   ChevronRight,
   Menu,
-  Search,
 } from 'lucide-react';
+import { useLoja } from '../contexts/LojaContext';
+import { useDialog } from '../contexts/DialogContext';
+import { papelPodeVerMenu } from '../domain/rbacMenus';
+import { mensagemUpgradeNfce } from '../domain/lojaPlanos';
 import './sidebar.css';
 
 const ASSISTENCIA_TELAS = [
@@ -23,6 +26,8 @@ const ASSISTENCIA_TELAS = [
 ];
 
 const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMobile }) => {
+  const { papelAtivo, podeNfce, lojaAtiva } = useLoja();
+  const { alert } = useDialog();
   const [openMenus, setOpenMenus] = useState({
     vendas: false,
     estoque: false,
@@ -36,46 +41,50 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
     setOpenMenus((prev) => ({ ...prev, [menuKey]: !prev[menuKey] }));
   };
 
-  const menuItems = [
-    { name: 'Tela inicial', icon: <Home size={20} />, key: 'home' },
-    {
-      name: 'Vendas',
-      icon: <ShoppingCart size={20} />,
-      key: 'vendas',
-      subItems: ['Clientes', 'Venda - PDV', 'Orçamentos', 'Histórico de Vendas'],
-    },
-    {
-      name: 'Compras / Estoque',
-      icon: <Package size={20} />,
-      key: 'estoque',
-      subItems: ['Estoque Atual', 'Ordem de Compra', 'Movimentações', 'Inventário', 'Ruptura de Estoque'],
-    },
-    {
-      name: 'Assistência Técnica',
-      icon: <PenTool size={20} />,
-      key: 'assistencia',
-      subItems: [
-        { label: 'Listagem de OS', tela: 'listagem-os' },
-        { label: 'Nova OS / Entrada', tela: 'nova-os' },
-        { label: 'Painel do Técnico', tela: 'painel-tecnico' },
-        { label: 'Histórico / Finalizadas', tela: 'historico-os' },
-      ],
-    },
-    {
-      name: 'Financeiro',
-      icon: <DollarSign size={20} />,
-      key: 'financeiro',
-      subItems: ['Contas a Receber', 'Contas a Pagar', 'Novo Lançamento'],
-    },
-    {
-      name: 'Fiscal',
-      icon: <FileText size={20} />,
-      key: 'fiscal',
-      subItems: ['Painel Sefaz'],
-    },
-    { name: 'Relatórios', icon: <BarChart2 size={20} />, key: 'relatorios' },
-    { name: 'Configurações', icon: <Settings size={20} />, key: 'config' },
-  ];
+  const menuItems = useMemo(() => {
+    const all = [
+      { name: 'Tela inicial', icon: <Home size={20} />, key: 'home' },
+      {
+        name: 'Vendas',
+        icon: <ShoppingCart size={20} />,
+        key: 'vendas',
+        subItems: ['Clientes', 'Venda - PDV', 'Orçamentos', 'Histórico de Vendas'],
+      },
+      {
+        name: 'Compras / Estoque',
+        icon: <Package size={20} />,
+        key: 'estoque',
+        subItems: ['Estoque Atual', 'Ordem de Compra', 'Movimentações', 'Inventário', 'Ruptura de Estoque'],
+      },
+      {
+        name: 'Assistência Técnica',
+        icon: <PenTool size={20} />,
+        key: 'assistencia',
+        subItems: [
+          { label: 'Listagem de OS', tela: 'listagem-os' },
+          { label: 'Nova OS / Entrada', tela: 'nova-os' },
+          { label: 'Painel do Técnico', tela: 'painel-tecnico' },
+          { label: 'Histórico / Finalizadas', tela: 'historico-os' },
+        ],
+      },
+      {
+        name: 'Financeiro',
+        icon: <DollarSign size={20} />,
+        key: 'financeiro',
+        subItems: ['Contas a Receber', 'Contas a Pagar', 'Novo Lançamento'],
+      },
+      {
+        name: 'Fiscal',
+        icon: <FileText size={20} />,
+        key: 'fiscal',
+        subItems: ['Painel Sefaz'],
+        requiresNfce: true,
+      },
+      { name: 'Relatórios', icon: <BarChart2 size={20} />, key: 'relatorios' },
+      { name: 'Configurações', icon: <Settings size={20} />, key: 'config' },
+    ];
+    return all.filter((item) => papelPodeVerMenu(papelAtivo, item.key));
+  }, [papelAtivo]);
 
   const isMenuActive = (item) => {
     if (openMenus[item.key]) return true;
@@ -120,7 +129,15 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
     return false;
   };
 
-  const handleSubItemClick = (sub) => {
+  const handleSubItemClick = async (sub, parentItem = null) => {
+    if (parentItem?.requiresNfce && !podeNfce) {
+      await alert(mensagemUpgradeNfce(lojaAtiva?.plano), {
+        type: 'info',
+        title: 'Plano',
+      });
+      return;
+    }
+
     if (typeof sub === 'object' && sub.tela && aoMudarTela) {
       aoMudarTela(sub.tela);
       return;
@@ -204,19 +221,10 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
           </button>
         </div>
 
-        <div style={{ ...styles.searchContainer, padding: sidebarAberta ? '16px' : '16px 10px' }}>
-          {sidebarAberta ? (
-            <input type="text" placeholder="Buscar no sistema..." style={styles.searchInput} />
-          ) : (
-            <div style={styles.searchIconOnly} onClick={() => setSidebarAberta(true)}>
-              <Search size={18} color="#64748b" />
-            </div>
-          )}
-        </div>
-
-        <nav className="custom-scrollbar" style={styles.nav}>
+        <nav className="custom-scrollbar" style={{ ...styles.nav, marginTop: 8 }}>
           {menuItems.map((item) => {
             const isParentActive = isMenuActive(item);
+            const fiscalLocked = item.requiresNfce && !podeNfce;
 
             return (
               <div key={item.key}>
@@ -226,6 +234,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
                     ...(isParentActive && sidebarAberta ? styles.menuItemActive : {}),
                     justifyContent: sidebarAberta ? 'space-between' : 'center',
                     padding: sidebarAberta ? '12px 20px' : '15px 0',
+                    opacity: fiscalLocked ? 0.75 : 1,
                   }}
                   title={!sidebarAberta ? item.name : ''}
                   onClick={() => {
@@ -247,7 +256,12 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
                     >
                       {item.icon}
                     </span>
-                    {sidebarAberta && <span style={styles.text}>{item.name}</span>}
+                    {sidebarAberta && (
+                      <span style={styles.text}>
+                        {item.name}
+                        {fiscalLocked ? ' · Upgrade' : ''}
+                      </span>
+                    )}
                   </div>
                   {item.subItems && sidebarAberta && (
                     <span style={styles.chevron}>
@@ -266,7 +280,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
                         <div
                           key={idx}
                           style={{ ...styles.subItem, ...(active ? styles.subItemActive : {}) }}
-                          onClick={() => handleSubItemClick(sub)}
+                          onClick={() => handleSubItemClick(sub, item)}
                         >
                           <span style={styles.subText}>{label}</span>
                         </div>

@@ -9,7 +9,7 @@ import {
 } from '../domain/vendaCalculos';
 import { getLojaConfig, permiteVendaSemEstoque } from './lojaConfigService';
 import { registrarMovimentacao } from './movimentacaoService';
-import { gerarReceitasVenda, cancelarReceitasVenda } from './financeiroService';
+import { gerarReceitasVenda } from './financeiroService';
 import { marcarOrcamentoConvertido } from './orcamentoService';
 
 export const STATUS_LABEL = {
@@ -345,45 +345,21 @@ export async function createVenda(lojaId, payload, operadorId) {
 }
 
 export async function cancelarVenda(lojaId, vendaId, operadorId) {
-  const { data: venda, error: fetchError } = await getVendaById(lojaId, vendaId);
+  const { data, error } = await supabase.rpc('cancelar_venda', {
+    p_loja_id: lojaId,
+    p_venda_id: vendaId,
+    p_operador_id: operadorId ?? null,
+  });
 
-  if (fetchError || !venda) {
-    return { error: fetchError ?? new Error('Venda não encontrada.') };
+  if (error) {
+    return { error };
   }
 
-  if (venda.status === 'cancelada') {
-    return { error: new Error('Esta venda já está cancelada.') };
+  if (!data?.ok) {
+    return { error: new Error(data?.error || 'Não foi possível cancelar a venda.') };
   }
 
-  if (venda.status === 'concluido') {
-    await cancelarReceitasVenda(lojaId, vendaId);
-  }
-
-  if (venda.estoque_baixado) {
-    for (const item of venda.itens ?? []) {
-      if (!item.produto_id || !item.baixou_estoque) continue;
-
-      const { error: movError } = await registrarMovimentacao(lojaId, {
-        produtoId: item.produto_id,
-        tipo: 'entrada',
-        quantidade: item.quantidade,
-        origem: 'estorno',
-        referenciaId: venda.id,
-        motivo: `Estorno venda ${venda.codigo} — ${item.descricao}`,
-        operadorId,
-      });
-
-      if (movError) {
-        return { error: movError };
-      }
-    }
-  }
-
-  return supabase
-    .from('vendas')
-    .update({ status: 'cancelada', estoque_baixado: false })
-    .eq('loja_id', lojaId)
-    .eq('id', vendaId);
+  return { error: null, data };
 }
 
 export async function concluirPreVenda(lojaId, vendaId, operadorId) {

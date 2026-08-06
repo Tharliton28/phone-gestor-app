@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, Save, MapPin, Trash2, Settings, 
-  FileText, CheckCircle, User, Calendar, X
+  ArrowLeft, Save, MapPin, Trash2, Settings
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -13,9 +12,6 @@ import {
   mapPessoaToForm,
   updatePessoa,
 } from '../services/pessoaService';
-import { validateCpfCnpj } from '../utils/formatters';
-import { consultarDocumento } from '../domain/consultaProviders';
-import { mensagemConsultaIndisponivel } from '../domain/lojaPlanos';
 
 const DIALOG_TYPE = {
   erro: 'error',
@@ -41,9 +37,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
     numero: '', bairro: '', cidade: '', estado: '', complemento: '',
     observacoes: ''
   });
-
-  const [buscandoCpf, setBuscandoCpf] = useState(false);
-  const [dadosConsulta, setDadosConsulta] = useState(null);
 
   const mostrarAviso = async (titulo, mensagem, tipo = 'info', acaoOk = null) => {
     await alert(mensagem, { title: titulo, type: DIALOG_TYPE[tipo] ?? tipo });
@@ -80,7 +73,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    if(e.target.name === 'cpf') setDadosConsulta(null);
   };
 
   const limparFormulario = async () => {
@@ -96,7 +88,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
       telefoneAlt: '', email: '', instagram: '', cep: '', rua: '',
       numero: '', bairro: '', cidade: '', estado: '', complemento: '', observacoes: ''
     });
-    setDadosConsulta(null);
   };
 
   const salvarCadastro = async () => {
@@ -168,34 +159,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
     }
   };
 
-  const consultarCpfCnpj = async () => {
-    const documentoLimpo = formData.cpf.replace(/\D/g, '');
-
-    if (documentoLimpo.length !== 11 && documentoLimpo.length !== 14) {
-      return mostrarAviso('Atenção', 'Digite um CPF (11 dígitos) ou CNPJ (14 dígitos) válido para consultar.', 'erro');
-    }
-
-    try {
-      const validation = validateCpfCnpj(formData.cpf);
-      if (!validation.valid) {
-        return mostrarAviso('Atenção', validation.message, 'erro');
-      }
-    } catch {
-      return mostrarAviso('Atenção', 'Documento inválido.', 'erro');
-    }
-
-    setBuscandoCpf(true);
-    const result = await consultarDocumento(formData.cpf);
-    setBuscandoCpf(false);
-    setDadosConsulta(null);
-
-    return mostrarAviso(
-      'Consulta em breve',
-      result.error?.message || mensagemConsultaIndisponivel({ podeConsultas: false }),
-      'info'
-    );
-  };
-
   return (
     <div style={styles.container}>
       
@@ -226,9 +189,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
             <button style={abaAtiva === 'dados-adicionais' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('dados-adicionais')}>
               Dados adicionais
             </button>
-            <button style={abaAtiva === 'consulta-cpf' ? styles.tabActiveFilled : styles.tabFilled} onClick={() => setAbaAtiva('consulta-cpf')}>
-              Consulta CPF
-            </button>
           </div>
         </div>
 
@@ -256,30 +216,17 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
 
             <div style={styles.gridContainer}>
               <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
-                <label style={styles.label}>
-                  CPF/CNPJ: 
-                  {dadosConsulta?.situacao === 'REGULAR' && (
-                    <span style={{color: '#4ade80', marginLeft: '10px', fontSize: '11px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px'}}>
-                      <CheckCircle size={12} /> REGULAR
-                    </span>
-                  )}
-                </label>
-                <div style={{display: 'flex'}}>
-                  <input 
-                    style={{...styles.input, borderRadius: '4px 0 0 4px', borderRight: 'none'}} 
-                    name="cpf" 
-                    value={formData.cpf} 
-                    onChange={handleChange} 
-                    placeholder="000.000.000-00" 
-                  />
-                  <button 
-                    style={styles.btnActionInsideInput} 
-                    onClick={consultarCpfCnpj}
-                    disabled={buscandoCpf}
-                  >
-                    {buscandoCpf ? 'Consultando...' : 'Consultar CPF/CNPJ'}
-                  </button>
-                </div>
+                <label style={styles.label}>CPF/CNPJ:</label>
+                <input 
+                  style={styles.input} 
+                  name="cpf" 
+                  value={formData.cpf} 
+                  onChange={handleChange} 
+                  placeholder="000.000.000-00" 
+                />
+                <span style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
+                  Consultas CPF/CNPJ entram no plano Rede e ainda não estão ligadas.
+                </span>
               </div>
               
               <div style={{...styles.inputGroup, gridColumn: 'span 3'}}>
@@ -390,95 +337,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
           </div>
         )}
 
-        {abaAtiva === 'consulta-cpf' && (
-          <div style={styles.formArea}>
-            {!dadosConsulta ? (
-              <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', border: '1px dashed #2a2e3f', borderRadius: '8px'}}>
-                <User size={48} color="#4b5563" style={{marginBottom: '15px'}} />
-                <h3 style={{color: '#e2e8f0', margin: '0 0 10px 0'}}>Nenhuma consulta realizada</h3>
-                <p style={{color: '#94a3b8', fontSize: '13px', marginBottom: '20px'}}>Volte na aba "Dados gerais", digite um CPF e clique em "Consultar CPF/CNPJ".</p>
-                <button style={styles.btnPrimary} onClick={() => setAbaAtiva('dados-gerais')}>Ir para Dados gerais</button>
-              </div>
-            ) : (
-              <>
-                <div style={styles.reportBox}>
-                  <div style={styles.reportHeader}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                      <User size={18} color="#e2e8f0" />
-                      <h3 style={{color: '#e2e8f0', fontSize: '16px', margin: 0}}>Informações Pessoais</h3>
-                    </div>
-                    {dadosConsulta.situacao === 'REGULAR' && (
-                      <span style={styles.badgeRegularOutline}>REGULAR</span>
-                    )}
-                  </div>
-                  
-                  <div style={{padding: '20px'}}>
-                    <p style={{color: '#64748b', fontSize: '12px', marginTop: 0, marginBottom: '20px'}}>Dados do cidadão consultado</p>
-                    
-                    <div style={styles.grid3}>
-                      <div style={styles.dataBlock}>
-                        <span style={styles.dataLabel}>NOME COMPLETO</span>
-                        <span style={styles.dataValue}>{dadosConsulta.nome}</span>
-                      </div>
-                      <div style={styles.dataBlock}>
-                        <span style={styles.dataLabel}>NASCIMENTO</span>
-                        <span style={styles.dataValue}>{dadosConsulta.nascimento}</span>
-                      </div>
-                      <div style={styles.dataBlock}>
-                        <span style={styles.dataLabel}>IDADE</span>
-                        <span style={styles.dataValue}>{dadosConsulta.idade}</span>
-                      </div>
-                      <div style={styles.dataBlock}>
-                        <span style={styles.dataLabel}>CPF</span>
-                        <span style={styles.dataValue}>{dadosConsulta.cpf}</span>
-                      </div>
-                      <div style={styles.dataBlock}>
-                        <span style={styles.dataLabel}>SEXO</span>
-                        <span style={styles.dataValue}>{dadosConsulta.sexo}</span>
-                      </div>
-                      <div style={styles.dataBlock}>
-                        <span style={styles.dataLabel}>NOME DA MÃE</span>
-                        <span style={styles.dataValue}>{dadosConsulta.nomeMae}</span>
-                      </div>
-                    </div>
-
-                    <div style={{marginTop: '30px', borderTop: '1px solid #1f2233', paddingTop: '20px'}}>
-                      <div style={styles.dataBlock}>
-                        <span style={styles.dataLabel}>SITUAÇÃO NA RECEITA</span>
-                        <span style={styles.dataValue}>
-                          <span style={styles.dotGreen}></span> {dadosConsulta.situacao} <span style={{color: '#64748b', fontWeight: 'normal', fontSize: '12px', marginLeft: '5px'}}>• Atualizado em {dadosConsulta.atualizadoEm}</span>
-                        </span>
-                      </div>
-                      <div style={{...styles.dataBlock, marginTop: '20px'}}>
-                        <span style={styles.dataLabel}>PROTOCOLO DA CONSULTA</span>
-                        <span style={{...styles.dataValue, color: '#64748b', fontSize: '13px', fontWeight: 'normal'}}>{dadosConsulta.protocolo}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{display: 'flex', gap: '20px', marginTop: '20px'}}>
-                  <div style={styles.reportCard}>
-                    <div style={styles.iconCircleGreen}><User size={20} color="#4ade80" /></div>
-                    <span style={styles.cardLabel}>STATUS</span>
-                    <span style={styles.cardValue}>{dadosConsulta.situacao}</span>
-                  </div>
-                  <div style={styles.reportCard}>
-                    <div style={styles.iconCircleBlue}><Calendar size={20} color="#3b82f6" /></div>
-                    <span style={styles.cardLabel}>IDADE</span>
-                    <span style={styles.cardValue}>{dadosConsulta.idade}</span>
-                  </div>
-                  <div style={styles.reportCard}>
-                    <div style={styles.iconCirclePurple}><User size={20} color="#a855f7" /></div>
-                    <span style={styles.cardLabel}>GÊNERO</span>
-                    <span style={styles.cardValue}>{dadosConsulta.sexo}</span>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
         {abaAtiva === 'dados-adicionais' && (
            <div style={styles.formArea}>
              <div style={styles.inputGroup}>
@@ -530,10 +388,6 @@ const styles = {
   tabsGroup: { display: 'flex', gap: '20px' },
   tab: { backgroundColor: 'transparent', border: 'none', color: '#94a3b8', padding: '10px 0', fontSize: '13px', cursor: 'pointer', borderBottom: '2px solid transparent', display: 'flex', alignItems: 'center', gap: '6px' },
   tabActive: { backgroundColor: 'transparent', border: 'none', color: '#38bdf8', padding: '10px 0', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', borderBottom: '2px solid #38bdf8', display: 'flex', alignItems: 'center', gap: '6px' },
-  
-  tabFilled: { backgroundColor: '#161925', border: '1px solid #2a2e3f', color: '#94a3b8', padding: '6px 12px', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', margin: '4px 0' },
-  tabActiveFilled: { backgroundColor: 'rgba(56, 189, 248, 0.1)', border: '1px solid #38bdf8', color: '#38bdf8', padding: '6px 12px', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', margin: '4px 0' },
-  badgeCount: { backgroundColor: '#1f2233', color: '#e2e8f0', fontSize: '11px', padding: '2px 6px', borderRadius: '10px' },
 
   formArea: { backgroundColor: 'transparent' },
   inputSelect: { backgroundColor: '#11131c', border: '1px solid #2a2e3f', color: '#fff', padding: '6px 10px', borderRadius: '4px', fontSize: '13px', outline: 'none' },
@@ -542,24 +396,7 @@ const styles = {
   label: { color: '#94a3b8', fontSize: '12px', fontWeight: '500' },
   required: { color: '#ef4444' },
   input: { backgroundColor: '#11131c', border: '1px solid #1f2233', borderRadius: '4px', padding: '10px 12px', color: '#fff', fontSize: '13px', width: '100%', outline: 'none', boxSizing: 'border-box' },
-  btnActionInsideInput: { backgroundColor: '#e2e8f0', color: '#0f111a', border: 'none', padding: '0 15px', borderRadius: '0 4px 4px 0', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px', transition: 'background 0.2s' },
   sectionDivider: { color: '#fff', fontSize: '14px', margin: '30px 0 15px 0', paddingBottom: '10px', borderBottom: '1px solid #1f2233' },
-
-  reportBox: { backgroundColor: '#0f111a', border: '1px solid #1f2233', borderRadius: '8px' },
-  reportHeader: { padding: '15px 20px', borderBottom: '1px solid #1f2233', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  badgeRegularOutline: { border: '1px solid #4ade80', color: '#4ade80', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' },
-  grid3: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' },
-  dataBlock: { display: 'flex', flexDirection: 'column', gap: '5px' },
-  dataLabel: { color: '#64748b', fontSize: '11px', fontWeight: 'bold' },
-  dataValue: { color: '#e2e8f0', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center' },
-  dotGreen: { width: '8px', height: '8px', backgroundColor: '#4ade80', borderRadius: '50%', display: 'inline-block', marginRight: '6px' },
-  
-  reportCard: { flex: 1, backgroundColor: '#11131c', border: '1px solid #1f2233', borderRadius: '8px', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' },
-  iconCircleGreen: { width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(74, 222, 128, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  iconCircleBlue: { width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  iconCirclePurple: { width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(168, 85, 247, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  cardLabel: { color: '#64748b', fontSize: '11px', fontWeight: 'bold' },
-  cardValue: { color: '#e2e8f0', fontSize: '15px', fontWeight: 'bold' },
 
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#11131c', borderTop: '1px solid #1f2233', padding: '15px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '0 0 8px 8px', zIndex: 10 },
   footerLeft: { display: 'flex', gap: '15px' },

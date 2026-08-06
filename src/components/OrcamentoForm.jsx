@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   ArrowLeft, Save, Plus, Trash2, 
-  FileText, Package, Edit, Calculator, X, Printer, Phone, Smartphone,
+  FileText, Package, Edit, Calculator, X, Printer, Smartphone,
   AlertCircle, CheckCircle, Info, Search
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
@@ -29,10 +29,10 @@ import {
 } from '../services/orcamentoService';
 import { getLojaConfig, getOrcamentoValidadeDias } from '../services/lojaConfigService';
 import { podeEditarOrcamento } from '../domain/orcamentoStatus';
-import { parseMoney, formatBRL, roundMoney } from '../utils/formatters';
+import { parseMoney, formatBRL, formatCnpj, roundMoney } from '../utils/formatters';
 
 const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
-  const { lojaAtivaId, perfil } = useLoja();
+  const { lojaAtivaId, lojaAtiva, perfil } = useLoja();
   const orcamentoIdInicial = dadosNavegacao?.orcamentoId ?? null;
   const autoImprimir = dadosNavegacao?.autoImprimir || false;
 
@@ -884,7 +884,6 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
             <button style={styles.btnOutlinePdf} onClick={fecharModalPDF}><ArrowLeft size={16}/> Voltar</button>
             <div style={{display: 'flex', gap: '10px'}}>
               <button style={styles.btnPrimary} onClick={() => window.print()}><Printer size={16}/> Imprimir Orçamento</button>
-              <button style={styles.btnWhatsappPdf}><Phone size={16}/> Enviar WhatsApp</button>
             </div>
           </div>
           
@@ -892,8 +891,16 @@ const OrcamentoForm = ({ aoVoltar, dadosNavegacao }) => {
           <div style={styles.a4Sheet} className="print-area">
             <div style={styles.pdfHeader}>
               <div>
-                <h1 style={{margin: '0 0 5px 0', fontSize: '24px', color: '#111827'}}>BISCOITO IMPORTS LTDA</h1>
-                <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>CNPJ: 64.951.713/0001-13<br/>Avenida Narciso Pessoa de Araújo, 113<br/>Telefone: (85) 98589-2506</p>
+                <h1 style={{margin: '0 0 5px 0', fontSize: '24px', color: '#111827'}}>
+                  {lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'Empresa'}
+                </h1>
+                <p style={{margin: 0, color: '#4b5563', fontSize: '13px'}}>
+                  CNPJ: {formatCnpj(lojaAtiva?.cnpj) || '—'}
+                  <br />
+                  {[lojaAtiva?.logradouro, lojaAtiva?.numero].filter(Boolean).join(', ') || '—'}
+                  <br />
+                  Telefone: {lojaAtiva?.telefone || '—'}
+                </p>
               </div>
               <div style={{textAlign: 'right'}}>
                 <h2 style={{margin: '0 0 5px 0', fontSize: '20px', color: '#3b82f6'}}>ORÇAMENTO #{codigoOrcamento ?? 'NOVO'}</h2>

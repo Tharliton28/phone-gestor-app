@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Users, UserCheck, RefreshCw, Plus, Eraser, ChevronDown, 
+  Users, UserCheck, Plus, Eraser, 
   Search, Edit, ShoppingBag, MessageCircle, Trash2,
   ChevronLeft, ChevronRight,
   X
@@ -97,7 +97,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   });
 
   const [filtros, setFiltros] = useState({
-    codigo: '', nome: '', cpf: '', telefone: '', produto: '', data: ''
+    codigo: '', nome: '', cpf: '', telefone: ''
   });
 
   useEffect(() => {
@@ -156,7 +156,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
   };
 
   const limparFiltros = () => {
-    setFiltros({ codigo: '', nome: '', cpf: '', telefone: '', produto: '', data: '' });
+    setFiltros({ codigo: '', nome: '', cpf: '', telefone: '' });
   };
 
   const fecharHistorico = () => {
@@ -254,13 +254,6 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
             <div style={styles.metricValue}>{stats.totalClientes}</div>
           </div>
         </div>
-        <div style={styles.metricCard}>
-          <div style={styles.metricIconBox}><RefreshCw size={20} color="#c084fc" /></div>
-          <div>
-            <div style={styles.metricLabel}>Índice de recompra (%)</div>
-            <div style={styles.metricValue}>—</div>
-          </div>
-        </div>
       </div>
 
       {/* CONTAINER DA LISTAGEM */}
@@ -309,8 +302,6 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                 <th style={styles.th}>Vínculo</th>
                 <th style={styles.th}>CPF/CNPJ</th>
                 <th style={styles.th}>Telefone</th>
-                <th style={styles.th}>Último Produto Comprado</th>
-                <th style={styles.th}>Data Última Compra</th>
                 <th style={{...styles.th, textAlign: 'center'}}>Ações</th>
               </tr>
               {/* LINHA DE FILTROS NA TABELA */}
@@ -346,25 +337,18 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                     onChange={(e) => setFiltros({ ...filtros, telefone: e.target.value.replace(/[^0-9()\-\s]/g, '') })}
                   />
                 </td>
-                <td style={styles.tdFilter}>
-                  <div style={styles.inputWithIcon}>
-                    <input style={styles.filterInput} placeholder="Buscar produto..." value={filtros.produto} onChange={(e) => setFiltros({...filtros, produto: e.target.value})} />
-                    <Search size={12} color="#64748b" style={styles.innerIcon} />
-                  </div>
-                </td>
-                <td style={styles.tdFilter}><input style={styles.filterInput} type="date" value={filtros.data} onChange={(e) => setFiltros({...filtros, data: e.target.value})} /></td>
                 <td style={styles.tdFilter}></td>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
                     Carregando pessoas...
                   </td>
                 </tr>
               ) : pessoasFiltradas.length === 0 ? (
-                <tr><td colSpan="8" style={{textAlign: 'center', padding: '40px', color: '#64748b'}}>Nenhuma pessoa encontrada.</td></tr>
+                <tr><td colSpan="6" style={{textAlign: 'center', padding: '40px', color: '#64748b'}}>Nenhuma pessoa encontrada.</td></tr>
               ) : (
                 pessoasFiltradas.map((item, index) => (
                   <tr key={item.id} style={styles.tr}>
@@ -377,8 +361,6 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                     </td>
                     <td style={styles.td}>{formatCpfCnpj(item.cpf_cnpj) || '—'}</td>
                     <td style={styles.td}>{item.telefone || '—'}</td>
-                    <td style={{...styles.td, color: '#64748b'}}>—</td>
-                    <td style={styles.td}>—</td>
                     
                     {/* MENU DE AÇÕES INTELIGENTE */}
                     <td style={{...styles.td, textAlign: 'center', overflow: 'visible'}}>
@@ -508,7 +490,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
 };
 
 const styles = {
-  metricsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' },
+  metricsGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' },
   metricCard: { backgroundColor: '#11131c', border: '1px solid #1f2233', borderRadius: '8px', padding: '20px', display: 'flex', alignItems: 'center', gap: '15px' },
   metricIconBox: { backgroundColor: '#161925', padding: '12px', borderRadius: '8px', border: '1px solid #1f2233', display: 'flex', justifyContent: 'center', alignItems: 'center' },
   metricLabel: { color: '#94a3b8', fontSize: '13px', marginBottom: '4px' },

@@ -9,6 +9,7 @@ import RowActionsMenu, { RowActionsItem } from './RowActionsMenu';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { formatBRL, formatCnpj } from '../utils/formatters';
+import { papelPodeCancelarVenda } from '../domain/rbacMenus';
 import {
   cancelarVenda,
   concluirPreVenda,
@@ -44,8 +45,9 @@ function mapVendaRow(venda) {
 }
 
 const VendasList = ({ aoClicarEmNovaVenda, aoMudarTela, mensagemFlash = null }) => {
-  const { lojaAtivaId, lojaAtiva, perfil } = useLoja();
+  const { lojaAtivaId, lojaAtiva, perfil, papelAtivo } = useLoja();
   const { alert, confirm } = useDialog();
+  const podeCancelar = papelPodeCancelarVenda(papelAtivo);
   const [menuAberto, setMenuAberto] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processandoRecibo, setProcessandoRecibo] = useState(false);
@@ -383,7 +385,7 @@ const VendasList = ({ aoClicarEmNovaVenda, aoMudarTela, mensagemFlash = null }) 
                         </RowActionsItem>
                       )}
 
-                      {item.status !== 'Cancelada' && (
+                      {item.status !== 'Cancelada' && podeCancelar && (
                         <RowActionsItem
                           style={{ color: '#ef4444', borderTop: '1px solid #1f2233', marginTop: '4px', paddingTop: '8px' }}
                           onClick={() => { setMenuAberto(null); handleCancelarVenda(item.id); }}

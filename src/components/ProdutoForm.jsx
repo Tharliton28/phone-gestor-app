@@ -520,7 +520,20 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
               <h3 style={styles.sectionSubtitle}>Controle de Estoque</h3>
               <div style={styles.inputGroup}>
                 <label style={styles.label}><span style={styles.required}>*</span> Quantidade Atual (Saldo):</label>
-                <input style={{...styles.input, fontSize: '16px', fontWeight: 'bold'}} name="quantidadeAtual" value={formData.quantidadeAtual} onChange={handleChange} type="number" />
+                <input
+                  style={{...styles.input, fontSize: '16px', fontWeight: 'bold', opacity: isEdicao ? 0.75 : 1}}
+                  name="quantidadeAtual"
+                  value={formData.quantidadeAtual}
+                  onChange={handleChange}
+                  type="number"
+                  disabled={isEdicao}
+                  title={isEdicao ? 'Altere o saldo em Movimentações ou Inventário' : undefined}
+                />
+                {isEdicao && (
+                  <p style={{ color: '#94a3b8', fontSize: '11px', margin: '6px 0 0', lineHeight: 1.4 }}>
+                    Saldo bloqueado na edição — use Movimentações / Inventário para não divergir do livro de estoque.
+                  </p>
+                )}
               </div>
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Quantidade Mínima (Alerta de Ruptura):</label>

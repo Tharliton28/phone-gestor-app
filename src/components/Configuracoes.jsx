@@ -47,49 +47,6 @@ import {
   updateFormaPagamento,
 } from '../services/formaPagamentoService';
 
-// --- COMPONENTE REUTILIZÁVEL PARA GERENCIAR LISTAS (TAGS) ---
-const GerenciadorLista = ({ titulo, descricao, itens, aoAdicionar, aoRemover, placeholder }) => {
-  const [novoValor, setNovoValor] = useState('');
-
-  const handleAdd = () => {
-    if (novoValor.trim()) {
-      aoAdicionar(novoValor);
-      setNovoValor('');
-    }
-  };
-
-  return (
-    <div style={styles.listManagerCard}>
-      <div style={styles.listManagerHeader}>
-        <h4 style={styles.listManagerTitle}>{titulo}</h4>
-        <p style={styles.listManagerDesc}>{descricao}</p>
-      </div>
-      <div style={styles.listManagerInputArea}>
-        <input
-          style={styles.listManagerInput}
-          value={novoValor}
-          onChange={(e) => setNovoValor(e.target.value)}
-          placeholder={placeholder}
-          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-        />
-        <button style={styles.listManagerBtnAdd} onClick={handleAdd}>
-          <Plus size={14} /> Adicionar
-        </button>
-      </div>
-      <div style={styles.listManagerTags}>
-        {itens.map((item, index) => (
-          <span key={index} style={styles.tag}>
-            {item}
-            <button style={styles.tagBtnRemove} onClick={() => aoRemover(index)}>
-              <X size={12} />
-            </button>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 // --- COMPONENTE PRINCIPAL DE CONFIGURAÇÕES ---
 const Configuracoes = () => {
   const { alert, confirm } = useDialog();
@@ -491,27 +448,7 @@ const Configuracoes = () => {
     });
   };
 
-  const [listas, setListas] = useState({
-    tiposVenda: ['Presencial', 'WhatsApp', 'Instagram', 'Site / E-commerce'],
-    tiposEntrega: ['Retirada na Loja', 'Motoboy', 'Correios (PAC/Sedex)', 'Excursão / Ônibus'],
-    catAparelhos: ['Smartphone', 'Tablet', 'Smartwatch', 'Notebook'],
-    marcas: ['Apple', 'Samsung', 'Motorola', 'Xiaomi'],
-    capacidades: ['64 GB', '128 GB', '256 GB', '512 GB', '1 TB'],
-    cores: ['Preto', 'Branco', 'Azul Sierra', 'Ouro', 'Prata'],
-    disponibilidade: ['Disponível para venda', 'Uso Interno', 'Aguardando Conserto'],
-    qualidadePecas: ['Original Nacional / Retirada', 'Premium (Incell / OLED)', 'Primeira Linha (AAA)', 'Paralela'],
-    planoContas: ['Venda de Produto', 'Manutenção / Serviço', 'Compra de Estoque', 'Despesas Operacionais (Luz, Água, Aluguel)']
-  });
-
   const handleToggle = (chave) => setToggles(prev => ({ ...prev, [chave]: !prev[chave] }));
-
-  const adicionarItem = (chave, novoItem) => {
-    setListas(prev => ({ ...prev, [chave]: [...prev[chave], novoItem] }));
-  };
-
-  const removerItem = (chave, index) => {
-    setListas(prev => ({ ...prev, [chave]: prev[chave].filter((_, i) => i !== index) }));
-  };
 
   // Função para transformar as tags em dados reais no preview
   const gerarPreview = (texto) => {
@@ -836,24 +773,9 @@ const Configuracoes = () => {
                 />
               </div>
 
-              <div style={styles.grid2}>
-                <GerenciadorLista 
-                  titulo="Tipos de Venda" 
-                  descricao="Canais de onde as vendas se originam."
-                  placeholder="Ex: Balcão, Mercado Livre..."
-                  itens={listas.tiposVenda}
-                  aoAdicionar={(item) => adicionarItem('tiposVenda', item)}
-                  aoRemover={(index) => removerItem('tiposVenda', index)}
-                />
-                <GerenciadorLista 
-                  titulo="Tipos de Entrega / Logística" 
-                  descricao="Formas de envio disponíveis para o cliente."
-                  placeholder="Ex: Transportadora Azul..."
-                  itens={listas.tiposEntrega}
-                  aoAdicionar={(item) => adicionarItem('tiposEntrega', item)}
-                  aoRemover={(index) => removerItem('tiposEntrega', index)}
-                />
-              </div>
+              <p style={{ color: '#94a3b8', fontSize: '13px', lineHeight: 1.5, marginTop: '24px' }}>
+                Catálogos (marcas, cores, tipos) vêm do cadastro de produto por enquanto. Editor de listas persistente entra em breve.
+              </p>
             </div>
           )}
 
@@ -861,57 +783,9 @@ const Configuracoes = () => {
           {abaAtiva === 'estoque' && (
             <div style={{...styles.formSection, maxWidth: '100%'}}>
               <h3 style={styles.sectionTitle}>Atributos de Produtos e Estoque</h3>
-              
-              <div style={styles.grid2}>
-                <GerenciadorLista 
-                  titulo="Categorias de Aparelhos" 
-                  descricao="Ex: Smartphones, Tablets, Consoles..."
-                  placeholder="Nova categoria..."
-                  itens={listas.catAparelhos}
-                  aoAdicionar={(item) => adicionarItem('catAparelhos', item)}
-                  aoRemover={(index) => removerItem('catAparelhos', index)}
-                />
-                <GerenciadorLista 
-                  titulo="Marcas (Fabricantes)" 
-                  descricao="Ex: Apple, Samsung, Xiaomi..."
-                  placeholder="Nova marca..."
-                  itens={listas.marcas}
-                  aoAdicionar={(item) => adicionarItem('marcas', item)}
-                  aoRemover={(index) => removerItem('marcas', index)}
-                />
-                <GerenciadorLista 
-                  titulo="Capacidades de Armazenamento" 
-                  descricao="Ex: 64 GB, 128 GB, 1 TB..."
-                  placeholder="Nova capacidade..."
-                  itens={listas.capacidades}
-                  aoAdicionar={(item) => adicionarItem('capacidades', item)}
-                  aoRemover={(index) => removerItem('capacidades', index)}
-                />
-                <GerenciadorLista 
-                  titulo="Paleta de Cores" 
-                  descricao="Cores utilizadas no cadastro de aparelhos/acessórios."
-                  placeholder="Nova cor..."
-                  itens={listas.cores}
-                  aoAdicionar={(item) => adicionarItem('cores', item)}
-                  aoRemover={(index) => removerItem('cores', index)}
-                />
-                <GerenciadorLista 
-                  titulo="Status de Disponibilidade" 
-                  descricao="Controle do estado do produto no estoque."
-                  placeholder="Novo status..."
-                  itens={listas.disponibilidade}
-                  aoAdicionar={(item) => adicionarItem('disponibilidade', item)}
-                  aoRemover={(index) => removerItem('disponibilidade', index)}
-                />
-                <GerenciadorLista 
-                  titulo="Qualidade de Peças (Manutenção)" 
-                  descricao="Atributos para diferenciar qualidade de telas e baterias."
-                  placeholder="Nova qualidade..."
-                  itens={listas.qualidadePecas}
-                  aoAdicionar={(item) => adicionarItem('qualidadePecas', item)}
-                  aoRemover={(index) => removerItem('qualidadePecas', index)}
-                />
-              </div>
+              <p style={{ color: '#94a3b8', fontSize: '13px', lineHeight: 1.5, margin: 0 }}>
+                Catálogos (marcas, cores, tipos) vêm do cadastro de produto por enquanto. Editor de listas persistente entra em breve.
+              </p>
             </div>
           )}
 
@@ -1062,25 +936,9 @@ const Configuracoes = () => {
               </div>
 
               <h3 style={{...styles.sectionTitle, marginTop: '40px'}}>Regras e Categorias Financeiras</h3>
-              
-              <div style={styles.toggleRow}>
-                <div>
-                  <h4 style={styles.toggleTitle}>Cálculo Automático de Juros e Multa (Inadimplência)</h4>
-                  <p style={styles.toggleDesc}>Atualiza o valor a receber automaticamente se o título passar do vencimento (Boleto/Promissória).</p>
-                </div>
-                <Switch ativo={toggles.jurosAuto} onClick={() => handleToggle('jurosAuto')} />
-              </div>
-
-              <div style={styles.grid2}>
-                <GerenciadorLista 
-                  titulo="Plano de Contas (Categorias)" 
-                  descricao="Categorias para classificar receitas e despesas da loja."
-                  placeholder="Nova categoria financeira..."
-                  itens={listas.planoContas}
-                  aoAdicionar={(item) => adicionarItem('planoContas', item)}
-                  aoRemover={(index) => removerItem('planoContas', index)}
-                />
-              </div>
+              <p style={{ color: '#94a3b8', fontSize: '13px', lineHeight: 1.5, margin: 0 }}>
+                Plano de contas e editor de listas persistente entram em breve. Por enquanto, categorias financeiras não são editáveis aqui.
+              </p>
             </div>
           )}
 
@@ -1536,18 +1394,6 @@ const styles = {
     borderRadius: '6px', padding: '8px 12px', color: '#fff', fontSize: '14px', textAlign: 'center',
   },
 
-  /* Estilos do Gerenciador de Listas */
-  listManagerCard: { backgroundColor: '#11131c', border: '1px solid #1f2233', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' },
-  listManagerHeader: { borderBottom: '1px solid #1f2233', paddingBottom: '8px' },
-  listManagerTitle: { color: '#e2e8f0', fontSize: '14px', fontWeight: '600', margin: '0 0 4px 0' },
-  listManagerDesc: { color: '#94a3b8', fontSize: '12px', margin: 0 },
-  listManagerInputArea: { display: 'flex', gap: '8px' },
-  listManagerInput: { flex: 1, backgroundColor: '#0b0c10', border: '1px solid #2a2e3f', borderRadius: '4px', padding: '8px 12px', color: '#fff', fontSize: '13px', outline: 'none' },
-  listManagerBtnAdd: { backgroundColor: '#1e293b', border: '1px solid #334155', color: '#e2e8f0', padding: '0 12px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 'bold' },
-  listManagerTags: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' },
-  tag: { backgroundColor: '#161925', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '4px 8px 4px 12px', borderRadius: '16px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' },
-  tagBtnRemove: { backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px', borderRadius: '50%' },
-  
   /* Variáveis Tags */
   varTag: { backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', cursor: 'copy', border: '1px dashed #38bdf8', transition: '0.2s' },
   btnActionSecondary: { backgroundColor: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', padding: '6px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },

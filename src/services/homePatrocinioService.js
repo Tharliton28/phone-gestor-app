@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabaseClient';
-import { HOME_PATROCINIOS_PADRAO, listHomePatrocinios } from '../domain/homePatrocinios';
 
 function mapRow(row) {
   return {
@@ -15,7 +14,7 @@ function mapRow(row) {
   };
 }
 
-/** Busca slots ativos; se a tabela ainda não existir, usa seed local. */
+/** Busca slots ativos; se a tabela estiver vazia ou falhar, retorna vazio (sem pitches fake). */
 export async function listHomePatrociniosAtivos() {
   const { data, error } = await supabase
     .from('home_patrocinios')
@@ -24,7 +23,7 @@ export async function listHomePatrociniosAtivos() {
     .order('ordem', { ascending: true });
 
   if (error || !data?.length) {
-    return { data: listHomePatrocinios(HOME_PATROCINIOS_PADRAO), error: null, fromSeed: true };
+    return { data: [], error: null, fromSeed: true };
   }
 
   return { data: data.map(mapRow), error: null, fromSeed: false };

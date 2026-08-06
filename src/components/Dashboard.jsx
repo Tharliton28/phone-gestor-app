@@ -54,6 +54,7 @@ function rotuloStatus(status) {
   const map = {
     concluido: 'Concluída',
     pre_venda: 'Pré-venda',
+    cancelada: 'Cancelada',
     cancelado: 'Cancelada',
   };
   return map[status] || status || '—';
@@ -174,7 +175,8 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
     if (ultimasResult.error) {
       setUltimasVendas([]);
     } else {
-      setUltimasVendas(ultimasResult.data ?? []);
+      // Home: não misturar canceladas como se fossem faturamento recente
+      setUltimasVendas((ultimasResult.data ?? []).filter((v) => v.status !== 'cancelada'));
     }
 
     if (!osResult.error) {
@@ -236,11 +238,11 @@ const Dashboard = ({ aoClicarEmNovaVenda, aoMudarTela }) => {
         </div>
       </header>
 
-      {carregando && !patrocinios ? (
+      {carregando && patrocinios === null ? (
         <div className="dashboard-home__skeleton-banner" aria-hidden="true" />
-      ) : (
-        <DashboardSponsorCarousel slots={patrocinios || undefined} />
-      )}
+      ) : patrocinios?.length ? (
+        <DashboardSponsorCarousel slots={patrocinios} />
+      ) : null}
 
       <section className="dashboard-home__kpis" aria-label="Indicadores">
         <article className="dashboard-home__kpi dashboard-home__kpi--blue">

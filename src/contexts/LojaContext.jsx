@@ -18,6 +18,7 @@ export function LojaProvider({ children }) {
   const [lojaAtivaId, setLojaAtivaIdState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [entitlements, setEntitlements] = useState(null);
   const jaCarregouRef = useRef(false);
 
   const carregarDados = useCallback(async (opts = {}) => {
@@ -25,6 +26,7 @@ export function LojaProvider({ children }) {
     if (!currentUser?.id) {
       setPerfil(null);
       setMemberships([]);
+      setEntitlements(null);
       setLojaAtivaIdState(null);
       setLoading(false);
       jaCarregouRef.current = false;
@@ -108,9 +110,11 @@ export function LojaProvider({ children }) {
         null;
 
       // Sincroniza expiração no banco (trial/ativa vencidos → suspensa)
+      let entAtivos = null;
       if (proxima) {
         const { data: ent } = await getLojaEntitlements(proxima);
         if (ent) {
+          entAtivos = ent;
           lojasAtivas = lojasAtivas.map((m) =>
             m.loja?.id === proxima
               ? {
@@ -129,6 +133,7 @@ export function LojaProvider({ children }) {
 
       setPerfil(perfilData);
       setMemberships(lojasAtivas);
+      setEntitlements(entAtivos);
       setLojaAtivaIdState(proxima);
       jaCarregouRef.current = true;
       if (proxima) localStorage.setItem(LOJA_ATIVA_KEY, proxima);
@@ -143,6 +148,7 @@ export function LojaProvider({ children }) {
         setError(message);
         setPerfil(null);
         setMemberships([]);
+        setEntitlements(null);
         setLojaAtivaIdState(null);
         jaCarregouRef.current = false;
       }
@@ -155,6 +161,7 @@ export function LojaProvider({ children }) {
     if (!isAuthenticated || !userId) {
       setPerfil(null);
       setMemberships([]);
+      setEntitlements(null);
       setLojaAtivaIdState(null);
       setLoading(false);
       jaCarregouRef.current = false;
@@ -217,6 +224,9 @@ export function LojaProvider({ children }) {
       assinaturaStatus,
       assinaturaExpiraEm,
       assinaturaAtiva,
+      entitlements,
+      podeNfce: Boolean(entitlements?.podeNfce),
+      podeConsultas: Boolean(entitlements?.podeConsultas),
     }),
     [
       perfil,
@@ -233,6 +243,7 @@ export function LojaProvider({ children }) {
       assinaturaStatus,
       assinaturaExpiraEm,
       assinaturaAtiva,
+      entitlements,
     ]
   );
 

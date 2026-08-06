@@ -61,8 +61,21 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- carregar sob vendaId/loja
   }, [vendaId, lojaAtivaId, alert]);
 
-  const handleVerRecibo = () => {
+  const vendaCancelada = venda?.status === 'cancelada';
+
+  const bloquearReciboCancelada = async () => {
+    await alert('Venda cancelada — recibo e WhatsApp ficam bloqueados para não parecer documento válido.', {
+      type: 'warning',
+      title: 'Venda cancelada',
+    });
+  };
+
+  const handleVerRecibo = async () => {
     if (!venda || !aoMudarTela) return;
+    if (vendaCancelada) {
+      await bloquearReciboCancelada();
+      return;
+    }
     aoMudarTela('recibo-garantia', 'venda-detalhes', mapVendaToRecibo(venda));
   };
 
@@ -82,6 +95,10 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
 
   const handleBaixarPdf = async () => {
     if (!venda || processandoRecibo) return;
+    if (vendaCancelada) {
+      await bloquearReciboCancelada();
+      return;
+    }
     setProcessandoRecibo(true);
     try {
       await gerarReciboVendaPdf({
@@ -98,6 +115,10 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
 
   const handleWhatsApp = async () => {
     if (!venda || processandoRecibo) return;
+    if (vendaCancelada) {
+      await bloquearReciboCancelada();
+      return;
+    }
     setProcessandoRecibo(true);
     try {
       const result = await enviarReciboPorWhatsApp({
@@ -158,33 +179,39 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
             <ArrowLeft size={16} /> Voltar para o Histórico
           </button>
           <h2 style={styles.title}>Detalhes da Venda #{venda.codigo}</h2>
-          <span style={styles.statusPill}>{STATUS_LABEL[venda.status] ?? venda.status}</span>
+          <span style={vendaCancelada ? styles.statusPillCancelada : styles.statusPill}>
+            {STATUS_LABEL[venda.status] ?? venda.status}
+          </span>
         </div>
         <div style={styles.rightActions}>
-          <button
-            type="button"
-            style={{ ...styles.btnWhatsapp, opacity: processandoRecibo ? 0.6 : 1 }}
-            disabled={processandoRecibo}
-            onClick={handleWhatsApp}
-          >
-            <MessageCircle size={14} /> WhatsApp
-          </button>
-          <button
-            type="button"
-            style={{ ...styles.btnOutline, opacity: processandoRecibo ? 0.6 : 1 }}
-            disabled={processandoRecibo}
-            onClick={handleBaixarPdf}
-          >
-            <Download size={14} /> Baixar PDF
-          </button>
-          <button
-            type="button"
-            style={{ ...styles.btnPrimary, opacity: processandoRecibo ? 0.6 : 1 }}
-            disabled={processandoRecibo}
-            onClick={handleVerRecibo}
-          >
-            <Printer size={14} /> Ver / Imprimir
-          </button>
+          {!vendaCancelada && (
+            <>
+              <button
+                type="button"
+                style={{ ...styles.btnWhatsapp, opacity: processandoRecibo ? 0.6 : 1 }}
+                disabled={processandoRecibo}
+                onClick={handleWhatsApp}
+              >
+                <MessageCircle size={14} /> WhatsApp
+              </button>
+              <button
+                type="button"
+                style={{ ...styles.btnOutline, opacity: processandoRecibo ? 0.6 : 1 }}
+                disabled={processandoRecibo}
+                onClick={handleBaixarPdf}
+              >
+                <Download size={14} /> Baixar PDF
+              </button>
+              <button
+                type="button"
+                style={{ ...styles.btnPrimary, opacity: processandoRecibo ? 0.6 : 1 }}
+                disabled={processandoRecibo}
+                onClick={handleVerRecibo}
+              >
+                <Printer size={14} /> Ver / Imprimir
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -232,7 +259,6 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
                   <th style={styles.th}>Produto / IMEI</th>
                   <th style={{...styles.th, textAlign: 'center'}}>Qtd.</th>
                   <th style={{...styles.th, textAlign: 'right'}}>Valor Un. (R$)</th>
-                  <th style={{...styles.th, textAlign: 'right'}}>Desconto (R$)</th>
                   <th style={{...styles.th, textAlign: 'right'}}>Total (R$)</th>
                 </tr>
               </thead>
@@ -245,7 +271,6 @@ const VendaDetalhes = ({ aoVoltar, aoMudarTela, vendaId = null }) => {
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>{item.quantidade}</td>
                     <td style={{...styles.td, textAlign: 'right'}}>{formatBRL(item.valor_unitario)}</td>
-                    <td style={{...styles.td, textAlign: 'right'}}>—</td>
                     <td style={{...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#38bdf8'}}>{formatBRL(item.valor_total)}</td>
                   </tr>
                 ))}
@@ -350,6 +375,7 @@ const styles = {
   btnBack: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#94a3b8', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', transition: '0.2s' },
   title: { color: '#fff', fontSize: '18px', fontWeight: '600' },
   statusPill: { backgroundColor: '#0d9488', color: '#ccfbf1', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' },
+  statusPillCancelada: { backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', border: '1px solid rgba(239, 68, 68, 0.3)' },
   
   rightActions: { display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' },
   btnOutline: { backgroundColor: 'transparent', border: '1px solid #2a2e3f', color: '#e2e8f0', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '500' },
