@@ -75,10 +75,12 @@ export function AuthProvider({ children }) {
       return { data: null, error: { message } };
     }
 
+    const emailRedirectTo = `${window.location.origin}/login`;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo,
         data: {
           nome: nome?.trim() || email.split('@')[0],
         },
