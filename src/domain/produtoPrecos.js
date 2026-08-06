@@ -28,6 +28,19 @@ export function lucroEstimadoProduto(custo, extras, venda) {
   return roundMoney(parseMoney(venda) - custoBaseProduto(custo, extras));
 }
 
+/**
+ * Fonte da verdade: custo + venda.
+ * Recalcula a margem % quando ambos existem (evita lixo legado tipo lucro R$ no campo %).
+ */
+export function sincronizarMargemComVenda(custo, extras, venda, margemAtual = '') {
+  const base = custoBaseProduto(custo, extras);
+  const v = parseMoney(venda);
+  if (base > 0 && v > 0) {
+    return formatMargemPercent(margemApartirDaVenda(custo, extras, v));
+  }
+  return margemAtual == null ? '' : String(margemAtual);
+}
+
 /** Exibe margem com até 2 casas, sem zeros inúteis. */
 export function formatMargemPercent(value) {
   if (value == null || value === '') return '';

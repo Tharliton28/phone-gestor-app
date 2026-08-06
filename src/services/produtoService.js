@@ -1,7 +1,7 @@
-import { supabase } from '../lib/supabaseClient';
-import { onlyDigits, parseMoney } from '../utils/formatters';
 import { normalizeMoneyValue } from '../components/CurrencyInput';
-import { formatMargemPercent } from '../domain/produtoPrecos';
+import { formatMargemPercent, sincronizarMargemComVenda } from '../domain/produtoPrecos';
+import { onlyDigits, parseMoney } from '../utils/formatters';
+import { supabase } from '../lib/supabaseClient';
 
 const DISPONIBILIDADE_UI_TO_DB = {
   'Disponível para venda': 'disponivel_venda',
@@ -85,10 +85,14 @@ export function mapProdutoToForm(produto) {
     quantidadeMinima: produto.quantidade_minima != null ? String(produto.quantidade_minima) : '0',
     valorCusto: normalizeMoneyValue(produto.valor_custo),
     custosExtras: normalizeMoneyValue(produto.custos_extras),
-    margemLucro:
+    margemLucro: sincronizarMargemComVenda(
+      produto.valor_custo,
+      produto.custos_extras,
+      produto.valor_venda,
       produto.margem_lucro_percentual != null && produto.margem_lucro_percentual !== ''
         ? formatMargemPercent(produto.margem_lucro_percentual)
-        : '',
+        : ''
+    ),
     valorVenda: normalizeMoneyValue(produto.valor_venda),
     dataEntrada: produto.data_entrada ?? '',
     diasGarantia: produto.dias_garantia != null ? String(produto.dias_garantia) : '90',

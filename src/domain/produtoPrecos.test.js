@@ -4,6 +4,7 @@ import {
   formatMargemPercent,
   lucroEstimadoProduto,
   margemApartirDaVenda,
+  sincronizarMargemComVenda,
   vendaApartirDaMargem,
 } from './produtoPrecos';
 
@@ -19,11 +20,17 @@ describe('produtoPrecos', () => {
 
   it('calcula margem % a partir da venda', () => {
     expect(margemApartirDaVenda(2800, 0, 3640)).toBe(30);
+    expect(margemApartirDaVenda(2800, 0, 3150)).toBe(12.5);
     expect(margemApartirDaVenda(0, 0, 100)).toBeNull();
   });
 
   it('estima lucro em R$', () => {
     expect(lucroEstimadoProduto(2800, 0, 3150)).toBe(350);
+  });
+
+  it('sincroniza margem a partir de custo+venda (corrige legado)', () => {
+    expect(sincronizarMargemComVenda(2800, 0, 3150, '350')).toBe('12.5');
+    expect(sincronizarMargemComVenda(0, 0, 0, '30')).toBe('30');
   });
 
   it('formata margem', () => {

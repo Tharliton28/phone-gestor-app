@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Save, Smartphone, Headphones, PenTool, 
   Hash, Battery, CheckCircle, Calendar, FileText
@@ -10,6 +10,7 @@ import {
   formatMargemPercent,
   lucroEstimadoProduto,
   margemApartirDaVenda,
+  sincronizarMargemComVenda,
   vendaApartirDaMargem,
 } from '../domain/produtoPrecos';
 import { listPessoasResumo } from '../services/pessoaService';
@@ -67,6 +68,8 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [codigo, setCodigo] = useState(null);
   const [pessoas, setPessoas] = useState([]);
+  /** Último campo que o usuário editou de propósito: 'margem' | 'venda' */
+  const precoDriverRef = useRef('venda');
 
   useEffect(() => {
     if (!lojaAtivaId) return;
@@ -92,6 +95,7 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
       setTipoItem(data.tipo ?? 'aparelho');
       setCodigo(data.codigo ?? null);
       setFormData(mapProdutoToForm(data));
+      precoDriverRef.current = 'venda';
       setCarregando(false);
     };
 
@@ -107,12 +111,22 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
       const next = { ...prev, [field]: num };
 
       if (field === 'valorCusto' || field === 'custosExtras') {
-        if (next.margemLucro !== '' && next.margemLucro != null) {
+        // Loja de celular: preço de venda costuma ser o âncora de mercado.
+        // Se o usuário estava dirigindo pela margem %, mantém a % e recalcula a venda.
+        if (precoDriverRef.current === 'margem' && next.margemLucro !== '' && next.margemLucro != null) {
           next.valorVenda = vendaApartirDaMargem(next.valorCusto, next.custosExtras, next.margemLucro);
+        } else {
+          next.margemLucro = sincronizarMargemComVenda(
+            next.valorCusto,
+            next.custosExtras,
+            next.valorVenda,
+            next.margemLucro
+          );
         }
       }
 
       if (field === 'valorVenda') {
+        precoDriverRef.current = 'venda';
         const m = margemApartirDaVenda(next.valorCusto, next.custosExtras, num);
         next.margemLucro = m == null ? '' : formatMargemPercent(m);
       }
@@ -125,6 +139,7 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
     const raw = e.target.value.replace(',', '.');
     if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
 
+    precoDriverRef.current = 'margem';
     setFormData((prev) => {
       const next = { ...prev, margemLucro: raw };
       if (raw !== '' && Number.isFinite(Number(raw))) {
@@ -516,7 +531,9 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
             <div style={styles.column}>
               <h3 style={styles.sectionSubtitle}>Formação de Preço</h3>
               <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '10px', lineHeight: 1.45 }}>
-                Informe o custo e a margem % — a venda é calculada. Se alterar o valor de venda, a margem se ajusta.
+                Dois jeitos: informe a <strong style={{ color: '#cbd5e1' }}>margem %</strong> e a venda/lucro
+                calculam — ou informe o <strong style={{ color: '#cbd5e1' }}>valor de venda</strong> e a margem %
+                se ajusta. Lucro em R$ é sempre automático.
               </p>
 
               <div style={styles.grid2Inner}>
@@ -542,18 +559,18 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
 
               <div style={styles.grid2Inner}>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Margem de Lucro (%):</label>
+                  <label style={styles.label}>Margem sobre o custo (%):</label>
                   <input
                     style={styles.input}
                     name="margemLucro"
                     value={formData.margemLucro}
                     onChange={handleMargemChange}
-                    placeholder="Ex: 30"
+                    placeholder="Ex: 12,5 ou 30"
                     inputMode="decimal"
                   />
                 </div>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Lucro Estimado (R$):</label>
+                  <label style={styles.label}>Lucro estimado (R$):</label>
                   <input
                     style={{...styles.input, color: lucroEstimado >= 0 ? '#4ade80' : '#f87171'}}
                     value={formatBRL(lucroEstimado)}
