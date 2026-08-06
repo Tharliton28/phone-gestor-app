@@ -10,6 +10,9 @@ const LojaContext = createContext(null);
 
 export function LojaProvider({ children }) {
   const { user, isAuthenticated } = useAuth();
+  const userId = user?.id ?? null;
+  const userRef = useRef(user);
+  userRef.current = user;
   const [perfil, setPerfil] = useState(null);
   const [memberships, setMemberships] = useState([]);
   const [lojaAtivaId, setLojaAtivaIdState] = useState(null);
@@ -18,7 +21,8 @@ export function LojaProvider({ children }) {
   const jaCarregouRef = useRef(false);
 
   const carregarDados = useCallback(async (opts = {}) => {
-    if (!user?.id) {
+    const currentUser = userRef.current;
+    if (!currentUser?.id) {
       setPerfil(null);
       setMemberships([]);
       setLojaAtivaIdState(null);
@@ -27,8 +31,9 @@ export function LojaProvider({ children }) {
       return;
     }
 
-    // Silent refresh: não desmonta o ERP (evita perder aba Plano após pagamento)
-    const silent = opts.silent === true || (opts.silent !== false && jaCarregouRef.current);
+    // Silent refresh: não desmonta o ERP (evita zerar formulários ao voltar para a aba)
+    const silent =
+      opts.silent === true || (opts.silent !== false && jaCarregouRef.current);
     if (!silent) setLoading(true);
     setError(null);
 
@@ -37,7 +42,7 @@ export function LojaProvider({ children }) {
         supabase
           .from('usuarios')
           .select('id, nome, email, avatar_url')
-          .eq('id', user.id)
+          .eq('id', currentUser.id)
           .maybeSingle(),
         supabase
           .from('usuario_lojas')
@@ -75,7 +80,7 @@ export function LojaProvider({ children }) {
             )
           `
           )
-          .eq('usuario_id', user.id)
+          .eq('usuario_id', currentUser.id)
           .eq('ativo', true),
       ]);
 
@@ -83,9 +88,9 @@ export function LojaProvider({ children }) {
       if (membershipsResult.error) throw membershipsResult.error;
 
       const perfilData = perfilResult.data ?? {
-        id: user.id,
-        nome: user.user_metadata?.nome ?? user.email?.split('@')[0] ?? 'Usuário',
-        email: user.email ?? '',
+        id: currentUser.id,
+        nome: currentUser.user_metadata?.nome ?? currentUser.email?.split('@')[0] ?? 'Usuário',
+        email: currentUser.email ?? '',
         avatar_url: null,
       };
 
@@ -129,18 +134,25 @@ export function LojaProvider({ children }) {
       if (proxima) localStorage.setItem(LOJA_ATIVA_KEY, proxima);
       else localStorage.removeItem(LOJA_ATIVA_KEY);
     } catch (err) {
-      setError(err.message ?? 'Erro ao carregar dados da loja.');
-      setPerfil(null);
-      setMemberships([]);
-      setLojaAtivaIdState(null);
-      jaCarregouRef.current = false;
+      const message = err.message ?? 'Erro ao carregar dados da loja.';
+      if (silent && jaCarregouRef.current) {
+        // Falha transitória (rede/aba em background): preserva UI e formulários abertos
+        setError(null);
+        console.warn('[LojaContext] refresh silencioso falhou:', message);
+      } else {
+        setError(message);
+        setPerfil(null);
+        setMemberships([]);
+        setLojaAtivaIdState(null);
+        jaCarregouRef.current = false;
+      }
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !userId) {
       setPerfil(null);
       setMemberships([]);
       setLojaAtivaIdState(null);
@@ -148,8 +160,9 @@ export function LojaProvider({ children }) {
       jaCarregouRef.current = false;
       return;
     }
-    carregarDados({ silent: false });
-  }, [isAuthenticated, carregarDados]);
+    // Já carregou: refresh silencioso (token refresh / re-render de auth não desmonta telas)
+    carregarDados({ silent: jaCarregouRef.current });
+  }, [isAuthenticated, userId, carregarDados]);
 
   const setLojaAtiva = useCallback((lojaId) => {
     setLojaAtivaIdState(lojaId);

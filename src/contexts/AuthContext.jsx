@@ -32,8 +32,22 @@ export function AuthProvider({ children }) {
     initSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
+      // TOKEN_REFRESHED dispara ao voltar para a aba; manter referências estáveis
+      // evita cascata de reloads que desmontam formulários em progresso.
+      setSession((prev) => {
+        if (
+          prev?.access_token === nextSession?.access_token &&
+          prev?.user?.id === nextSession?.user?.id
+        ) {
+          return prev;
+        }
+        return nextSession;
+      });
+      setUser((prev) => {
+        const nextUser = nextSession?.user ?? null;
+        if (prev?.id && nextUser?.id === prev.id) return prev;
+        return nextUser;
+      });
       setLoading(false);
     });
 

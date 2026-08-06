@@ -30,7 +30,8 @@ export default function AppLayout() {
 
   const sidebarWidth = isMobile ? 0 : sidebarAberta ? SIDEBAR_WIDTH_OPEN : SIDEBAR_WIDTH_COLLAPSED;
 
-  if (loading) {
+  // Só bloqueia na carga inicial — refresh silencioso (ex.: voltar à aba) mantém o Outlet montado
+  if (loading && !temLoja) {
     return (
       <div className="app-layout" style={{ alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
         Carregando dados da loja...
