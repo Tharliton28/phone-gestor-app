@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { onlyDigits, parseMoney } from '../utils/formatters';
+import { normalizeMoneyValue } from '../components/CurrencyInput';
+import { formatMargemPercent } from '../domain/produtoPrecos';
 
 const DISPONIBILIDADE_UI_TO_DB = {
   'Disponível para venda': 'disponivel_venda',
@@ -79,14 +81,17 @@ export function mapProdutoToForm(produto) {
     aparelhosCompativeis: produto.aparelhos_compativeis ?? '',
     qualidadePeca: produto.qualidade_peca ?? '',
     corEstilo: produto.cor_estilo ?? '',
-    quantidadeAtual: produto.quantidade_atual ?? 0,
-    quantidadeMinima: produto.quantidade_minima ?? 0,
-    valorCusto: produto.valor_custo ?? 0,
-    custosExtras: produto.custos_extras ?? 0,
-    margemLucro: produto.margem_lucro_percentual ?? '',
-    valorVenda: produto.valor_venda ?? 0,
+    quantidadeAtual: produto.quantidade_atual != null ? String(produto.quantidade_atual) : '0',
+    quantidadeMinima: produto.quantidade_minima != null ? String(produto.quantidade_minima) : '0',
+    valorCusto: normalizeMoneyValue(produto.valor_custo),
+    custosExtras: normalizeMoneyValue(produto.custos_extras),
+    margemLucro:
+      produto.margem_lucro_percentual != null && produto.margem_lucro_percentual !== ''
+        ? formatMargemPercent(produto.margem_lucro_percentual)
+        : '',
+    valorVenda: normalizeMoneyValue(produto.valor_venda),
     dataEntrada: produto.data_entrada ?? '',
-    diasGarantia: produto.dias_garantia ?? 90,
+    diasGarantia: produto.dias_garantia != null ? String(produto.dias_garantia) : '90',
     observacoes: produto.observacoes ?? '',
     fornecedorId: produto.fornecedor_id ?? '',
     numeroNfeEntrada: produto.numero_nfe_entrada ?? '',

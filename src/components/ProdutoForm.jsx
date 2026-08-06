@@ -6,6 +6,12 @@ import {
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import { formatBRL, parseMoney } from '../utils/formatters';
+import {
+  formatMargemPercent,
+  lucroEstimadoProduto,
+  margemApartirDaVenda,
+  vendaApartirDaMargem,
+} from '../domain/produtoPrecos';
 import { listPessoasResumo } from '../services/pessoaService';
 import {
   createProduto,
@@ -14,6 +20,7 @@ import {
   mapProdutoToForm,
   updateProduto,
 } from '../services/produtoService';
+import CurrencyInput from './CurrencyInput';
 
 const EMPTY_FORM = {
   categoria: '',
@@ -33,10 +40,10 @@ const EMPTY_FORM = {
   corEstilo: '',
   quantidadeAtual: '1',
   quantidadeMinima: '0',
-  valorCusto: '',
-  custosExtras: '',
+  valorCusto: 0,
+  custosExtras: 0,
   margemLucro: '',
-  valorVenda: '',
+  valorVenda: 0,
   dataEntrada: '',
   diasGarantia: '90',
   observacoes: '',
@@ -95,14 +102,53 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const lucroEstimado =
-    parseMoney(formData.valorVenda) -
-    parseMoney(formData.valorCusto) -
-    parseMoney(formData.custosExtras);
+  const handleMoneyField = (field, num) => {
+    setFormData((prev) => {
+      const next = { ...prev, [field]: num };
+
+      if (field === 'valorCusto' || field === 'custosExtras') {
+        if (next.margemLucro !== '' && next.margemLucro != null) {
+          next.valorVenda = vendaApartirDaMargem(next.valorCusto, next.custosExtras, next.margemLucro);
+        }
+      }
+
+      if (field === 'valorVenda') {
+        const m = margemApartirDaVenda(next.valorCusto, next.custosExtras, num);
+        next.margemLucro = m == null ? '' : formatMargemPercent(m);
+      }
+
+      return next;
+    });
+  };
+
+  const handleMargemChange = (e) => {
+    const raw = e.target.value.replace(',', '.');
+    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+
+    setFormData((prev) => {
+      const next = { ...prev, margemLucro: raw };
+      if (raw !== '' && Number.isFinite(Number(raw))) {
+        next.valorVenda = vendaApartirDaMargem(prev.valorCusto, prev.custosExtras, raw);
+      }
+      return next;
+    });
+  };
+
+  const lucroEstimado = lucroEstimadoProduto(
+    formData.valorCusto,
+    formData.custosExtras,
+    formData.valorVenda
+  );
 
   const salvarProduto = async () => {
     if (!formData.nome.trim() || !formData.marca.trim() || !formData.categoria.trim()) {
       await alert('Preencha categoria, marca e nome do produto.', { type: 'warning', title: 'Campos obrigatórios' });
+      return;
+    }
+
+    if (parseMoney(formData.valorVenda) <= 0) {
+      await alert('Informe um valor de venda maior que zero.', { type: 'warning', title: 'Preço' });
+      setAbaAtiva('precos');
       return;
     }
 
@@ -157,7 +203,6 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
         <button style={abaAtiva === 'precos' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('precos')}>Preços e Custos</button>
         <button style={abaAtiva === 'fiscal' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('fiscal')}>Fiscal</button>
         <button style={abaAtiva === 'fornecedor' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('fornecedor')}>Fornecedor / NFe</button>
-        <button style={abaAtiva === 'imagens' ? styles.tabActive : styles.tab} onClick={() => setAbaAtiva('imagens')}>Imagens</button>
       </div>
 
       <div style={styles.content}>
@@ -470,15 +515,28 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
 
             <div style={styles.column}>
               <h3 style={styles.sectionSubtitle}>Formação de Preço</h3>
-              
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '10px', lineHeight: 1.45 }}>
+                Informe o custo e a margem % — a venda é calculada. Se alterar o valor de venda, a margem se ajusta.
+              </p>
+
               <div style={styles.grid2Inner}>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}><span style={styles.required}>*</span> Valor de Custo (R$):</label>
-                  <input style={styles.input} name="valorCusto" value={formData.valorCusto} onChange={handleChange} placeholder="0,00" />
+                  <CurrencyInput
+                    style={styles.input}
+                    name="valorCusto"
+                    value={formData.valorCusto}
+                    onChange={(v) => handleMoneyField('valorCusto', v)}
+                  />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Custos Extras (Frete/Taxa):</label>
-                  <input style={styles.input} name="custosExtras" value={formData.custosExtras} onChange={handleChange} placeholder="0,00" />
+                  <CurrencyInput
+                    style={styles.input}
+                    name="custosExtras"
+                    value={formData.custosExtras}
+                    onChange={(v) => handleMoneyField('custosExtras', v)}
+                  />
                 </div>
               </div>
 
@@ -489,16 +547,15 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                     style={styles.input}
                     name="margemLucro"
                     value={formData.margemLucro}
-                    onChange={handleChange}
+                    onChange={handleMargemChange}
                     placeholder="Ex: 30"
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                   />
                 </div>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Lucro Estimado (R$):</label>
                   <input
-                    style={{...styles.input, color: '#4ade80'}}
+                    style={{...styles.input, color: lucroEstimado >= 0 ? '#4ade80' : '#f87171'}}
                     value={formatBRL(lucroEstimado)}
                     disabled
                   />
@@ -507,7 +564,12 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
 
               <div style={{...styles.inputGroup, marginTop: '10px'}}>
                 <label style={styles.label}><span style={styles.required}>*</span> Valor de Venda (R$):</label>
-                <input style={{...styles.input, fontSize: '18px', fontWeight: 'bold', color: '#38bdf8', borderColor: '#38bdf8'}} name="valorVenda" value={formData.valorVenda} onChange={handleChange} placeholder="0,00" />
+                <CurrencyInput
+                  style={{...styles.input, fontSize: '18px', fontWeight: 'bold', color: '#38bdf8', borderColor: '#38bdf8'}}
+                  name="valorVenda"
+                  value={formData.valorVenda}
+                  onChange={(v) => handleMoneyField('valorVenda', v)}
+                />
               </div>
             </div>
           </div>
@@ -568,7 +630,9 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
              <div style={styles.inputGroup}>
                 <label style={styles.label}>Fornecedor / Cliente (Quem vendeu pra loja):</label>
                 <select style={styles.input} name="fornecedorId" value={formData.fornecedorId} onChange={handleChange}>
-                  <option value="">Buscar fornecedor na lista de contatos...</option>
+                  <option value="">
+                    {pessoas.length ? 'Selecione o contato...' : 'Nenhum contato cadastrado — cadastre em Pessoas'}
+                  </option>
                   {pessoas.map((pessoa) => (
                     <option key={pessoa.id} value={pessoa.id}>
                       {pessoa.nome}
