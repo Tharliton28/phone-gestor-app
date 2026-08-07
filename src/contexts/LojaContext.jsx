@@ -227,6 +227,7 @@ export function LojaProvider({ children }) {
       entitlements,
       podeNfce: Boolean(entitlements?.podeNfce),
       podeConsultas: Boolean(entitlements?.podeConsultas),
+      trialConsultas: entitlements?.trialConsultas ?? null,
     }),
     [
       perfil,

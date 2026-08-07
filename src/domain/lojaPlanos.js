@@ -89,6 +89,10 @@ export const ASSINATURA_STATUS_ATIVOS = ['trial', 'ativa'];
 /** Dias de trial no onboarding self-serve (espelho da migration 028). */
 export const TRIAL_DIAS = 14;
 
+/** Cotas gratuitas de consulta no trial (por loja / CNPJ). */
+export const TRIAL_LIMITE_CONSULTA_CPF_CNPJ = 3;
+export const TRIAL_LIMITE_CONSULTA_IMEI = 2;
+
 export function normalizarPlano(plano) {
   if (plano && PLANOS[plano]) return plano;
   return 'essencial';
@@ -181,4 +185,28 @@ export function mensagemConsultaIndisponivel({ podeConsultas = false } = {}) {
 export function mensagemUpgradeConsultas(plano) {
   const atual = getPlanoDef(plano).label;
   return `Consultas CPF/CNPJ e IMEI estão no plano Profissional. Sua loja está no ${atual}. Faça upgrade para usar (cobrança por crédito).`;
+}
+
+export function mensagemTrialConsultaLimite(tipo = 'cpf_cnpj') {
+  if (tipo === 'imei') {
+    return `No trial você pode fazer até ${TRIAL_LIMITE_CONSULTA_IMEI} consultas IMEI por loja. Assine um plano para continuar com créditos.`;
+  }
+  return `No trial você pode fazer até ${TRIAL_LIMITE_CONSULTA_CPF_CNPJ} consultas CPF/CNPJ por loja. Assine um plano para continuar com créditos.`;
+}
+
+export function rotuloTrialConsultas(trialConsultas) {
+  if (!trialConsultas?.ativo) return null;
+  const cpfRest =
+    Math.max(
+      0,
+      (trialConsultas.cpf_cnpj_limite ?? TRIAL_LIMITE_CONSULTA_CPF_CNPJ) -
+        (trialConsultas.cpf_cnpj_usados ?? 0)
+    );
+  const imeiRest =
+    Math.max(
+      0,
+      (trialConsultas.imei_limite ?? TRIAL_LIMITE_CONSULTA_IMEI) -
+        (trialConsultas.imei_usados ?? 0)
+    );
+  return `Trial: restam ${cpfRest} consulta(s) CPF/CNPJ e ${imeiRest} IMEI.`;
 }

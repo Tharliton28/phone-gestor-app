@@ -30,7 +30,9 @@ import { montarMensagemAutorizacaoConsulta } from '../domain/autorizacaoConsulta
 import { buildWhatsAppLink } from '../domain/osEvidencias';
 import {
   mensagemConsultaIndisponivel,
+  mensagemTrialConsultaLimite,
   mensagemUpgradeConsultas,
+  rotuloTrialConsultas,
 } from '../domain/lojaPlanos';
 
 const DIALOG_TYPE = {
@@ -62,7 +64,9 @@ function situacaoEhRegular(situacao) {
 }
 
 const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
-  const { lojaAtivaId, podeConsultas, lojaAtiva, perfil } = useLoja();
+  const { lojaAtivaId, podeConsultas, lojaAtiva, perfil, assinaturaStatus, trialConsultas, recarregar } =
+    useLoja();
+  const emTrial = assinaturaStatus === 'trial' && Boolean(trialConsultas?.ativo);
   const { alert, confirm } = useDialog();
   const isEdicao = Boolean(pessoaId);
   const [carregando, setCarregando] = useState(isEdicao);
@@ -488,8 +492,12 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
 
     const custo = custoConsultaCpfCnpj();
     const confirmar = await confirm(
-      `Esta consulta consome ${custo} crédito${custo === 1 ? '' : 's'} e consulta bases públicas (Receita Federal).\n\n` +
-        'Confirmo que o titular já autorizou (assinatura/termo) e que a consulta é necessária ao atendimento.',
+      emTrial
+        ? `Consulta no trial (cota gratuita: até 3 CPF/CNPJ por loja).\n\n` +
+          `${rotuloTrialConsultas(trialConsultas) || ''}\n\n` +
+          'Confirmo que o titular já autorizou e que a consulta é necessária ao atendimento.'
+        : `Esta consulta consome ${custo} crédito${custo === 1 ? '' : 's'} e consulta bases públicas (Receita Federal).\n\n` +
+          'Confirmo que o titular já autorizou (assinatura/termo) e que a consulta é necessária ao atendimento.',
       { title: 'Confirmar consulta', confirmLabel: 'Consultar' }
     );
     if (!confirmar) return;
@@ -512,6 +520,13 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
         return mostrarAviso(
           'Plano',
           mensagemUpgradeConsultas(lojaAtiva?.plano),
+          'warning'
+        );
+      }
+      if (result.code === 'trial_limit') {
+        return mostrarAviso(
+          'Limite do trial',
+          result.error?.message || mensagemTrialConsultaLimite('cpf_cnpj'),
           'warning'
         );
       }
@@ -539,6 +554,13 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
     const dados = result.dados || null;
     setDadosConsulta(dados);
     setSituacaoLoja(result.situacaoLoja ?? null);
+    if (result.mode === 'trial') {
+      try {
+        await recarregar?.();
+      } catch {
+        /* ignore */
+      }
+    }
 
     if (dados) {
       setFormData((prev) => {
@@ -652,7 +674,9 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
                   </button>
                 </div>
                 <span style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
-                  CPF exige data de nascimento · consome 1 crédito · plano Profissional
+                  {emTrial
+                    ? `${rotuloTrialConsultas(trialConsultas) || 'Trial'} · CPF exige data de nascimento`
+                    : 'CPF exige data de nascimento · consome 1 crédito · plano Profissional'}
                 </span>
                 {!pessoaId && cpfExistente && (
                   <div style={styles.cpfExistenteBox}>

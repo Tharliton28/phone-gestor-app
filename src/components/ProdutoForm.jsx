@@ -15,7 +15,9 @@ import {
 } from '../domain/produtoPrecos';
 import {
   mensagemConsultaIndisponivel,
+  mensagemTrialConsultaLimite,
   mensagemUpgradeConsultas,
+  rotuloTrialConsultas,
 } from '../domain/lojaPlanos';
 import { getPessoaById, listPessoasResumo } from '../services/pessoaService';
 import {
@@ -74,7 +76,9 @@ const EMPTY_FORM = {
 };
 
 const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
-  const { lojaAtivaId, podeConsultas, lojaAtiva, perfil } = useLoja();
+  const { lojaAtivaId, podeConsultas, lojaAtiva, perfil, assinaturaStatus, trialConsultas, recarregar } =
+    useLoja();
+  const emTrial = assinaturaStatus === 'trial' && Boolean(trialConsultas?.ativo);
   const { alert, confirm } = useDialog();
   const isEdicao = Boolean(produtoId);
   const [carregando, setCarregando] = useState(isEdicao);
@@ -317,7 +321,9 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
 
     const custo = custoConsultaImei();
     const ok = await confirm(
-      `Consulta Anatel (Celular Legal) usa ${custo} crédito${custo === 1 ? '' : 's'}.\n\n` +
+      (emTrial
+        ? `Consulta IMEI no trial (cota gratuita: até 2 por loja).\n\n${rotuloTrialConsultas(trialConsultas) || ''}\n\n`
+        : `Consulta Anatel (Celular Legal) usa ${custo} crédito${custo === 1 ? '' : 's'}.\n\n`) +
         (compraDeCliente
           ? 'Confirmo que o titular já autorizou (termo de avaliação/compra) e que a consulta é necessária à segurança da operação.'
           : 'Ao continuar, declaro que a loja possui base legal e autorização do titular (quando aplicável) para esta verificação (LGPD / due diligence).'),
@@ -337,6 +343,20 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
         });
         return;
       }
+      if (result.code === 'trial_limit') {
+        await alert(result.error?.message || mensagemTrialConsultaLimite('imei'), {
+          type: 'warning',
+          title: 'Limite do trial',
+        });
+        return;
+      }
+      if (result.code === 'plan_locked') {
+        await alert(mensagemUpgradeConsultas(lojaAtiva?.plano), {
+          type: 'warning',
+          title: 'Plano',
+        });
+        return;
+      }
       await alert(result.error?.message || 'Não foi possível consultar o IMEI.', {
         type: 'error',
         title: 'Erro',
@@ -345,6 +365,13 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
     }
 
     setResultadoImei(result.dados);
+    if (result.mode === 'trial') {
+      try {
+        await recarregar?.();
+      } catch {
+        /* ignore */
+      }
+    }
     await alert(result.dados?.mensagem || 'Consulta IMEI concluída.', {
       type: result.dados?.bloqueado ? 'warning' : 'success',
       title: result.dados?.bloqueado ? 'Alerta Anatel' : 'IMEI OK',

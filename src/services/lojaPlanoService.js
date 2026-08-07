@@ -36,6 +36,7 @@ export async function getLojaEntitlements(lojaId) {
     podeConsultas: data.pode_consultas,
     podeMultiLoja: data.pode_multi_loja,
     assinaturaAtiva: data.assinatura_ativa,
+    trialConsultas: data.trial_consultas ?? null,
   };
 
   return { data: mapped, error: null };

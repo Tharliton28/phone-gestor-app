@@ -32,6 +32,9 @@ async function invokeConsultar(body) {
       error: { message: payload?.error || error.message || 'Falha ao chamar consulta.' },
       custo: payload?.custo ?? null,
       saldo: payload?.saldo ?? null,
+      usados: payload?.usados ?? null,
+      limite: payload?.limite ?? null,
+      restantes: payload?.restantes ?? null,
     };
   }
 
@@ -49,6 +52,8 @@ async function invokeConsultar(body) {
       situacaoLoja: data.situacaoLoja ?? null,
       custo: data.custo ?? null,
       saldo: data.saldo ?? null,
+      mode: data.mode ?? null,
+      trial: data.trial ?? null,
     };
   }
 
@@ -58,6 +63,9 @@ async function invokeConsultar(body) {
     error: { message: data?.error || 'Consulta não concluída.' },
     custo: data?.custo ?? null,
     saldo: data?.saldo ?? null,
+    usados: data?.usados ?? null,
+    limite: data?.limite ?? null,
+    restantes: data?.restantes ?? null,
   };
 }
 

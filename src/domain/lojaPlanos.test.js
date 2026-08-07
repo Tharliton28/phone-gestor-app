@@ -4,12 +4,16 @@ import {
   entitlementsDoPlano,
   getPlanoDef,
   mensagemConsultaIndisponivel,
+  mensagemTrialConsultaLimite,
   mensagemUpgradeNfce,
   normalizarCiclo,
   normalizarPlano,
   precoAnualCheioHint,
   precoCheckout,
   precoHintCiclo,
+  rotuloTrialConsultas,
+  TRIAL_LIMITE_CONSULTA_CPF_CNPJ,
+  TRIAL_LIMITE_CONSULTA_IMEI,
 } from './lojaPlanos';
 
 describe('lojaPlanos', () => {
@@ -66,5 +70,21 @@ describe('lojaPlanos', () => {
     expect(mensagemUpgradeNfce('essencial')).toMatch(/Profissional/);
     expect(mensagemConsultaIndisponivel({ podeConsultas: false })).toMatch(/Profissional/);
     expect(mensagemConsultaIndisponivel({ podeConsultas: true })).toMatch(/Secrets|configurada/i);
+  });
+
+  it('cotas e mensagens do trial de consultas', () => {
+    expect(TRIAL_LIMITE_CONSULTA_CPF_CNPJ).toBe(3);
+    expect(TRIAL_LIMITE_CONSULTA_IMEI).toBe(2);
+    expect(mensagemTrialConsultaLimite('cpf_cnpj')).toMatch(/3/);
+    expect(mensagemTrialConsultaLimite('imei')).toMatch(/2/);
+    expect(
+      rotuloTrialConsultas({
+        ativo: true,
+        cpf_cnpj_usados: 1,
+        cpf_cnpj_limite: 3,
+        imei_usados: 0,
+        imei_limite: 2,
+      })
+    ).toMatch(/restam 2.*CPF/);
   });
 });
