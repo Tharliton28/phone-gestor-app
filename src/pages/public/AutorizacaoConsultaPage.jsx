@@ -7,6 +7,11 @@ import {
   obterAutorizacaoPorToken,
 } from '../../services/autorizacaoConsultaService';
 import { formatarCpfDigitacao, validarCpfAceite } from '../../domain/osEvidencias';
+import { onlyDigits } from '../../utils/formatters';
+
+function cadastroEhCpf(cpfCadastro) {
+  return onlyDigits(cpfCadastro).length === 11;
+}
 
 export default function AutorizacaoConsultaPage() {
   const { token } = useParams();
@@ -20,7 +25,10 @@ export default function AutorizacaoConsultaPage() {
   const [concluido, setConcluido] = useState(false);
 
   const cpfEstado = useMemo(
-    () => validarCpfAceite(cpf, dados?.cpf_cliente_cadastro),
+    () => validarCpfAceite(cpf, dados?.cpf_cliente_cadastro, {
+      exigirIgualCadastro: cadastroEhCpf(dados?.cpf_cliente_cadastro),
+      rotuloCadastro: 'cadastro',
+    }),
     [cpf, dados?.cpf_cliente_cadastro]
   );
 

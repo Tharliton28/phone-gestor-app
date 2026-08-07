@@ -107,6 +107,21 @@ export async function getLinkAutorizacaoPendente(lojaId, pessoaId) {
   };
 }
 
+/** Última autorização assinada (evidência: IP, CPF, data). */
+export async function getUltimaAutorizacaoAssinada(lojaId, pessoaId) {
+  const { data, error } = await supabase
+    .from('autorizacao_consulta_tokens')
+    .select('id, tipo, usado_em, ip_cliente, cpf_informado, user_agent')
+    .eq('loja_id', lojaId)
+    .eq('pessoa_id', pessoaId)
+    .not('usado_em', 'is', null)
+    .order('usado_em', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return { data: data ?? null, error };
+}
+
 export async function obterAutorizacaoPorToken(token) {
   const { data, error } = await supabase.rpc('obter_autorizacao_consulta_token', {
     p_token: token,

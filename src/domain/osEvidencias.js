@@ -11,16 +11,22 @@ export function formatarCpfDigitacao(valor) {
 
 /**
  * Valida CPF no aceite público.
- * Vazio continua aceito (não bloqueia o termo), mas a UI não rotula como opcional.
+ * @param {{ exigirIgualCadastro?: boolean, rotuloCadastro?: string }} opts
+ * - exigirIgualCadastro: bloqueia se divergir do CPF do cadastro (recomendado em autorização de consulta)
+ * - OS: por padrão só alerta divergência (compatível com fluxo antigo)
  */
-export function validarCpfAceite(cpf, cpfCadastro = null) {
+export function validarCpfAceite(cpf, cpfCadastro = null, opts = {}) {
+  const exigirIgualCadastro = Boolean(opts.exigirIgualCadastro);
+  const rotulo = opts.rotuloCadastro || 'cadastro';
+
   if (!cpf?.trim()) {
     return {
-      valido: true,
+      valido: !exigirIgualCadastro,
       cpf: null,
       status: 'vazio',
       confereCadastro: null,
-      mensagem: null,
+      mensagem: exigirIgualCadastro ? 'Informe o CPF do titular.' : null,
+      erro: exigirIgualCadastro ? 'Informe o CPF do titular.' : null,
     };
   }
 
@@ -51,14 +57,25 @@ export function validarCpfAceite(cpf, cpfCadastro = null) {
   const cadastro = onlyDigits(cpfCadastro);
   if (cadastro.length === 11) {
     const confere = cadastro === limpo;
+    if (!confere && exigirIgualCadastro) {
+      return {
+        valido: false,
+        cpf: limpo,
+        status: 'divergente',
+        confereCadastro: false,
+        mensagem: `CPF diferente do ${rotulo}. Use o mesmo CPF cadastrado.`,
+        erro: `CPF diferente do ${rotulo}. Use o mesmo CPF cadastrado.`,
+        formatado: formatCpfCnpj(limpo),
+      };
+    }
     return {
       valido: true,
       cpf: limpo,
       status: confere ? 'confere' : 'divergente',
       confereCadastro: confere,
       mensagem: confere
-        ? 'CPF confere com o cadastro da OS.'
-        : 'CPF válido, mas diferente do cadastrado nesta OS. Confira se é o titular.',
+        ? `CPF confere com o ${rotulo}.`
+        : `CPF válido, mas diferente do ${rotulo}. Confira se é o titular.`,
       formatado: formatCpfCnpj(limpo),
     };
   }

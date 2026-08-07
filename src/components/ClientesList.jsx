@@ -16,6 +16,7 @@ import {
 } from '../services/pessoaService';
 import { listVendas, resumoProdutoVenda, STATUS_LABEL } from '../services/vendaService';
 import { buildWhatsAppLink, telefoneWhatsAppCliente } from '../domain/osEvidencias';
+import { formatTelefoneBr } from '../utils/formatters';
 import { formatBRL, formatCpfCnpj, onlyDigits } from '../utils/formatters';
 
 const FILTRO_CATEGORIA = {
@@ -360,7 +361,7 @@ const ClientesList = ({ aoClicarEmCadastrar, aoMudarTela }) => {
                       </span>
                     </td>
                     <td style={styles.td}>{formatCpfCnpj(item.cpf_cnpj) || '—'}</td>
-                    <td style={styles.td}>{item.telefone || '—'}</td>
+                    <td style={styles.td}>{item.telefone ? formatTelefoneBr(item.telefone) : '—'}</td>
                     
                     {/* MENU DE AÇÕES INTELIGENTE */}
                     <td style={{...styles.td, textAlign: 'center', overflow: 'visible'}}>

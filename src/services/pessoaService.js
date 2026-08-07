@@ -1,5 +1,11 @@
 import { supabase } from '../lib/supabaseClient';
-import { formatCpfCnpj, onlyDigits, validateCpfCnpj, validateTelefone } from '../utils/formatters';
+import {
+  formatCpfCnpj,
+  formatTelefoneBr,
+  onlyDigits,
+  validateCpfCnpj,
+  validateTelefone,
+} from '../utils/formatters';
 
 const CATEGORIA_UI_TO_DB = {
   Cliente: 'cliente',
@@ -49,8 +55,8 @@ export function mapFormToPessoa(formData, { tipoPessoa, categoria }) {
     inscricao_municipal: formData.inscMunicipal || null,
     data_nascimento: dataNascimento || null,
     genero: formData.genero || null,
-    telefone: formData.telefone || null,
-    telefone_alternativo: formData.telefoneAlt || null,
+    telefone: onlyDigits(formData.telefone) || null,
+    telefone_alternativo: onlyDigits(formData.telefoneAlt) || null,
     email: formData.email || null,
     instagram: formData.instagram || null,
     cep: cep || null,
@@ -95,8 +101,8 @@ export function mapPessoaToForm(pessoa) {
     inscMunicipal: pessoa.inscricao_municipal ?? '',
     dataNascimento: normalizeDataNascimento(pessoa.data_nascimento),
     genero: pessoa.genero ?? '',
-    telefone: pessoa.telefone ?? '',
-    telefoneAlt: pessoa.telefone_alternativo ?? '',
+    telefone: formatTelefoneBr(pessoa.telefone),
+    telefoneAlt: formatTelefoneBr(pessoa.telefone_alternativo),
     email: pessoa.email ?? '',
     instagram: pessoa.instagram ?? '',
     cep: pessoa.cep ?? '',

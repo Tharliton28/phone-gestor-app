@@ -16,7 +16,7 @@ import {
   mensagemErroPessoa,
   updatePessoa,
 } from '../services/pessoaService';
-import { onlyDigits, validateCpfCnpj } from '../utils/formatters';
+import { formatTelefoneBr, onlyDigits, validateCpfCnpj } from '../utils/formatters';
 import {
   consultarCpfCnpj as solicitarConsultaCpfCnpj,
   custoConsultaCpfCnpj,
@@ -24,6 +24,7 @@ import {
 import {
   criarLinkAutorizacaoConsulta,
   getLinkAutorizacaoPendente,
+  getUltimaAutorizacaoAssinada,
 } from '../services/autorizacaoConsultaService';
 import { montarMensagemAutorizacaoConsulta } from '../domain/autorizacaoConsulta';
 import { buildWhatsAppLink } from '../domain/osEvidencias';
@@ -85,6 +86,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [gerandoLinkAuth, setGerandoLinkAuth] = useState(false);
   const [linkAuthPendente, setLinkAuthPendente] = useState(null);
+  const [evidenciaAuth, setEvidenciaAuth] = useState(null);
   const [cpfExistente, setCpfExistente] = useState(null);
   const [dadosConsulta, setDadosConsulta] = useState(null);
   const [situacaoLoja, setSituacaoLoja] = useState(null);
@@ -125,18 +127,23 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
   }, [pessoaId, lojaAtivaId, aoVoltar]);
 
   useEffect(() => {
-    if (!pessoaId || !lojaAtivaId || autorizacaoOk) {
+    if (!pessoaId || !lojaAtivaId) {
       setLinkAuthPendente(null);
+      setEvidenciaAuth(null);
       return undefined;
     }
 
     let ativo = true;
     const sincronizar = async () => {
-      const [{ data }, link] = await Promise.all([
+      const [{ data }, link, ultima] = await Promise.all([
         getPessoaById(lojaAtivaId, pessoaId),
         getLinkAutorizacaoPendente(lojaAtivaId, pessoaId),
+        getUltimaAutorizacaoAssinada(lojaAtivaId, pessoaId),
       ]);
       if (!ativo) return;
+
+      if (ultima.data) setEvidenciaAuth(ultima.data);
+      else if (!data?.autoriza_consulta_dados) setEvidenciaAuth(null);
 
       if (data?.autoriza_consulta_dados) {
         setFormData((prev) => ({
@@ -223,7 +230,14 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let nextValue = value;
+    if (name === 'telefone' || name === 'telefoneAlt') {
+      nextValue = formatTelefoneBr(value);
+    }
+    if (name === 'cpf') {
+      nextValue = value; // máscara já pode vir do digitação; keep as-is unless we mask
+    }
+    setFormData((prev) => ({ ...prev, [name]: nextValue }));
     if (name === 'cpf') {
       setDadosConsulta(null);
       setSituacaoLoja(null);
@@ -666,6 +680,18 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
                         ? `Titular autorizou${formData.autorizaConsultaOrigem ? ` (${formData.autorizaConsultaOrigem.replace(/_/g, ' ')})` : ''}. Você já pode consultar.`
                         : 'Para consultar CPF/CNPJ, o cliente assina um termo de atendimento (link) — ou o termo de OS.'}
                     </p>
+                    {autorizacaoOk && evidenciaAuth && (
+                      <p style={{ ...styles.authHint, color: '#94a3b8', marginTop: 6 }}>
+                        Evidência
+                        {evidenciaAuth.usado_em
+                          ? `: ${new Date(evidenciaAuth.usado_em).toLocaleString('pt-BR')}`
+                          : ''}
+                        {evidenciaAuth.ip_cliente ? ` · IP ${evidenciaAuth.ip_cliente}` : ' · IP não capturado'}
+                        {evidenciaAuth.cpf_informado
+                          ? ` · CPF ${evidenciaAuth.cpf_informado.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')}`
+                          : ''}
+                      </p>
+                    )}
                     {linkAuthPendente && !autorizacaoOk && (
                       <p style={{ ...styles.authHint, color: '#fbbf24', marginTop: 6 }}>
                         Link de assinatura gerado — aguardando o cliente assinar. Esta tela atualiza sozinha.
