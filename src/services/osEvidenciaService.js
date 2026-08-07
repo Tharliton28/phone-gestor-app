@@ -148,6 +148,31 @@ export const uploadFotosEntrada = (lojaId, osId, files, operadorId) =>
 export const uploadFotosSaida = (lojaId, osId, files, operadorId) =>
   uploadFotos(lojaId, osId, files, 'saida', operadorId);
 
+/** Propaga autorização LGPD do termo de OS para o cadastro do cliente (se ainda não houver). */
+async function marcarAutorizacaoConsultaPorOs(lojaId, osId, origem = 'termo_os') {
+  if (!lojaId || !osId) return;
+
+  const { data: os } = await supabase
+    .from('ordens_servico')
+    .select('cliente_id')
+    .eq('id', osId)
+    .eq('loja_id', lojaId)
+    .maybeSingle();
+
+  if (!os?.cliente_id) return;
+
+  await supabase
+    .from('pessoas')
+    .update({
+      autoriza_consulta_dados: true,
+      autoriza_consulta_em: new Date().toISOString(),
+      autoriza_consulta_origem: origem,
+    })
+    .eq('id', os.cliente_id)
+    .eq('loja_id', lojaId)
+    .eq('autoriza_consulta_dados', false);
+}
+
 async function registrarTermoLoja({
   lojaId, osId, tipo, termoTexto, assinaturaDataUrl, operadorId,
 }) {
@@ -160,7 +185,7 @@ async function registrarTermoLoja({
   const ip = await fetchIpCliente();
   const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null;
 
-  return supabase
+  const result = await supabase
     .from('ordem_servico_termos')
     .insert({
       loja_id: lojaId,
@@ -176,6 +201,12 @@ async function registrarTermoLoja({
     })
     .select()
     .single();
+
+  if (!result.error) {
+    await marcarAutorizacaoConsultaPorOs(lojaId, osId, 'termo_os');
+  }
+
+  return result;
 }
 
 export const registrarTermoEntrada = (params) => registrarTermoLoja({ ...params, tipo: 'entrada' });

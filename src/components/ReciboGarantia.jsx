@@ -292,6 +292,9 @@ const ReciboGarantia = ({ aoVoltar, vendaSelecionada }) => {
             <p style={styles.legalText}>
               <strong>Cláusula 6ª:</strong> O comprador declara estar ciente de que é sua responsabilidade realizar o backup de seus dados (fotos, contatos, etc). A loja não se responsabiliza por perda de dados durante testes ou reparos.
             </p>
+            <p style={styles.legalText}>
+              <strong>Cláusula 7ª (DADOS E CONSULTAS):</strong> O comprador autoriza a loja a tratar seus dados cadastrais e, quando necessário à segurança da operação, consultar CPF/CNPJ e/ou IMEI em bases públicas (Receita Federal, Anatel/Celular Legal), nos termos da LGPD.
+            </p>
           </div>
 
           <div style={styles.signaturesArea}>

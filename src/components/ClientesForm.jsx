@@ -66,7 +66,10 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
     inscMunicipal: '', dataNascimento: '', genero: '', telefone: '',
     telefoneAlt: '', email: '', instagram: '', cep: '', rua: '',
     numero: '', bairro: '', cidade: '', estado: '', complemento: '',
-    observacoes: ''
+    observacoes: '',
+    autorizaConsultaDados: false,
+    autorizaConsultaEm: '',
+    autorizaConsultaOrigem: '',
   });
 
   const [buscandoCpf, setBuscandoCpf] = useState(false);
@@ -161,10 +164,22 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
       cpf: '', nome: '', origem: '', inscEstadual: '', indContribuinte: '',
       inscMunicipal: '', dataNascimento: '', genero: '', telefone: '',
       telefoneAlt: '', email: '', instagram: '', cep: '', rua: '',
-      numero: '', bairro: '', cidade: '', estado: '', complemento: '', observacoes: ''
+      numero: '', bairro: '', cidade: '', estado: '', complemento: '', observacoes: '',
+      autorizaConsultaDados: false,
+      autorizaConsultaEm: '',
+      autorizaConsultaOrigem: '',
     });
     setDadosConsulta(null);
     setSituacaoLoja(null);
+  };
+
+  const handleAutorizacaoConsulta = (checked) => {
+    setFormData((prev) => ({
+      ...prev,
+      autorizaConsultaDados: checked,
+      autorizaConsultaEm: checked ? new Date().toISOString() : '',
+      autorizaConsultaOrigem: checked ? 'cadastro' : '',
+    }));
   };
 
   const salvarCadastro = async () => {
@@ -240,10 +255,18 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
       );
     }
 
+    if (!formData.autorizaConsultaDados) {
+      return mostrarAviso(
+        'Autorização necessária',
+        'Marque a autorização do titular (LGPD) antes de consultar CPF/CNPJ.',
+        'warning'
+      );
+    }
+
     const custo = custoConsultaCpfCnpj();
     const confirmar = await confirm(
       `Esta consulta consome ${custo} crédito${custo === 1 ? '' : 's'} e consulta bases públicas (Receita Federal).\n\n` +
-        'Ao continuar, declaro que a loja possui base legal / autorização do titular para esta consulta (LGPD).',
+        'Confirmo que o titular autorizou esta consulta (checkbox marcado) e que a loja registrará essa autorização no cadastro.',
       { title: 'Confirmar consulta', confirmLabel: 'Consultar' }
     );
     if (!confirmar) return;
@@ -408,6 +431,38 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
                 <span style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
                   CPF exige data de nascimento · consome 1 crédito · plano Profissional
                 </span>
+              </div>
+
+              <div style={{...styles.inputGroup, gridColumn: 'span 6'}}>
+                <label
+                  style={{
+                    display: 'flex',
+                    gap: '10px',
+                    alignItems: 'flex-start',
+                    backgroundColor: '#0f111a',
+                    border: '1px solid #2a2e3f',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    color: '#cbd5e1',
+                    fontSize: '13px',
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={Boolean(formData.autorizaConsultaDados)}
+                    onChange={(e) => handleAutorizacaoConsulta(e.target.checked)}
+                    style={{ marginTop: '3px', width: 16, height: 16, accentColor: '#3b82f6' }}
+                  />
+                  <span>
+                    <strong style={{ color: '#e2e8f0' }}>Autorização do titular (LGPD)</strong>
+                    <br />
+                    O titular autoriza a loja a consultar CPF/CNPJ e, quando aplicável, IMEI em bases públicas
+                    (Receita Federal, Anatel/Celular Legal) para cadastro, prevenção a fraude e atendimento.
+                    Sem esta autorização, a consulta não pode ser realizada.
+                  </span>
+                </label>
               </div>
 
               {isPessoaFisica && (

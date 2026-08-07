@@ -66,6 +66,7 @@ const CLAUSULAS = [
   'Cláusula 4ª (PERDA DE GARANTIA): A garantia cessará imediatamente em caso de danos físicos, contato com líquidos, rompimento de selo, reparo por terceiros não autorizados ou mau uso/acessórios não homologados.',
   'Cláusula 5ª: Em caso de defeito coberto, o comprador deverá acionar a loja imediatamente. Prazo para reparo ou substituição: até 30 dias (CDC). Desgaste natural de bateria após 30 dias não é coberto.',
   'Cláusula 6ª: O comprador declara ciência de que o backup de dados é de sua responsabilidade. A loja não se responsabiliza por perda de dados em testes ou reparos.',
+  'Cláusula 7ª (DADOS E CONSULTAS): O comprador autoriza a loja a tratar seus dados cadastrais e, quando necessário à segurança da operação, consultar CPF/CNPJ e/ou IMEI em bases públicas (ex.: Receita Federal, Anatel/Celular Legal), nos termos da LGPD.',
 ];
 
 /**

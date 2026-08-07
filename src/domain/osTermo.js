@@ -6,6 +6,7 @@ Eu, [NOME_CLIENTE], declaro que entrego o equipamento descrito nesta OS ([CODIGO
 2. Autorizo a realização do diagnóstico e comunicação sobre orçamento de reparo.
 3. Reconheço que é minha responsabilidade realizar backup de dados (fotos, contatos, arquivos). A loja não se responsabiliza por perda de dados.
 4. Aceito as condições de garantia do serviço conforme política da loja.
+5. Autorizo a [NOME_EMPRESA] a realizar consultas cadastrais e de situação do aparelho (CPF/CNPJ e/ou IMEI em bases públicas, inclusive Receita Federal e Anatel/Celular Legal), quando necessárias à prestação do serviço, prevenção a fraude e registro interno, nos termos da LGPD.
 
 Data: [DATA_ENTRADA]`;
 
@@ -16,6 +17,7 @@ Eu, [NOME_CLIENTE], declaro que retiro o equipamento descrito nesta OS ([CODIGO_
 1. Recebi o aparelho e conferi o estado físico conforme fotos registradas na saída.
 2. Estou ciente dos serviços executados e das condições de garantia informadas.
 3. A loja não se responsabiliza por dados, aplicativos ou contas após a entrega.
+4. Reafirmo ciência de que consultas cadastrais/IMEI eventualmente realizadas no atendimento ocorreram com minha autorização para fins do serviço e segurança da operação (LGPD).
 
 Data: [DATA_ENTRADA]`;
 
