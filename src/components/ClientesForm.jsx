@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, Save, MapPin, Trash2, Settings,
+  ArrowLeft, Save, Trash2,
   CheckCircle, User, Calendar
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
@@ -70,8 +70,10 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
   });
 
   const [buscandoCpf, setBuscandoCpf] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [dadosConsulta, setDadosConsulta] = useState(null);
   const [situacaoLoja, setSituacaoLoja] = useState(null);
+  const isPessoaFisica = tipoPessoa === 'Pessoa Física';
 
   const mostrarAviso = async (titulo, mensagem, tipo = 'info', acaoOk = null) => {
     await alert(mensagem, { title: titulo, type: DIALOG_TYPE[tipo] ?? tipo });
@@ -106,11 +108,45 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
     carregarPessoa();
   }, [pessoaId, lojaAtivaId, aoVoltar]);
 
+  const preencherEnderecoPorCep = async (cepValue) => {
+    const cepLimpo = String(cepValue || '').replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return;
+
+    setBuscandoCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+      if (data.erro) {
+        await mostrarAviso('CEP', 'CEP não encontrado na base dos Correios.', 'warning');
+        return;
+      }
+      setFormData((prev) => ({
+        ...prev,
+        cep: cepLimpo.length === 8 ? `${cepLimpo.slice(0, 5)}-${cepLimpo.slice(5)}` : prev.cep,
+        rua: data.logradouro || prev.rua,
+        bairro: data.bairro || prev.bairro,
+        cidade: data.localidade || prev.cidade,
+        estado: data.uf || prev.estado,
+      }));
+    } catch {
+      await mostrarAviso('CEP', 'Não foi possível consultar o ViaCEP agora.', 'erro');
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    if (e.target.name === 'cpf') {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === 'cpf') {
       setDadosConsulta(null);
       setSituacaoLoja(null);
+    }
+    if (name === 'cep') {
+      const digits = value.replace(/\D/g, '');
+      if (digits.length === 8) {
+        preencherEnderecoPorCep(digits);
+      }
     }
   };
 
@@ -172,34 +208,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
     );
   };
 
-  const buscarCep = async () => {
-    const cepLimpo = formData.cep.replace(/\D/g, ''); 
-    if (cepLimpo.length !== 8) {
-      return mostrarAviso('Atenção', 'Digite um CEP válido com 8 números (Ex: 01001000).', 'erro');
-    }
-
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-      const data = await response.json();
-      
-      if (data.erro) {
-        return mostrarAviso('Erro', 'CEP não encontrado na base de dados dos Correios.', 'erro');
-      }
-
-      setFormData(prev => ({
-        ...prev,
-        rua: data.logradouro,
-        bairro: data.bairro,
-        cidade: data.localidade,
-        estado: data.uf
-      }));
-      
-      mostrarAviso('Sucesso', 'Endereço encontrado e preenchido automaticamente!', 'sucesso');
-    } catch (error) {
-      mostrarAviso('Erro', 'Erro ao conectar com o serviço ViaCEP.', 'erro');
-    }
-  };
-
   const consultarCpfCnpj = async () => {
     const documentoLimpo = formData.cpf.replace(/\D/g, '');
 
@@ -234,7 +242,8 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
 
     const custo = custoConsultaCpfCnpj();
     const confirmar = await confirm(
-      `Esta consulta usa ${custo} crédito${custo === 1 ? '' : 's'}. Continuar?`,
+      `Esta consulta consome ${custo} crédito${custo === 1 ? '' : 's'} e consulta bases públicas (Receita Federal).\n\n` +
+        'Ao continuar, declaro que a loja possui base legal / autorização do titular para esta consulta (LGPD).',
       { title: 'Confirmar consulta', confirmLabel: 'Consultar' }
     );
     if (!confirmar) return;
@@ -400,6 +409,24 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
                   CPF exige data de nascimento · consome 1 crédito · plano Profissional
                 </span>
               </div>
+
+              {isPessoaFisica && (
+                <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
+                  <label style={styles.label}>
+                    <span style={styles.required}>*</span> Data de nascimento:
+                  </label>
+                  <input
+                    style={styles.input}
+                    type="date"
+                    name="dataNascimento"
+                    value={formData.dataNascimento}
+                    onChange={handleChange}
+                  />
+                  <span style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
+                    Obrigatória para consulta de CPF na Receita Federal
+                  </span>
+                </div>
+              )}
               
               <div style={{...styles.inputGroup, gridColumn: 'span 3'}}>
                 <label style={styles.label}><span style={styles.required}>*</span> Nome:</label>
@@ -433,10 +460,12 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
                 <input style={styles.input} name="inscMunicipal" value={formData.inscMunicipal} onChange={handleChange} />
               </div>
 
-              <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
-                <label style={styles.label}>Data de nascimento:</label>
-                <input style={styles.input} type="date" name="dataNascimento" value={formData.dataNascimento} onChange={handleChange} />
-              </div>
+              {!isPessoaFisica && (
+                <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
+                  <label style={styles.label}>Data de abertura:</label>
+                  <input style={styles.input} type="date" name="dataNascimento" value={formData.dataNascimento} onChange={handleChange} />
+                </div>
+              )}
               <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
                 <label style={styles.label}>Gênero:</label>
                 <select style={styles.input} name="genero" value={formData.genero} onChange={handleChange}>
@@ -478,7 +507,17 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
             <div style={styles.gridContainer}>
               <div style={{...styles.inputGroup, gridColumn: 'span 2'}}>
                 <label style={styles.label}>CEP:</label>
-                <input style={styles.input} name="cep" value={formData.cep} onChange={handleChange} placeholder="Ex: 01001000" />
+                <input
+                  style={styles.input}
+                  name="cep"
+                  value={formData.cep}
+                  onChange={handleChange}
+                  placeholder="Ex: 01001-000"
+                  inputMode="numeric"
+                />
+                <span style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
+                  {buscandoCep ? 'Buscando endereço...' : 'Preenche rua, bairro, cidade e UF automaticamente'}
+                </span>
               </div>
               <div style={{...styles.inputGroup, gridColumn: 'span 4'}}>
                 <label style={styles.label}>Rua / Logradouro:</label>
@@ -642,16 +681,8 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
           <button style={styles.btnDangerOutline} onClick={limparFormulario}>
             <Trash2 size={16} /> Limpar formulário
           </button>
-          <button style={styles.btnOutlineYellow} onClick={buscarCep}>
-            <MapPin size={16} /> Buscar endereço
-          </button>
           <button style={styles.btnBackBottom} onClick={aoVoltar}>
             <ArrowLeft size={16} /> Voltar
-          </button>
-        </div>
-        <div>
-          <button style={styles.btnConfig} onClick={() => mostrarAviso('Configurações', 'Módulo de customização de campos em desenvolvimento.', 'info')}>
-            <Settings size={16} /> Configurar campos
           </button>
         </div>
       </div>

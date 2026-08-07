@@ -185,7 +185,8 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
 
     const custo = custoConsultaImei();
     const ok = await confirm(
-      `Consulta Anatel (Celular Legal) usa ${custo} crédito${custo === 1 ? '' : 's'}. Continuar?`,
+      `Consulta Anatel (Celular Legal) usa ${custo} crédito${custo === 1 ? '' : 's'}.\n\n` +
+        'Ao continuar, declaro que a loja possui base legal / autorização para esta verificação (LGPD / due diligence).',
       { title: 'Confirmar consulta IMEI', confirmLabel: 'Consultar' }
     );
     if (!ok) return;
