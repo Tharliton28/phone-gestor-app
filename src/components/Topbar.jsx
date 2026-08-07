@@ -158,7 +158,7 @@ export default function Topbar({ onMenuToggle, isMobile, onAbrirCreditos, onAbri
                 return;
               }
               alert(
-                `Plano atual: ${planoDef.label}. Abra Configurações → Plano para ver limites ou alterar (manual até o gateway).`,
+                `Plano atual: ${planoDef.label}. Abra Configurações → Plano para ver limites ou alterar a assinatura.`,
                 { type: 'info', title: 'Plano da loja' }
               );
             }}
