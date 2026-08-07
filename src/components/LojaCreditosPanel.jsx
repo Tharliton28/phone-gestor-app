@@ -10,7 +10,6 @@ import {
 } from '../domain/lojaCreditos';
 import {
   criarCheckoutCreditosAsaas,
-  criarPixTesteAsaas,
   getSaldoCreditos,
   listCustosCreditos,
   listLancamentosCreditos,
@@ -34,7 +33,6 @@ export default function LojaCreditosPanel() {
   const pollRef = useRef(null);
 
   const podeComprar = ['owner', 'admin'].includes(papelAtivo);
-  const podeSmokePix = papelAtivo === 'owner';
 
   const carregar = useCallback(async () => {
     if (!lojaAtivaId) return;
@@ -153,74 +151,6 @@ export default function LojaCreditosPanel() {
     }, POLL_MS);
   };
 
-  const gerarPixTeste = async () => {
-    if (!podeSmokePix || !lojaAtivaId || faseCheckout) return;
-
-    const ok = await confirm(
-      'Gera cobrança PIX de R$ 5,00 nesta loja (mínimo Asaas).\n\nApós o pagamento, o webhook deve creditar +1 crédito automaticamente.\nUse só para validar Asaas produção (preferir loja de teste, não a loja modelo).',
-      {
-        title: 'Pix teste R$ 5',
-        confirmLabel: 'Gerar Pix R$ 5',
-        confirmVariant: 'primary',
-      }
-    );
-    if (!ok) return;
-
-    try {
-      sessionStorage.setItem('phonegestor_assinatura_aba', 'creditos');
-    } catch {
-      /* ignore */
-    }
-
-    const pacoteSmoke = { id: 'smoke_pix', label: 'Pix teste', creditos: 1, precoHint: 'R$ 5,00' };
-    setPacoteCheckout(pacoteSmoke);
-    setFaseCheckout('preparando');
-    baselineSaldoRef.current = saldo;
-
-    const { data, error } = await criarPixTesteAsaas(lojaAtivaId);
-    if (error) {
-      setFaseCheckout(null);
-      setPacoteCheckout(null);
-      await alert(error.message ?? 'Não foi possível criar o Pix de teste.', {
-        type: 'error',
-        title: 'Pix teste',
-      });
-      return;
-    }
-
-    if (data.invoice_url) {
-      window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
-    }
-    setFaseCheckout('aguardando');
-
-    const desde = Date.now();
-    pararPoll();
-    pollRef.current = window.setInterval(async () => {
-      if (Date.now() - desde > TIMEOUT_MS) {
-        desistirCheckout();
-        await alert(
-          'Ainda não confirmamos o crédito. Se você já pagou, clique em Atualizar.',
-          { type: 'warning', title: 'Aguardando confirmação' }
-        );
-        return;
-      }
-      const { saldo: novo, error: errSaldo } = await getSaldoCreditos(lojaAtivaId);
-      if (errSaldo) return;
-      if (Number(novo) > Number(baselineSaldoRef.current ?? 0)) {
-        pararPoll();
-        setFaseCheckout(null);
-        setPacoteCheckout(null);
-        setSaldo(novo);
-        emitirCreditosAtualizados(novo);
-        await carregar();
-        await alert(
-          'Pix confirmado.\n\n+1 crédito creditado — webhook Asaas OK.',
-          { type: 'success', title: 'Smoke test OK' }
-        );
-      }
-    }, POLL_MS);
-  };
-
   if (carregando) {
     return <p style={styles.muted}>Carregando carteira de créditos...</p>;
   }
@@ -305,17 +235,6 @@ export default function LojaCreditosPanel() {
         })}
       </div>
 
-      {podeSmokePix ? (
-        <button
-          type="button"
-          style={styles.btnSmoke}
-          disabled={Boolean(faseCheckout)}
-          onClick={gerarPixTeste}
-        >
-          Gerar Pix teste R$ 5,00 (+1 crédito)
-        </button>
-      ) : null}
-
       <h3 style={styles.titulo}>Extrato recente</h3>
       {lancamentos.length === 0 ? (
         <p style={styles.muted}>Nenhum lançamento ainda.</p>
@@ -367,16 +286,6 @@ const styles = {
   pacoteWaiting: {
     borderColor: '#fbbf24',
     boxShadow: '0 0 0 1px rgba(251,191,36,0.35)',
-  },
-  btnSmoke: {
-    alignSelf: 'flex-start',
-    padding: '8px 12px',
-    borderRadius: 6,
-    border: '1px dashed #64748b',
-    background: 'transparent',
-    color: '#94a3b8',
-    fontSize: 12,
-    cursor: 'pointer',
   },
   preco: { color: '#94a3b8', fontSize: '12px' },
   pacoteAcao: {
