@@ -143,6 +143,31 @@ export async function getPessoaById(lojaId, pessoaId) {
     .maybeSingle();
 }
 
+export async function getPessoaByCpfCnpj(lojaId, cpfCnpj) {
+  const digits = onlyDigits(cpfCnpj);
+  if (!digits) return { data: null, error: null };
+
+  return supabase
+    .from('pessoas')
+    .select('*')
+    .eq('loja_id', lojaId)
+    .eq('cpf_cnpj', digits)
+    .maybeSingle();
+}
+
+export function mensagemErroPessoa(error) {
+  const msg = String(error?.message || '');
+  const code = error?.code;
+  if (
+    code === '23505'
+    || msg.includes('pessoas_loja_cpf_cnpj_uidx')
+    || /duplicate key.*cpf_cnpj/i.test(msg)
+  ) {
+    return 'Já existe um cadastro com este CPF/CNPJ nesta loja. Abra o cadastro existente para continuar.';
+  }
+  return msg || 'Não foi possível salvar o cadastro.';
+}
+
 async function getNextPessoaCodigo(lojaId) {
   const { data, error } = await supabase.rpc('next_pessoa_codigo', {
     p_loja_id: lojaId,

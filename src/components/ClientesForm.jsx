@@ -7,10 +7,12 @@ import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
 import {
   createPessoa,
+  getPessoaByCpfCnpj,
   getPessoaById,
   mapFormToPessoa,
   mapPessoaMeta,
   mapPessoaToForm,
+  mensagemErroPessoa,
   updatePessoa,
 } from '../services/pessoaService';
 import { onlyDigits, validateCpfCnpj } from '../utils/formatters';
@@ -231,12 +233,36 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
 
     if (pessoaId) {
       const { error } = await updatePessoa(lojaAtivaId, pessoaId, payload);
-      if (error) throw new Error(error.message ?? 'Não foi possível salvar o cadastro.');
+      if (error) throw new Error(mensagemErroPessoa(error));
       return pessoaId;
     }
 
+    // CPF/CNPJ já cadastrado: reutiliza o registro (evita erro de unique no link WhatsApp).
+    if (payload.cpf_cnpj) {
+      const { data: existente, error: buscaError } = await getPessoaByCpfCnpj(
+        lojaAtivaId,
+        payload.cpf_cnpj
+      );
+      if (buscaError) throw new Error(mensagemErroPessoa(buscaError));
+      if (existente?.id) {
+        const { error } = await updatePessoa(lojaAtivaId, existente.id, payload);
+        if (error) throw new Error(mensagemErroPessoa(error));
+        return existente.id;
+      }
+    }
+
     const { data, error } = await createPessoa(lojaAtivaId, payload);
-    if (error) throw new Error(error.message ?? 'Não foi possível salvar o cadastro.');
+    if (error) {
+      // Corrida: outro cadastro no mesmo CPF entre o select e o insert.
+      if (
+        error.code === '23505'
+        || String(error.message || '').includes('pessoas_loja_cpf_cnpj_uidx')
+      ) {
+        const { data: existente } = await getPessoaByCpfCnpj(lojaAtivaId, payload.cpf_cnpj);
+        if (existente?.id) return existente.id;
+      }
+      throw new Error(mensagemErroPessoa(error));
+    }
     return data.id;
   };
 
@@ -336,7 +362,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
     if (error) {
       return mostrarAviso(
         'Erro',
-        error.message ?? 'Não foi possível salvar o cadastro.',
+        mensagemErroPessoa(error),
         'erro'
       );
     }
