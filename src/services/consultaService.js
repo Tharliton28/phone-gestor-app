@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { onlyDigits } from '../utils/formatters';
+import { emitirCreditosAtualizados } from '../utils/creditosEvents';
 
 export const CUSTO_CONSULTA_CPF_CNPJ = 1;
 export const CUSTO_CONSULTA_IMEI = 2;
@@ -35,6 +36,13 @@ async function invokeConsultar(body) {
   }
 
   if (data?.ok) {
+    if (typeof data.saldo === 'number') {
+      emitirCreditosAtualizados(data.saldo);
+    } else {
+      // Sem saldo na resposta: topbar recarrega do banco
+      window.dispatchEvent(new CustomEvent('phonegestor:creditos-atualizados', { detail: {} }));
+    }
+
     return {
       ok: true,
       dados: data.dados ?? null,
