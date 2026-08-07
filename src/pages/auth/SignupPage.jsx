@@ -67,7 +67,7 @@ export default function SignupPage() {
           <div className="login-header">
             <div className="login-brand">
               <div className="login-brand-icon">P</div>
-              <span className="login-brand-text">PhoneGestor</span>
+              <span className="login-brand-text">Phone Gestor</span>
             </div>
             <h2>Crie sua conta</h2>
             <p>Depois cadastramos os dados da sua loja e você entra no sistema.</p>

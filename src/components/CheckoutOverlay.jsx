@@ -53,7 +53,7 @@ export default function CheckoutOverlay({ fase, planoId, onDesistir }) {
 
         {fase === 'aguardando' ? (
           <p style={styles.hint}>
-            Isso só fecha o aviso no PhoneGestor. Se já abriu a fatura no Asaas, você pode
+            Isso só fecha o aviso no Phone Gestor. Se já abriu a fatura no Asaas, você pode
             ignorá-la ou pagar depois.
           </p>
         ) : null}

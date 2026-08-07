@@ -85,7 +85,7 @@ export default function LojaPlanoPanel() {
     const def = PLANOS[planoId];
     if (!def.checkoutDisponivel) {
       const texto = encodeURIComponent(
-        `Olá! Quero o plano Rede do PhoneGestor para a minha loja.`
+        `Olá! Quero o plano Rede do Phone Gestor para a minha loja.`
       );
       window.open(`https://wa.me/${WHATSAPP_REDE}?text=${texto}`, '_blank', 'noopener,noreferrer');
       return;

@@ -1,7 +1,7 @@
 {
-  "name": "Phone Gestor ERP",
-  "short_name": "PhoneGestor",
-  "description": "PDV, estoque por IMEI e ordens de serviço para lojas de celular.",
+  "name": "Phone Gestor",
+  "short_name": "Phone Gestor",
+  "description": "ERP em nuvem com PDV, estoque por IMEI e ordens de serviço para lojas de celular.",
   "start_url": "/login",
   "scope": "/",
   "display": "standalone",

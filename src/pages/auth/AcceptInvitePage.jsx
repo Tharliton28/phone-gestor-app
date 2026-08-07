@@ -185,7 +185,7 @@ export default function AcceptInvitePage() {
           <div className="login-header">
             <div className="login-brand">
               <div className="login-brand-icon">P</div>
-              <span className="login-brand-text">PhoneGestor</span>
+              <span className="login-brand-text">Phone Gestor</span>
             </div>
             <h2>Convite para a equipe</h2>
             <p>

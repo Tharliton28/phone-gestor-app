@@ -213,7 +213,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
           {sidebarAberta && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={styles.logoIcon}>P</div>
-              <h2 style={styles.logoText}>PhoneGestor</h2>
+              <h2 style={styles.logoText}>Phone Gestor</h2>
             </div>
           )}
           <button style={styles.btnMenuToggle} onClick={() => setSidebarAberta(!sidebarAberta)}>

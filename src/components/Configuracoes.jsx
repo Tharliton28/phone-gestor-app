@@ -1244,7 +1244,7 @@ const Configuracoes = () => {
 
               <h3 style={{...styles.sectionTitle, marginTop: '30px'}}>Certificado Digital</h3>
               <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '10px' }}>
-                Com Focus NFe, o certificado costuma ficar na conta Focus. Upload A1 no PhoneGestor
+                Com Focus NFe, o certificado costuma ficar na conta Focus. Upload A1 no Phone Gestor
                 entra em uma próxima etapa se for necessário para o seu modelo.
               </p>
               <div style={{...styles.logoUploadArea, marginTop: '10px', opacity: 0.85}}>
