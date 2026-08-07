@@ -125,7 +125,8 @@ export default function LojaPlanoPanel() {
 
     // Garante retorno na aba Plano após o checkout / remount
     try {
-      sessionStorage.setItem('phonegestor_config_aba', 'plano');
+      sessionStorage.setItem('phonegestor_assinatura_aba', 'plano');
+      sessionStorage.setItem('phonegestor_config_aba', 'empresa');
     } catch {
       /* ignore */
     }

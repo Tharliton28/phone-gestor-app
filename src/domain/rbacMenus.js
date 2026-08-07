@@ -13,6 +13,7 @@ const MENU_PAPEIS = {
   financeiro: ['owner', 'admin', 'gerente', 'financeiro', 'visualizador'],
   fiscal: ['owner', 'admin', 'gerente', 'visualizador'],
   relatorios: ['owner', 'admin', 'gerente', 'financeiro', 'visualizador'],
+  assinatura: ['owner', 'admin', 'gerente'],
   config: ['owner', 'admin', 'gerente'],
 };
 

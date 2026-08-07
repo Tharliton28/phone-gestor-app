@@ -8,19 +8,41 @@ function json(status: number, body: Record<string, unknown>) {
   });
 }
 
+function parseCreditosReference(ref: unknown): {
+  lojaId: string | null;
+  pacoteId: string | null;
+  quantidade: number | null;
+} {
+  const raw = String(ref ?? "").trim();
+  if (!raw.startsWith("creditos:")) {
+    return { lojaId: null, pacoteId: null, quantidade: null };
+  }
+  const parts = raw.split(":");
+  // creditos:lojaId:pacote_id:quantidade
+  const lojaId = parts[1] || null;
+  const pacoteId = parts[2] || null;
+  const quantidade = Number(parts[3]);
+  return {
+    lojaId,
+    pacoteId,
+    quantidade: Number.isFinite(quantidade) && quantidade > 0 ? quantidade : null,
+  };
+}
+
 function parseExternalReference(ref: unknown): {
   lojaId: string | null;
   plano: string | null;
   ciclo: string | null;
 } {
   const raw = String(ref ?? "").trim();
-  if (!raw) return { lojaId: null, plano: null, ciclo: null };
+  if (!raw || raw.startsWith("creditos:")) {
+    return { lojaId: null, plano: null, ciclo: null };
+  }
   if (raw.includes(":")) {
     const [lojaId, plano, ciclo] = raw.split(":");
     const cicloOk = ciclo === "anual" || ciclo === "mensal" ? ciclo : null;
     return { lojaId: lojaId || null, plano: plano || null, ciclo: cicloOk };
   }
-  // legado: só loja_id
   return { lojaId: raw, plano: null, ciclo: null };
 }
 
@@ -63,14 +85,33 @@ Deno.serve(async (req) => {
     const event = String(payload.event ?? "");
     const eventId = String(payload.id ?? `${event}-${payload.payment?.id ?? Date.now()}`);
     const payment = payload.payment ?? {};
+    const admin = createClient(supabaseUrl, serviceKey);
 
+    // --- Pacotes de créditos (cobrança avulsa) ---
+    const creditosRef = parseCreditosReference(payment.externalReference);
+    if (creditosRef.lojaId) {
+      const { data, error } = await admin.rpc("aplicar_pagamento_creditos_asaas", {
+        p_event_id: eventId,
+        p_event_type: event,
+        p_loja_id: creditosRef.lojaId,
+        p_payment_id: payment.id ?? null,
+        p_quantidade: creditosRef.quantidade,
+        p_pacote_id: creditosRef.pacoteId,
+        p_payload: payload,
+      });
+      if (error) {
+        console.error("aplicar_pagamento_creditos_asaas", error);
+        return json(500, { error: error.message });
+      }
+      return json(200, { ok: true, kind: "creditos", result: data });
+    }
+
+    // --- Assinatura (plano) ---
     const fromPayment = parseExternalReference(payment.externalReference);
     let lojaId = fromPayment.lojaId;
     let plano = fromPayment.plano;
     let ciclo = fromPayment.ciclo;
 
-    // Fallback: busca loja pela subscription
-    const admin = createClient(supabaseUrl, serviceKey);
     const subscriptionId =
       payment.subscription ||
       payload.subscription?.id ||
@@ -115,7 +156,6 @@ Deno.serve(async (req) => {
     if (!ciclo) ciclo = "mensal";
     if (ciclo !== "anual" && ciclo !== "mensal") ciclo = "mensal";
 
-    // Vigência: 1 ciclo a partir do pagamento (com folga)
     let expiraEm: string | null = null;
     if (event === "PAYMENT_CONFIRMED" || event === "PAYMENT_RECEIVED") {
       const base = payment.clientPaymentDate || payment.paymentDate || payment.confirmedDate;
@@ -143,7 +183,7 @@ Deno.serve(async (req) => {
       return json(500, { error: error.message });
     }
 
-    return json(200, { ok: true, result: data });
+    return json(200, { ok: true, kind: "assinatura", result: data });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro inesperado.";
     console.error("asaas-webhook", message);

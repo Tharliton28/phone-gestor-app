@@ -7,10 +7,35 @@ export const CUSTO_CREDITOS = {
 };
 
 export const PACOTES_CREDITOS = [
-  { id: 'pacote_50', creditos: 50, label: 'Pacote 50', precoHint: 'R$ 29,90' },
-  { id: 'pacote_150', creditos: 150, label: 'Pacote 150', precoHint: 'R$ 79,90' },
-  { id: 'pacote_500', creditos: 500, label: 'Pacote 500', precoHint: 'R$ 229,90' },
+  {
+    id: 'pacote_50',
+    creditos: 50,
+    label: 'Pacote 50',
+    preco: 29.9,
+    precoHint: 'R$ 29,90',
+    checkoutDisponivel: true,
+  },
+  {
+    id: 'pacote_150',
+    creditos: 150,
+    label: 'Pacote 150',
+    preco: 79.9,
+    precoHint: 'R$ 79,90',
+    checkoutDisponivel: true,
+  },
+  {
+    id: 'pacote_500',
+    creditos: 500,
+    label: 'Pacote 500',
+    preco: 229.9,
+    precoHint: 'R$ 229,90',
+    checkoutDisponivel: true,
+  },
 ];
+
+export function getPacoteCreditos(pacoteId) {
+  return PACOTES_CREDITOS.find((p) => p.id === pacoteId) || null;
+}
 
 export function custoAcao(acao) {
   return CUSTO_CREDITOS[acao] ?? null;

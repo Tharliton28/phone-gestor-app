@@ -100,8 +100,8 @@ export default function AppLayout() {
         <Topbar
           onMenuToggle={toggleSidebar}
           isMobile={isMobile}
-          onAbrirCreditos={() => mudarTela('config', telaAtiva, { aba: 'creditos' })}
-          onAbrirPlano={() => mudarTela('config', telaAtiva, { aba: 'plano' })}
+          onAbrirCreditos={() => mudarTela('assinatura', telaAtiva, { aba: 'creditos' })}
+          onAbrirPlano={() => mudarTela('assinatura', telaAtiva, { aba: 'plano' })}
         />
 
         <div className="app-layout__content">

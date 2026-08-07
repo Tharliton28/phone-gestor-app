@@ -24,6 +24,7 @@ import PainelFiscal from '../../components/PainelFiscal';
 import ReciboGarantia from '../../components/ReciboGarantia';
 import Configuracoes from '../../components/Configuracoes';
 import Relatorios from '../../components/Relatorios';
+import AssinaturaPage from '../assinatura/AssinaturaPage';
 import { useErpNavigation } from '../../hooks/useErpNavigation';
 
 /**
@@ -532,6 +533,9 @@ export default function ErpContent() {
           <PainelFiscal />
         </>
       );
+
+    case 'assinatura':
+      return <AssinaturaPage />;
 
     case 'config':
       return <Configuracoes />;

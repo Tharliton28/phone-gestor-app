@@ -5,10 +5,19 @@ import { PLANOS, precoHintCiclo } from '../domain/lojaPlanos';
  * Overlay de feedback durante geração do checkout e aguardo do pagamento.
  * Sempre permite desistir — a pessoa não pode ficar presa na tela.
  */
-export default function CheckoutOverlay({ fase, planoId, ciclo = 'mensal', onDesistir }) {
+export default function CheckoutOverlay({
+  fase,
+  planoId,
+  ciclo = 'mensal',
+  rotulo = null,
+  onDesistir,
+}) {
   if (!fase) return null;
 
   const plano = planoId ? PLANOS[planoId] : null;
+  const meta =
+    rotulo ||
+    (plano ? `${plano.label} · ${precoHintCiclo(planoId, ciclo)}` : null);
   const titulo =
     fase === 'preparando'
       ? 'Preparando pagamento seguro...'
@@ -16,7 +25,7 @@ export default function CheckoutOverlay({ fase, planoId, ciclo = 'mensal', onDes
   const texto =
     fase === 'preparando'
       ? 'Estamos gerando sua fatura. Em instantes você será direcionado ao checkout.'
-      : `Conclua o pagamento do plano ${plano?.label || ''} na aba do Asaas. Assim que confirmar, liberamos os recursos automaticamente e avisamos aqui.`;
+      : `Conclua o pagamento na aba do Asaas. Assim que confirmar, liberamos automaticamente e avisamos aqui.`;
 
   const podeDesistir = typeof onDesistir === 'function';
 
@@ -39,10 +48,8 @@ export default function CheckoutOverlay({ fase, planoId, ciclo = 'mensal', onDes
         <Loader2 size={28} color="#38bdf8" style={{ animation: 'pg-spin 1s linear infinite' }} />
         <h3 style={styles.title}>{titulo}</h3>
         <p style={styles.text}>{texto}</p>
-        {fase === 'aguardando' && plano ? (
-          <p style={styles.meta}>
-            {plano.label} · {precoHintCiclo(planoId, ciclo)}
-          </p>
+        {fase === 'aguardando' && meta ? (
+          <p style={styles.meta}>{meta}</p>
         ) : null}
 
         {podeDesistir ? (

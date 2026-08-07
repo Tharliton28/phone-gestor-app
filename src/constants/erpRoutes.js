@@ -27,6 +27,7 @@ export const TELA_ROUTES = {
   'contas-pagar': '/app/financeiro/pagar',
   'novo-lancamento': '/app/financeiro/novo',
   'painel-fiscal': '/app/fiscal',
+  assinatura: '/app/assinatura',
   config: '/app/config',
 };
 

@@ -1,6 +1,21 @@
 import { supabase } from '../lib/supabaseClient';
-import { CUSTO_CREDITOS } from '../domain/lojaCreditos';
+import { CUSTO_CREDITOS, getPacoteCreditos } from '../domain/lojaCreditos';
 import { emitirCreditosAtualizados } from '../utils/creditosEvents';
+
+async function mensagemErroFunction(error, data) {
+  if (data?.error) return String(data.error);
+  try {
+    const ctx = error?.context;
+    if (ctx && typeof ctx.json === 'function') {
+      const body = await ctx.json();
+      if (body?.error) return String(body.error);
+      if (body?.message) return String(body.message);
+    }
+  } catch {
+    /* ignore */
+  }
+  return error?.message || 'Falha ao iniciar checkout de créditos.';
+}
 
 export async function getSaldoCreditos(lojaId) {
   if (!lojaId) return { saldo: 0, error: new Error('Loja não informada.') };
@@ -100,4 +115,33 @@ export async function creditarCreditos({
     creditado: data?.creditado ?? quantidade,
     error: null,
   };
+}
+
+/** Cria cobrança avulsa no Asaas e devolve link da fatura. */
+export async function criarCheckoutCreditosAsaas(lojaId, pacoteId) {
+  if (!lojaId) {
+    return { data: null, error: new Error('Loja não informada.') };
+  }
+  if (!getPacoteCreditos(pacoteId)) {
+    return { data: null, error: new Error('Pacote inválido.') };
+  }
+
+  const { data, error } = await supabase.functions.invoke('criar-checkout-creditos-asaas', {
+    body: { loja_id: lojaId, pacote_id: pacoteId },
+  });
+
+  if (error) {
+    return { data: null, error: new Error(await mensagemErroFunction(error, data)) };
+  }
+  if (data?.error) {
+    return { data: null, error: new Error(data.error) };
+  }
+  if (!data?.invoice_url) {
+    return {
+      data: null,
+      error: new Error('Checkout criado, mas o link de pagamento não veio do Asaas.'),
+    };
+  }
+
+  return { data, error: null };
 }

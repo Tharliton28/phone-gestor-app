@@ -3,14 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Building, ShoppingCart, Package, DollarSign, FileText, 
   BarChart2, Save, UploadCloud, ToggleRight, ToggleLeft,
-  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff, RotateCcw, Coins, Zap, Users
+  Plus, X, Edit, Trash2, CreditCard, Printer, Eye, EyeOff, RotateCcw, Users
 } from 'lucide-react';
 import { useDialog } from '../contexts/DialogContext';
 import { useLoja } from '../contexts/LojaContext';
 import { useErpNavigation } from '../hooks/useErpNavigation';
-import LojaCreditosPanel from './LojaCreditosPanel';
 import LojaEquipePanel from './LojaEquipePanel';
-import LojaPlanoPanel from './LojaPlanoPanel';
 import { uploadLogoLoja } from '../services/lojaLogoService';
 import {
   mapLojaToEmpresaForm,
@@ -55,19 +53,23 @@ import {
 const Configuracoes = () => {
   const { alert, confirm } = useDialog();
   const { lojaAtivaId, lojaAtiva, recarregar, temPermissao } = useLoja();
-  const { dadosNavegacao } = useErpNavigation();
+  const { dadosNavegacao, mudarTela } = useErpNavigation();
   const navigate = useNavigate();
   const location = useLocation();
   const CONFIG_ABA_KEY = 'phonegestor_config_aba';
   const abaInicial = () => {
     try {
-      return (
+      const raw =
         dadosNavegacao?.aba ||
         sessionStorage.getItem(CONFIG_ABA_KEY) ||
-        'empresa'
-      );
+        'empresa';
+      // Plano/créditos migraram para Assinatura
+      if (raw === 'plano' || raw === 'creditos') return 'empresa';
+      return raw;
     } catch {
-      return dadosNavegacao?.aba ?? 'empresa';
+      const raw = dadosNavegacao?.aba ?? 'empresa';
+      if (raw === 'plano' || raw === 'creditos') return 'empresa';
+      return raw;
     }
   };
   const [abaAtiva, setAbaAtivaState] = useState(abaInicial);
@@ -153,14 +155,19 @@ const Configuracoes = () => {
   const [salvandoToken, setSalvandoToken] = useState(false);
 
   useEffect(() => {
-    if (!dadosNavegacao?.aba) return;
-    setAbaAtivaState(dadosNavegacao.aba);
+    const aba = dadosNavegacao?.aba;
+    if (!aba) return;
+    if (aba === 'plano' || aba === 'creditos') {
+      mudarTela('assinatura', 'config', { aba });
+      return;
+    }
+    setAbaAtivaState(aba);
     try {
-      sessionStorage.setItem(CONFIG_ABA_KEY, dadosNavegacao.aba);
+      sessionStorage.setItem(CONFIG_ABA_KEY, aba);
     } catch {
       /* ignore */
     }
-  }, [dadosNavegacao?.aba]);
+  }, [dadosNavegacao?.aba, mudarTela]);
 
   useEffect(() => {
     setEmpresaForm(mapLojaToEmpresaForm(lojaAtiva));
@@ -519,14 +526,8 @@ const Configuracoes = () => {
           <button style={abaAtiva === 'financeiro' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('financeiro')}>
             <DollarSign size={16} /> Financeiro e Taxas
           </button>
-          <button style={abaAtiva === 'plano' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('plano')}>
-            <Zap size={16} /> Plano
-          </button>
           <button style={abaAtiva === 'equipe' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('equipe')}>
             <Users size={16} /> Equipe
-          </button>
-          <button style={abaAtiva === 'creditos' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('creditos')}>
-            <Coins size={16} /> Créditos da loja
           </button>
           <button style={abaAtiva === 'documentos' ? styles.menuItemActive : styles.menuItem} onClick={() => setAbaAtiva('documentos')}>
             <Printer size={16} /> Documentos e Impressão
@@ -1163,24 +1164,10 @@ const Configuracoes = () => {
             </div>
           )}
 
-          {abaAtiva === 'plano' && (
-            <div style={styles.formSection}>
-              <h3 style={styles.sectionTitle}>Plano da loja</h3>
-              <LojaPlanoPanel />
-            </div>
-          )}
-
           {abaAtiva === 'equipe' && (
             <div style={styles.formSection}>
               <h3 style={styles.sectionTitle}>Equipe e convites</h3>
               <LojaEquipePanel />
-            </div>
-          )}
-
-          {abaAtiva === 'creditos' && (
-            <div style={styles.formSection}>
-              <h3 style={styles.sectionTitle}>Créditos da loja</h3>
-              <LojaCreditosPanel />
             </div>
           )}
 

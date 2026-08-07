@@ -7,6 +7,7 @@ import {
   DollarSign,
   FileText,
   BarChart2,
+  CreditCard,
   Settings,
   ChevronDown,
   ChevronRight,
@@ -81,6 +82,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
         requiresNfce: true,
       },
       { name: 'Relatórios', icon: <BarChart2 size={20} />, key: 'relatorios' },
+      { name: 'Assinatura', icon: <CreditCard size={20} />, key: 'assinatura' },
       { name: 'Configurações', icon: <Settings size={20} />, key: 'config' },
     ];
     return all.filter((item) => papelPodeVerMenu(papelAtivo, item.key));
@@ -124,6 +126,7 @@ const Sidebar = ({ aoMudarTela, telaAtiva, sidebarAberta, setSidebarAberta, isMo
     )
       return true;
     if (item.key === 'fiscal' && ['painel-fiscal'].includes(telaAtiva)) return true;
+    if (item.key === 'assinatura' && telaAtiva === 'assinatura') return true;
     if (item.key === 'config' && telaAtiva === 'config') return true;
     if (item.key === 'relatorios' && telaAtiva === 'relatorios') return true;
     return false;
