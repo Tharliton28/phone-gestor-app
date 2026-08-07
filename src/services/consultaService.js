@@ -1,0 +1,78 @@
+import { supabase } from '../lib/supabaseClient';
+import { onlyDigits } from '../utils/formatters';
+
+export const CUSTO_CONSULTA_CPF_CNPJ = 1;
+export const CUSTO_CONSULTA_IMEI = 2;
+
+export function custoConsultaCpfCnpj() {
+  return CUSTO_CONSULTA_CPF_CNPJ;
+}
+
+export function custoConsultaImei() {
+  return CUSTO_CONSULTA_IMEI;
+}
+
+async function invokeConsultar(body) {
+  const { data, error } = await supabase.functions.invoke('consultar', { body });
+
+  if (error) {
+    let payload = null;
+    try {
+      payload = typeof error.context?.json === 'function'
+        ? await error.context.json()
+        : null;
+    } catch {
+      payload = null;
+    }
+
+    return {
+      ok: false,
+      code: payload?.code || 'invoke_error',
+      error: { message: payload?.error || error.message || 'Falha ao chamar consulta.' },
+      custo: payload?.custo ?? null,
+      saldo: payload?.saldo ?? null,
+    };
+  }
+
+  if (data?.ok) {
+    return {
+      ok: true,
+      dados: data.dados ?? null,
+      situacaoLoja: data.situacaoLoja ?? null,
+      custo: data.custo ?? null,
+      saldo: data.saldo ?? null,
+    };
+  }
+
+  return {
+    ok: false,
+    code: data?.code || 'provider_error',
+    error: { message: data?.error || 'Consulta não concluída.' },
+    custo: data?.custo ?? null,
+    saldo: data?.saldo ?? null,
+  };
+}
+
+/**
+ * @param {string} lojaId
+ * @param {string} documento
+ * @param {{ birthdate?: string }} [opts] data nascimento (obrigatória para CPF na Infosimples)
+ */
+export async function consultarCpfCnpj(lojaId, documento, opts = {}) {
+  const chave = onlyDigits(documento);
+  return invokeConsultar({
+    lojaId,
+    tipo: 'cpf_cnpj',
+    documento: chave,
+    birthdate: opts.birthdate || opts.dataNascimento || '',
+  });
+}
+
+export async function consultarImei(lojaId, imei) {
+  return invokeConsultar({
+    lojaId,
+    tipo: 'imei',
+    imei: onlyDigits(imei),
+    documento: onlyDigits(imei),
+  });
+}

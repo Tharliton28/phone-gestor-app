@@ -29,11 +29,12 @@ export const PLANOS = {
     checkoutDisponivel: true,
     maxUsuarios: 5,
     podeNfce: true,
-    podeConsultas: false,
+    podeConsultas: true,
     podeMultiLoja: false,
     destaques: [
       'Tudo do Essencial',
       'NFC-e no PDV (créditos + Focus)',
+      'Consultas CPF/CNPJ e IMEI (créditos)',
       'Painel fiscal',
       'Até 5 usuários',
     ],
@@ -115,7 +116,12 @@ export function mensagemUpgradeNfce(plano) {
 
 export function mensagemConsultaIndisponivel({ podeConsultas = false } = {}) {
   if (!podeConsultas) {
-    return 'Consulta CPF/CNPJ e IMEI entram no plano Rede, com API real. Ainda não está ligada — não debitamos créditos.';
+    return 'Consultas CPF/CNPJ e IMEI estão no plano Profissional (e Rede). Cada consulta consome créditos da carteira.';
   }
-  return 'A API de consulta ainda não está ligada. Quando estiver, consumirá créditos da carteira.';
+  return 'A API externa ainda não está configurada nos Secrets do Supabase. Créditos só são debitados após consulta bem-sucedida.';
+}
+
+export function mensagemUpgradeConsultas(plano) {
+  const atual = getPlanoDef(plano).label;
+  return `Consultas CPF/CNPJ e IMEI estão no plano Profissional. Sua loja está no ${atual}. Faça upgrade para usar (cobrança por crédito).`;
 }

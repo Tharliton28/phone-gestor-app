@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
-import { formatBRL, parseMoney } from '../utils/formatters';
+import { formatBRL, onlyDigits, parseMoney } from '../utils/formatters';
 import {
   formatMargemPercent,
   lucroEstimadoProduto,
@@ -13,7 +13,15 @@ import {
   sincronizarMargemComVenda,
   vendaApartirDaMargem,
 } from '../domain/produtoPrecos';
+import {
+  mensagemConsultaIndisponivel,
+  mensagemUpgradeConsultas,
+} from '../domain/lojaPlanos';
 import { listPessoasResumo } from '../services/pessoaService';
+import {
+  consultarImei,
+  custoConsultaImei,
+} from '../services/consultaService';
 import {
   createProduto,
   getProdutoById,
@@ -58,8 +66,8 @@ const EMPTY_FORM = {
 };
 
 const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
-  const { lojaAtivaId } = useLoja();
-  const { alert } = useDialog();
+  const { lojaAtivaId, podeConsultas, lojaAtiva } = useLoja();
+  const { alert, confirm } = useDialog();
   const isEdicao = Boolean(produtoId);
   const [carregando, setCarregando] = useState(isEdicao);
   const [salvando, setSalvando] = useState(false);
@@ -68,6 +76,8 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [codigo, setCodigo] = useState(null);
   const [pessoas, setPessoas] = useState([]);
+  const [consultandoImei, setConsultandoImei] = useState(false);
+  const [resultadoImei, setResultadoImei] = useState(null);
   /** Último campo que o usuário editou de propósito: 'margem' | 'venda' */
   const precoDriverRef = useRef('venda');
 
@@ -154,6 +164,57 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
     formData.custosExtras,
     formData.valorVenda
   );
+
+  const consultarImeiAnatel = async () => {
+    const imei = onlyDigits(formData.imei1);
+    if (imei.length !== 15) {
+      await alert('Informe um IMEI 1 com 15 dígitos para consultar na Anatel.', {
+        type: 'warning',
+        title: 'IMEI',
+      });
+      return;
+    }
+
+    if (!podeConsultas) {
+      await alert(mensagemUpgradeConsultas(lojaAtiva?.plano), {
+        type: 'warning',
+        title: 'Plano',
+      });
+      return;
+    }
+
+    const custo = custoConsultaImei();
+    const ok = await confirm(
+      `Consulta Anatel (Celular Legal) usa ${custo} crédito${custo === 1 ? '' : 's'}. Continuar?`,
+      { title: 'Confirmar consulta IMEI', confirmLabel: 'Consultar' }
+    );
+    if (!ok) return;
+
+    setConsultandoImei(true);
+    const result = await consultarImei(lojaAtivaId, imei);
+    setConsultandoImei(false);
+
+    if (!result.ok) {
+      if (result.code === 'provider_not_configured') {
+        await alert(mensagemConsultaIndisponivel({ podeConsultas }), {
+          type: 'warning',
+          title: 'Consulta indisponível',
+        });
+        return;
+      }
+      await alert(result.error?.message || 'Não foi possível consultar o IMEI.', {
+        type: 'error',
+        title: 'Erro',
+      });
+      return;
+    }
+
+    setResultadoImei(result.dados);
+    await alert(result.dados?.mensagem || 'Consulta IMEI concluída.', {
+      type: result.dados?.bloqueado ? 'warning' : 'success',
+      title: result.dados?.bloqueado ? 'Alerta Anatel' : 'IMEI OK',
+    });
+  };
 
   const salvarProduto = async () => {
     if (!formData.nome.trim() || !formData.marca.trim() || !formData.categoria.trim()) {
@@ -415,17 +476,54 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                   <>
                     <div style={styles.inputGroup}>
                       <label style={styles.label}>IMEI 1:</label>
-                      <div style={styles.inputWithIcon}>
+                      <div style={{ display: 'flex' }}>
                         <input
-                          style={styles.input}
+                          style={{ ...styles.input, borderRadius: '4px 0 0 4px', borderRight: 'none' }}
                           name="imei1"
                           value={formData.imei1}
-                          onChange={handleChange}
+                          onChange={(e) => {
+                            setResultadoImei(null);
+                            handleChange(e);
+                          }}
                           placeholder="Digite o IMEI principal"
                           maxLength={15}
                         />
-                        <Hash size={16} style={styles.innerIcon} />
+                        <button
+                          type="button"
+                          onClick={consultarImeiAnatel}
+                          disabled={consultandoImei}
+                          style={{
+                            backgroundColor: '#0f172a',
+                            border: '1px solid #2a2e3f',
+                            borderLeft: 'none',
+                            color: '#38bdf8',
+                            padding: '0 12px',
+                            borderRadius: '0 4px 4px 0',
+                            cursor: consultandoImei ? 'wait' : 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {consultandoImei ? '...' : 'Anatel'}
+                        </button>
                       </div>
+                      <span style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
+                        Consulta Celular Legal · 2 créditos · plano Profissional
+                      </span>
+                      {resultadoImei && (
+                        <span
+                          style={{
+                            marginTop: '6px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            color: resultadoImei.bloqueado ? '#f87171' : '#4ade80',
+                          }}
+                        >
+                          {resultadoImei.bloqueado ? 'ALERTA: ' : 'OK: '}
+                          {resultadoImei.mensagem}
+                        </span>
+                      )}
                     </div>
 
                     <div style={styles.inputGroup}>

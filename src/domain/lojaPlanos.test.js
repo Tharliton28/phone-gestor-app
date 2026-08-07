@@ -19,6 +19,7 @@ describe('lojaPlanos', () => {
     expect(getPlanoDef('profissional').maxUsuarios).toBe(5);
     expect(getPlanoDef('essencial').podeNfce).toBe(false);
     expect(getPlanoDef('profissional').podeNfce).toBe(true);
+    expect(getPlanoDef('profissional').podeConsultas).toBe(true);
     expect(getPlanoDef('rede').podeConsultas).toBe(true);
   });
 
@@ -48,7 +49,7 @@ describe('lojaPlanos', () => {
 
   it('mensagens honestas de upgrade/consulta', () => {
     expect(mensagemUpgradeNfce('essencial')).toMatch(/Profissional/);
-    expect(mensagemConsultaIndisponivel({ podeConsultas: false })).toMatch(/Rede/);
-    expect(mensagemConsultaIndisponivel({ podeConsultas: true })).toMatch(/ainda não/);
+    expect(mensagemConsultaIndisponivel({ podeConsultas: false })).toMatch(/Profissional/);
+    expect(mensagemConsultaIndisponivel({ podeConsultas: true })).toMatch(/Secrets|configurada/i);
   });
 });

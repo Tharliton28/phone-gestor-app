@@ -164,7 +164,7 @@ export default function LojaPlanoPanel() {
             {entitlements.podeNfce
               ? 'liberada (consome créditos + Focus)'
               : 'no Profissional'}{' '}
-            · Consultas {entitlements.podeConsultas ? 'no contrato' : 'plano Rede'}
+            · Consultas {entitlements.podeConsultas ? 'no contrato' : 'no Profissional'}
           </p>
           <p style={styles.meta}>
             {entitlements.assinaturaExpiraEm
