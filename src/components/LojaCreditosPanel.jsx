@@ -157,10 +157,10 @@ export default function LojaCreditosPanel() {
     if (!podeSmokePix || !lojaAtivaId || faseCheckout) return;
 
     const ok = await confirm(
-      'Gera cobrança PIX de R$ 1,00 nesta loja.\n\nApós o pagamento, o webhook deve creditar +1 crédito automaticamente.\nUse só para validar Asaas produção (preferir loja de teste, não a loja modelo).',
+      'Gera cobrança PIX de R$ 5,00 nesta loja (mínimo Asaas).\n\nApós o pagamento, o webhook deve creditar +1 crédito automaticamente.\nUse só para validar Asaas produção (preferir loja de teste, não a loja modelo).',
       {
-        title: 'Pix teste R$ 1',
-        confirmLabel: 'Gerar Pix R$ 1',
+        title: 'Pix teste R$ 5',
+        confirmLabel: 'Gerar Pix R$ 5',
         confirmVariant: 'primary',
       }
     );
@@ -172,7 +172,7 @@ export default function LojaCreditosPanel() {
       /* ignore */
     }
 
-    const pacoteSmoke = { id: 'smoke_pix', label: 'Pix teste', creditos: 1, precoHint: 'R$ 1,00' };
+    const pacoteSmoke = { id: 'smoke_pix', label: 'Pix teste', creditos: 1, precoHint: 'R$ 5,00' };
     setPacoteCheckout(pacoteSmoke);
     setFaseCheckout('preparando');
     baselineSaldoRef.current = saldo;
@@ -312,7 +312,7 @@ export default function LojaCreditosPanel() {
           disabled={Boolean(faseCheckout)}
           onClick={gerarPixTeste}
         >
-          Gerar Pix teste R$ 1,00 (+1 crédito)
+          Gerar Pix teste R$ 5,00 (+1 crédito)
         </button>
       ) : null}
 

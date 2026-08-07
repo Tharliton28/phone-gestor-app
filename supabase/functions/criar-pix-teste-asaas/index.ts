@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 /**
- * Smoke test: cobrança PIX de R$ 1,00 → webhook credita 1 crédito.
+ * Smoke test: cobrança PIX de R$ 5,00 (mínimo Asaas) → webhook credita 1 crédito.
  * Uso temporário para validar Asaas produção + webhook. Remover quando E2E estiver verde.
  */
 
@@ -158,10 +158,10 @@ Deno.serve(async (req) => {
     // 1 crédito — mesmo caminho do webhook de pacotes
     const pacoteId = "smoke_pix";
     const creditos = 1;
-    const valor = 1;
+    const valor = 5; // mínimo Asaas produção
     const externalReference = `creditos:${lojaId}:${pacoteId}:${creditos}`;
     const description =
-      "PhoneGestor TESTE PIX R$ 1,00 — valida webhook e credita 1 crédito. Não é pacote comercial.";
+      "PhoneGestor TESTE PIX R$ 5,00 — valida webhook e credita 1 crédito. Não é pacote comercial.";
 
     const payment = await asaasFetch("/payments", {
       method: "POST",
