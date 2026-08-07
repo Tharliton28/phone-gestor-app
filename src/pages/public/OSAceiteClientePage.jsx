@@ -5,6 +5,7 @@ import AssinaturaCanvas from '../../components/AssinaturaCanvas';
 import ImagemLightbox from '../../components/ImagemLightbox';
 import { confirmarAceiteCliente, obterAceitePorToken } from '../../services/osEvidenciaService';
 import { formatarCpfDigitacao, validarCpfAceite } from '../../domain/osEvidencias';
+import { onlyDigits } from '../../utils/formatters';
 
 const TITULOS = {
   entrada: 'Termo de entrada',
@@ -33,7 +34,11 @@ export default function OSAceiteClientePage() {
   const fotos = dados?.fotos ?? [];
 
   const cpfEstado = useMemo(
-    () => validarCpfAceite(cpf, dados?.cpf_cliente_cadastro),
+    () => validarCpfAceite(cpf, dados?.cpf_cliente_cadastro, {
+      // Mesmo rigor do link de autorização: CPF obrigatório e igual ao cadastro (PF).
+      exigirIgualCadastro: true,
+      rotuloCadastro: 'cadastro da OS',
+    }),
     [cpf, dados?.cpf_cliente_cadastro]
   );
 
@@ -190,7 +195,10 @@ export default function OSAceiteClientePage() {
           <p style={{ ...styles.msgCpf, color: corMsgCpf }}>{cpfEstado.mensagem}</p>
         )}
         {dados?.cliente_tem_cpf === false && (
-          <p style={styles.ajudaCpf}>Informe o CPF do titular do aparelho para fortalecer a evidência do aceite.</p>
+          <p style={styles.ajudaCpf}>Informe o CPF do titular. Sem CPF no cadastro da OS, qualquer CPF válido será aceito — prefira cadastrar o cliente antes.</p>
+        )}
+        {onlyDigits(dados?.cpf_cliente_cadastro).length === 11 && (
+          <p style={styles.ajudaCpf}>O CPF precisa ser o mesmo do cliente cadastrado nesta OS.</p>
         )}
 
         <span style={styles.fieldLabel}>Sua assinatura *</span>
