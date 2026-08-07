@@ -8,19 +8,25 @@ const corsHeaders = {
 
 const PLANOS_CHECKOUT: Record<
   string,
-  { label: string; valor: number; descricao: string }
+  { label: string; valorMensal: number; valorAnual: number; descricaoMensal: string; descricaoAnual: string }
 > = {
   essencial: {
     label: "Essencial",
-    valor: 97,
-    descricao:
+    valorMensal: 97,
+    valorAnual: 970,
+    descricaoMensal:
       "PhoneGestor Assinatura Mensal — Plano Essencial (R$ 97/mês). Inclui PDV, estoque por IMEI, OS com evidências, orçamentos, financeiro e até 2 usuários.",
+    descricaoAnual:
+      "PhoneGestor Assinatura Anual — Plano Essencial (R$ 970/ano, 2 meses grátis). Inclui PDV, estoque por IMEI, OS com evidências, orçamentos, financeiro e até 2 usuários.",
   },
   profissional: {
     label: "Profissional",
-    valor: 197,
-    descricao:
+    valorMensal: 197,
+    valorAnual: 1970,
+    descricaoMensal:
       "PhoneGestor Assinatura Mensal — Plano Profissional (R$ 197/mês). Inclui tudo do Essencial + módulo NFC-e no PDV (emissões via créditos/Focus), painel fiscal e até 5 usuários.",
+    descricaoAnual:
+      "PhoneGestor Assinatura Anual — Plano Profissional (R$ 1.970/ano, 2 meses grátis). Inclui tudo do Essencial + módulo NFC-e no PDV (emissões via créditos/Focus), painel fiscal e até 5 usuários.",
   },
 };
 
@@ -33,6 +39,10 @@ function json(status: number, body: Record<string, unknown>) {
 
 function onlyDigits(value: unknown) {
   return String(value ?? "").replace(/\D/g, "");
+}
+
+function normalizarCiclo(value: unknown): "mensal" | "anual" {
+  return String(value ?? "").trim().toLowerCase() === "anual" ? "anual" : "mensal";
 }
 
 function asaasBaseUrl() {
@@ -122,6 +132,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const lojaId = String(body.loja_id ?? body.lojaId ?? "").trim();
     const plano = String(body.plano ?? "").trim().toLowerCase();
+    const ciclo = normalizarCiclo(body.ciclo ?? body.billing_cycle);
 
     if (!lojaId) return json(400, { error: "loja_id obrigatório." });
     const planoDef = PLANOS_CHECKOUT[plano];
@@ -195,8 +206,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    const valor = planoDef.valor;
-    const externalReference = `${lojaId}:${plano}`;
+    const anual = ciclo === "anual";
+    const valor = anual ? planoDef.valorAnual : planoDef.valorMensal;
+    const descricao = anual ? planoDef.descricaoAnual : planoDef.descricaoMensal;
+    const asaasCycle = anual ? "YEARLY" : "MONTHLY";
+    const externalReference = `${lojaId}:${plano}:${ciclo}`;
 
     const subscription = await asaasFetch("/subscriptions", {
       method: "POST",
@@ -205,8 +219,8 @@ Deno.serve(async (req) => {
         billingType: "UNDEFINED",
         value: valor,
         nextDueDate: dueDatePlus(0),
-        cycle: "MONTHLY",
-        description: planoDef.descricao.slice(0, 500),
+        cycle: asaasCycle,
+        description: descricao.slice(0, 500),
         externalReference,
       }),
     });
@@ -218,6 +232,7 @@ Deno.serve(async (req) => {
       .update({
         asaas_subscription_id: subscriptionId,
         asaas_plano_pendente: plano,
+        asaas_ciclo_pendente: ciclo,
       })
       .eq("id", lojaId);
 
@@ -232,7 +247,8 @@ Deno.serve(async (req) => {
         first = await asaasFetch(`/payments/${first.id}`, {
           method: "PUT",
           body: JSON.stringify({
-            description: planoDef.descricao.slice(0, 500),
+            description: descricao.slice(0, 500),
+            externalReference,
           }),
         });
       } catch {
@@ -245,26 +261,26 @@ Deno.serve(async (req) => {
       (subscription.invoiceUrl as string | undefined) ||
       null;
 
-    if (!invoiceUrl && first?.id) {
-      const pay = await asaasFetch(`/payments/${first.id}`);
-      return json(200, {
-        ok: true,
-        subscription_id: subscriptionId,
-        payment_id: pay.id,
-        invoice_url: pay.invoiceUrl ?? null,
-        value: valor,
-        plano,
-      });
-    }
-
-    return json(200, {
+    const result = {
       ok: true,
       subscription_id: subscriptionId,
       payment_id: first?.id ?? null,
       invoice_url: invoiceUrl,
       value: valor,
       plano,
-    });
+      ciclo,
+    };
+
+    if (!invoiceUrl && first?.id) {
+      const pay = await asaasFetch(`/payments/${first.id}`);
+      return json(200, {
+        ...result,
+        payment_id: pay.id,
+        invoice_url: pay.invoiceUrl ?? null,
+      });
+    }
+
+    return json(200, result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro inesperado.";
     return json(500, { error: message });

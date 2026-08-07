@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { entitlementsDoPlano, normalizarPlano } from '../domain/lojaPlanos';
+import { entitlementsDoPlano, normalizarCiclo, normalizarPlano } from '../domain/lojaPlanos';
 
 export async function getLojaEntitlements(lojaId) {
   if (!lojaId) {
@@ -80,13 +80,17 @@ async function mensagemErroFunction(error, data) {
 }
 
 /** Cria assinatura no Asaas e devolve link da fatura (PIX/boleto/cartão). */
-export async function criarCheckoutAsaas(lojaId, plano) {
+export async function criarCheckoutAsaas(lojaId, plano, ciclo = 'mensal') {
   if (!lojaId) {
     return { data: null, error: new Error('Loja não informada.') };
   }
 
   const { data, error } = await supabase.functions.invoke('criar-checkout-asaas', {
-    body: { loja_id: lojaId, plano: normalizarPlano(plano) },
+    body: {
+      loja_id: lojaId,
+      plano: normalizarPlano(plano),
+      ciclo: normalizarCiclo(ciclo),
+    },
   });
 
   if (error) {

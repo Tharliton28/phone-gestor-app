@@ -5,7 +5,11 @@ import {
   getPlanoDef,
   mensagemConsultaIndisponivel,
   mensagemUpgradeNfce,
+  normalizarCiclo,
   normalizarPlano,
+  precoAnualCheioHint,
+  precoCheckout,
+  precoHintCiclo,
 } from './lojaPlanos';
 
 describe('lojaPlanos', () => {
@@ -21,6 +25,17 @@ describe('lojaPlanos', () => {
     expect(getPlanoDef('profissional').podeNfce).toBe(true);
     expect(getPlanoDef('profissional').podeConsultas).toBe(true);
     expect(getPlanoDef('rede').podeConsultas).toBe(true);
+  });
+
+  it('anual = 10× mensal (2 meses grátis)', () => {
+    expect(normalizarCiclo('anual')).toBe('anual');
+    expect(normalizarCiclo('xyz')).toBe('mensal');
+    expect(precoCheckout('essencial', 'mensal')).toBe(97);
+    expect(precoCheckout('essencial', 'anual')).toBe(970);
+    expect(precoCheckout('profissional', 'anual')).toBe(1970);
+    expect(precoHintCiclo('essencial', 'anual')).toMatch(/970/);
+    expect(precoAnualCheioHint('essencial')).toContain('1');
+    expect(getPlanoDef('essencial').precoMensal * 12).toBe(1164);
   });
 
   it('assinatura suspensa bloqueia features', () => {

@@ -1,11 +1,11 @@
 import { Loader2, X } from 'lucide-react';
-import { PLANOS } from '../domain/lojaPlanos';
+import { PLANOS, precoHintCiclo } from '../domain/lojaPlanos';
 
 /**
  * Overlay de feedback durante geração do checkout e aguardo do pagamento.
  * Sempre permite desistir — a pessoa não pode ficar presa na tela.
  */
-export default function CheckoutOverlay({ fase, planoId, onDesistir }) {
+export default function CheckoutOverlay({ fase, planoId, ciclo = 'mensal', onDesistir }) {
   if (!fase) return null;
 
   const plano = planoId ? PLANOS[planoId] : null;
@@ -41,7 +41,7 @@ export default function CheckoutOverlay({ fase, planoId, onDesistir }) {
         <p style={styles.text}>{texto}</p>
         {fase === 'aguardando' && plano ? (
           <p style={styles.meta}>
-            {plano.label} · {plano.precoHint}
+            {plano.label} · {precoHintCiclo(planoId, ciclo)}
           </p>
         ) : null}
 

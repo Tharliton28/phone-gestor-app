@@ -2,7 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { CreditCard, ExternalLink, RefreshCw } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
-import { PLANOS, PLANOS_IDS } from '../domain/lojaPlanos';
+import {
+  CICLOS_ASSINATURA,
+  PLANOS,
+  PLANOS_IDS,
+  precoAnualCheioHint,
+  precoHintCiclo,
+} from '../domain/lojaPlanos';
 import {
   mensagemPlanoAtivado,
   reivindicarAvisoSucessoCheckout,
@@ -20,6 +26,8 @@ export default function LojaPlanoPanel() {
   const [carregando, setCarregando] = useState(true);
   const [faseCheckout, setFaseCheckout] = useState(null); // preparando | aguardando | null
   const [planoCheckoutId, setPlanoCheckoutId] = useState(null);
+  const [cicloCheckout, setCicloCheckout] = useState(null);
+  const [ciclo, setCiclo] = useState('mensal');
 
   const podeEditar = ['owner', 'admin'].includes(papelAtivo);
 
@@ -46,10 +54,12 @@ export default function LojaPlanoPanel() {
     onAtivado: async (data) => {
       setFaseCheckout(null);
       setPlanoCheckoutId(null);
+      const cicloAtivado = cicloCheckout || ciclo;
+      setCicloCheckout(null);
       setEntitlements(data);
       await recarregar?.();
       if (reivindicarAvisoSucessoCheckout()) {
-        await alert(mensagemPlanoAtivado(data.plano), {
+        await alert(mensagemPlanoAtivado(data.plano, cicloAtivado), {
           type: 'success',
           title: 'Pagamento confirmado',
         });
@@ -58,6 +68,7 @@ export default function LojaPlanoPanel() {
     onTimeout: async (planoId) => {
       setFaseCheckout(null);
       setPlanoCheckoutId(null);
+      setCicloCheckout(null);
       const def = PLANOS[planoId];
       await alert(
         `Ainda não recebemos a confirmação do plano ${def?.label || ''}. Se você já pagou, clique em Atualizar.`,
@@ -77,6 +88,7 @@ export default function LojaPlanoPanel() {
     pararMonitoramento();
     setFaseCheckout(null);
     setPlanoCheckoutId(null);
+    setCicloCheckout(null);
   };
 
   const assinarPlano = async (planoId) => {
@@ -91,8 +103,10 @@ export default function LojaPlanoPanel() {
       return;
     }
 
+    const precoLabel = precoHintCiclo(planoId, ciclo);
+    const cicloLabel = CICLOS_ASSINATURA[ciclo]?.label || 'Mensal';
     const ok = await confirm(
-      `Assinar ${def.label} (${def.precoHint})?\n\nVocê será levado ao checkout seguro (PIX, boleto ou cartão). Assim que o pagamento for confirmado, liberamos automaticamente os recursos deste plano.`,
+      `Assinar ${def.label} — ${cicloLabel} (${precoLabel})?\n\nVocê será levado ao checkout seguro (PIX, boleto ou cartão). Assim que o pagamento for confirmado, liberamos automaticamente os recursos deste plano.`,
       {
         title: 'Assinar plano',
         confirmLabel: 'Ir para pagamento',
@@ -109,13 +123,15 @@ export default function LojaPlanoPanel() {
     }
 
     setPlanoCheckoutId(planoId);
+    setCicloCheckout(ciclo);
     setFaseCheckout('preparando');
     const baseline = entitlements;
-    const { data, error } = await criarCheckoutAsaas(lojaAtivaId, planoId);
+    const { data, error } = await criarCheckoutAsaas(lojaAtivaId, planoId, ciclo);
 
     if (error) {
       setFaseCheckout(null);
       setPlanoCheckoutId(null);
+      setCicloCheckout(null);
       await alert(error.message ?? 'Não foi possível iniciar o pagamento.', {
         type: 'error',
         title: 'Checkout',
@@ -148,6 +164,7 @@ export default function LojaPlanoPanel() {
       <CheckoutOverlay
         fase={faseCheckout}
         planoId={planoCheckoutId}
+        ciclo={cicloCheckout || ciclo}
         onDesistir={faseCheckout ? desistirCheckout : undefined}
       />
 
@@ -189,6 +206,32 @@ export default function LojaPlanoPanel() {
         emissões ilimitadas. Após o pagamento, os recursos são liberados automaticamente.
       </p>
 
+      <div style={styles.cicloBar} role="group" aria-label="Ciclo de cobrança">
+        <button
+          type="button"
+          style={{
+            ...styles.cicloBtn,
+            ...(ciclo === 'mensal' ? styles.cicloBtnAtivo : {}),
+          }}
+          disabled={Boolean(faseCheckout)}
+          onClick={() => setCiclo('mensal')}
+        >
+          Mensal
+        </button>
+        <button
+          type="button"
+          style={{
+            ...styles.cicloBtn,
+            ...(ciclo === 'anual' ? styles.cicloBtnAtivo : {}),
+          }}
+          disabled={Boolean(faseCheckout)}
+          onClick={() => setCiclo('anual')}
+        >
+          Anual
+          <span style={styles.cicloBadge}>2 meses grátis</span>
+        </button>
+      </div>
+
       <div style={styles.grid}>
         {PLANOS_IDS.map((id) => {
           const def = PLANOS[id];
@@ -197,6 +240,8 @@ export default function LojaPlanoPanel() {
             entitlements.assinaturaAtiva &&
             entitlements.assinaturaStatus === 'ativa';
           const nesteCheckout = planoCheckoutId === id && Boolean(faseCheckout);
+          const preco = def.checkoutDisponivel ? precoHintCiclo(id, ciclo) : def.precoHint;
+          const cheio = ciclo === 'anual' && def.checkoutDisponivel ? precoAnualCheioHint(id) : null;
           return (
             <button
               key={id}
@@ -210,7 +255,13 @@ export default function LojaPlanoPanel() {
               onClick={() => assinarPlano(id)}
             >
               <strong>{def.label}</strong>
-              <span style={styles.preco}>{def.precoHint}</span>
+              <span style={styles.preco}>
+                {cheio ? <span style={styles.precoCheio}>{cheio}</span> : null}
+                {preco}
+              </span>
+              {ciclo === 'anual' && def.checkoutDisponivel ? (
+                <span style={styles.precoSub}>cobrança única no ano</span>
+              ) : null}
               <ul style={styles.lista}>
                 {def.destaques.map((item) => (
                   <li key={item}>{item}</li>
@@ -274,6 +325,44 @@ const styles = {
   },
   meta: { margin: '2px 0 0', color: '#94a3b8', fontSize: '12px', lineHeight: 1.45 },
   ajuda: { margin: 0, color: '#94a3b8', fontSize: '13px', lineHeight: 1.5 },
+  cicloBar: {
+    display: 'inline-flex',
+    alignSelf: 'flex-start',
+    gap: 4,
+    padding: 4,
+    background: '#0f111a',
+    border: '1px solid #2a2e3f',
+    borderRadius: 10,
+  },
+  cicloBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    border: 'none',
+    background: 'transparent',
+    color: '#94a3b8',
+    borderRadius: 8,
+    padding: '8px 12px',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 600,
+  },
+  cicloBtnAtivo: {
+    background: 'rgba(56,189,248,0.12)',
+    color: '#e2e8f0',
+    boxShadow: 'inset 0 0 0 1px rgba(56,189,248,0.35)',
+  },
+  cicloBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.02em',
+    color: '#86efac',
+    background: 'rgba(34,197,94,0.12)',
+    border: '1px solid rgba(34,197,94,0.3)',
+    borderRadius: 999,
+    padding: '2px 6px',
+  },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -299,7 +388,22 @@ const styles = {
     borderColor: '#fbbf24',
     boxShadow: '0 0 0 1px rgba(251,191,36,0.35)',
   },
-  preco: { color: '#94a3b8', fontSize: '12px' },
+  preco: {
+    color: '#e2e8f0',
+    fontSize: '14px',
+    fontWeight: 700,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  precoCheio: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: 500,
+    textDecoration: 'line-through',
+  },
+  precoSub: { color: '#94a3b8', fontSize: '11px' },
   lista: {
     margin: '6px 0 0',
     paddingLeft: '18px',

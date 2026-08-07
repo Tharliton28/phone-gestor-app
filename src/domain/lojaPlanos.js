@@ -1,6 +1,8 @@
 /**
  * Catálogo de planos — espelho da landing e da migration 025.
  * Gateway futuro só muda status/origem; limites ficam aqui + no SQL.
+ *
+ * Preço anual = 10× mensal (2 meses grátis ≈ 16,7%), padrão SaaS B2B.
  */
 
 export const PLANOS = {
@@ -9,6 +11,7 @@ export const PLANOS = {
     label: 'Essencial',
     precoHint: 'R$ 97/mês',
     precoMensal: 97,
+    precoAnual: 970,
     checkoutDisponivel: true,
     maxUsuarios: 2,
     podeNfce: false,
@@ -26,6 +29,7 @@ export const PLANOS = {
     label: 'Profissional',
     precoHint: 'R$ 197/mês',
     precoMensal: 197,
+    precoAnual: 1970,
     checkoutDisponivel: true,
     maxUsuarios: 5,
     podeNfce: true,
@@ -44,6 +48,7 @@ export const PLANOS = {
     label: 'Rede',
     precoHint: 'Sob consulta',
     precoMensal: null,
+    precoAnual: null,
     checkoutDisponivel: false,
     maxUsuarios: 25,
     podeNfce: true,
@@ -60,6 +65,25 @@ export const PLANOS = {
 
 export const PLANOS_IDS = Object.keys(PLANOS);
 
+/** Ciclos de cobrança no checkout Asaas. */
+export const CICLOS_ASSINATURA = {
+  mensal: {
+    id: 'mensal',
+    label: 'Mensal',
+    asaasCycle: 'MONTHLY',
+    diasVigencia: 31,
+  },
+  anual: {
+    id: 'anual',
+    label: 'Anual',
+    asaasCycle: 'YEARLY',
+    diasVigencia: 366,
+    descontoHint: '2 meses grátis',
+  },
+};
+
+export const CICLOS_IDS = Object.keys(CICLOS_ASSINATURA);
+
 export const ASSINATURA_STATUS_ATIVOS = ['trial', 'ativa'];
 
 /** Dias de trial no onboarding self-serve (espelho da migration 028). */
@@ -70,8 +94,41 @@ export function normalizarPlano(plano) {
   return 'essencial';
 }
 
+export function normalizarCiclo(ciclo) {
+  return ciclo === 'anual' ? 'anual' : 'mensal';
+}
+
 export function getPlanoDef(plano) {
   return PLANOS[normalizarPlano(plano)];
+}
+
+export function getCicloDef(ciclo) {
+  return CICLOS_ASSINATURA[normalizarCiclo(ciclo)];
+}
+
+/** Valor cobrado no Asaas para o plano + ciclo. */
+export function precoCheckout(plano, ciclo = 'mensal') {
+  const def = getPlanoDef(plano);
+  if (normalizarCiclo(ciclo) === 'anual') return def.precoAnual;
+  return def.precoMensal;
+}
+
+/** Texto de preço para UI/confirmação. */
+export function precoHintCiclo(plano, ciclo = 'mensal') {
+  const def = getPlanoDef(plano);
+  if (!def.checkoutDisponivel || def.precoMensal == null) return def.precoHint;
+  if (normalizarCiclo(ciclo) === 'anual') {
+    return `R$ ${Number(def.precoAnual).toLocaleString('pt-BR')}/ano`;
+  }
+  return `R$ ${Number(def.precoMensal).toLocaleString('pt-BR')}/mês`;
+}
+
+/** Preço “cheio” anual (12× mensal) para mostrar riscado. */
+export function precoAnualCheioHint(plano) {
+  const def = getPlanoDef(plano);
+  if (def.precoMensal == null) return null;
+  const cheio = def.precoMensal * 12;
+  return `R$ ${cheio.toLocaleString('pt-BR')}`;
 }
 
 /**

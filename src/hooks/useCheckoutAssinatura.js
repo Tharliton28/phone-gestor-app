@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getPlanoDef } from '../domain/lojaPlanos';
+import { getPlanoDef, precoHintCiclo } from '../domain/lojaPlanos';
 import { getLojaEntitlements } from '../services/lojaPlanoService';
 
 const POLL_MS = 2500;
@@ -41,12 +41,12 @@ function limparPendente() {
   }
 }
 
-export function mensagemPlanoAtivado(planoId) {
+export function mensagemPlanoAtivado(planoId, ciclo = 'mensal') {
   const def = getPlanoDef(planoId);
   const destaques = (def.destaques || []).map((d) => `• ${d}`).join('\n');
   return (
     `Pagamento confirmado.\n\n` +
-    `Sua loja agora está no plano ${def.label} (${def.precoHint}).\n\n` +
+    `Sua loja agora está no plano ${def.label} (${precoHintCiclo(planoId, ciclo)}).\n\n` +
     `Recursos liberados:\n${destaques}`
   );
 }

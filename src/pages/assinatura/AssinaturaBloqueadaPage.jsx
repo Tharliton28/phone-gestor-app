@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLoja } from '../../contexts/LojaContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { getPlanoDef, PLANOS } from '../../domain/lojaPlanos';
+import { getPlanoDef, PLANOS, precoHintCiclo } from '../../domain/lojaPlanos';
 import CheckoutOverlay from '../../components/CheckoutOverlay';
 import {
   mensagemPlanoAtivado,
@@ -30,6 +30,8 @@ export default function AssinaturaBloqueadaPage() {
   const [busy, setBusy] = useState(false);
   const [faseCheckout, setFaseCheckout] = useState(null);
   const [planoCheckoutId, setPlanoCheckoutId] = useState(null);
+  const [cicloCheckout, setCicloCheckout] = useState(null);
+  const [ciclo, setCiclo] = useState('mensal');
   const [erro, setErro] = useState(null);
   const [sucesso, setSucesso] = useState(null);
 
@@ -45,9 +47,11 @@ export default function AssinaturaBloqueadaPage() {
     onAtivado: async (data) => {
       setFaseCheckout(null);
       setPlanoCheckoutId(null);
+      const cicloAtivado = cicloCheckout || ciclo;
+      setCicloCheckout(null);
       await recarregar?.();
       if (reivindicarAvisoSucessoCheckout()) {
-        setSucesso(mensagemPlanoAtivado(data.plano));
+        setSucesso(mensagemPlanoAtivado(data.plano, cicloAtivado));
       }
       window.setTimeout(() => {
         navigate('/app/inicio', { replace: true });
@@ -59,6 +63,7 @@ export default function AssinaturaBloqueadaPage() {
     pararMonitoramento();
     setFaseCheckout(null);
     setPlanoCheckoutId(null);
+    setCicloCheckout(null);
     setBusy(false);
   };
 
@@ -76,14 +81,16 @@ export default function AssinaturaBloqueadaPage() {
     }
     setBusy(true);
     setPlanoCheckoutId(planoId);
+    setCicloCheckout(ciclo);
     setFaseCheckout('preparando');
     setErro(null);
     setSucesso(null);
-    const { data, error } = await criarCheckoutAsaas(lojaAtivaId, planoId);
+    const { data, error } = await criarCheckoutAsaas(lojaAtivaId, planoId, ciclo);
     setBusy(false);
     if (error) {
       setFaseCheckout(null);
       setPlanoCheckoutId(null);
+      setCicloCheckout(null);
       setErro(error.message);
       return;
     }
@@ -99,6 +106,7 @@ export default function AssinaturaBloqueadaPage() {
       <CheckoutOverlay
         fase={faseCheckout || (aguardandoPlanoId ? 'aguardando' : null)}
         planoId={planoCheckoutId || aguardandoPlanoId}
+        ciclo={cicloCheckout || ciclo}
         onDesistir={
           (faseCheckout === 'aguardando' || aguardandoPlanoId) && !sucesso
             ? desistirCheckout
@@ -159,6 +167,52 @@ export default function AssinaturaBloqueadaPage() {
 
           {podePagar && !sucesso ? (
             <>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  marginBottom: 14,
+                }}
+                role="group"
+                aria-label="Ciclo de cobrança"
+              >
+                <button
+                  type="button"
+                  disabled={busy || Boolean(aguardandoPlanoId)}
+                  onClick={() => setCiclo('mensal')}
+                  style={{
+                    flex: 1,
+                    padding: '10px 8px',
+                    borderRadius: 8,
+                    border: ciclo === 'mensal' ? '1px solid #38bdf8' : '1px solid #2a2e3f',
+                    background: ciclo === 'mensal' ? 'rgba(56,189,248,0.12)' : 'transparent',
+                    color: '#e2e8f0',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  Mensal
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || Boolean(aguardandoPlanoId)}
+                  onClick={() => setCiclo('anual')}
+                  style={{
+                    flex: 1,
+                    padding: '10px 8px',
+                    borderRadius: 8,
+                    border: ciclo === 'anual' ? '1px solid #38bdf8' : '1px solid #2a2e3f',
+                    background: ciclo === 'anual' ? 'rgba(56,189,248,0.12)' : 'transparent',
+                    color: '#e2e8f0',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  Anual · 2 meses grátis
+                </button>
+              </div>
               <button
                 type="button"
                 className="btn-submit btn-login-action"
@@ -170,7 +224,7 @@ export default function AssinaturaBloqueadaPage() {
                   ? 'Gerando cobrança...'
                   : aguardandoPlanoId
                     ? 'Aguardando pagamento...'
-                    : `Pagar ${planoLabel} agora`}
+                    : `Pagar ${planoLabel} (${precoHintCiclo(planoAtual, ciclo)})`}
               </button>
               {planoAtual !== 'profissional' ? (
                 <button
@@ -184,7 +238,7 @@ export default function AssinaturaBloqueadaPage() {
                     border: '1px solid #3b82f6',
                   }}
                 >
-                  Assinar Profissional (R$ 197/mês)
+                  Assinar Profissional ({precoHintCiclo('profissional', ciclo)})
                 </button>
               ) : null}
               <button

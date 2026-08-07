@@ -8,21 +8,30 @@ function json(status: number, body: Record<string, unknown>) {
   });
 }
 
-function parseExternalReference(ref: unknown): { lojaId: string | null; plano: string | null } {
+function parseExternalReference(ref: unknown): {
+  lojaId: string | null;
+  plano: string | null;
+  ciclo: string | null;
+} {
   const raw = String(ref ?? "").trim();
-  if (!raw) return { lojaId: null, plano: null };
+  if (!raw) return { lojaId: null, plano: null, ciclo: null };
   if (raw.includes(":")) {
-    const [lojaId, plano] = raw.split(":");
-    return { lojaId: lojaId || null, plano: plano || null };
+    const [lojaId, plano, ciclo] = raw.split(":");
+    const cicloOk = ciclo === "anual" || ciclo === "mensal" ? ciclo : null;
+    return { lojaId: lojaId || null, plano: plano || null, ciclo: cicloOk };
   }
   // legado: só loja_id
-  return { lojaId: raw, plano: null };
+  return { lojaId: raw, plano: null, ciclo: null };
 }
 
 function addDaysIso(base: Date, days: number) {
   const d = new Date(base.getTime());
   d.setDate(d.getDate() + days);
   return d.toISOString();
+}
+
+function diasVigencia(ciclo: string | null) {
+  return ciclo === "anual" ? 366 : 31;
 }
 
 Deno.serve(async (req) => {
@@ -58,6 +67,7 @@ Deno.serve(async (req) => {
     const fromPayment = parseExternalReference(payment.externalReference);
     let lojaId = fromPayment.lojaId;
     let plano = fromPayment.plano;
+    let ciclo = fromPayment.ciclo;
 
     // Fallback: busca loja pela subscription
     const admin = createClient(supabaseUrl, serviceKey);
@@ -69,42 +79,51 @@ Deno.serve(async (req) => {
     if (!lojaId && subscriptionId) {
       const { data: lojaBySub } = await admin
         .from("lojas")
-        .select("id, asaas_plano_pendente, plano")
+        .select("id, asaas_plano_pendente, asaas_ciclo_pendente, plano, assinatura_ciclo")
         .eq("asaas_subscription_id", subscriptionId)
         .maybeSingle();
       if (lojaBySub) {
         lojaId = lojaBySub.id;
         plano = plano || lojaBySub.asaas_plano_pendente || lojaBySub.plano;
+        ciclo = ciclo || lojaBySub.asaas_ciclo_pendente || lojaBySub.assinatura_ciclo;
       }
     }
 
     if (!lojaId && payment.customer) {
       const { data: lojaByCust } = await admin
         .from("lojas")
-        .select("id, asaas_plano_pendente, plano")
+        .select("id, asaas_plano_pendente, asaas_ciclo_pendente, plano, assinatura_ciclo")
         .eq("asaas_customer_id", payment.customer)
         .maybeSingle();
       if (lojaByCust) {
         lojaId = lojaByCust.id;
         plano = plano || lojaByCust.asaas_plano_pendente || lojaByCust.plano;
+        ciclo = ciclo || lojaByCust.asaas_ciclo_pendente || lojaByCust.assinatura_ciclo;
       }
     }
 
-    if (lojaId && !plano) {
+    if (lojaId && (!plano || !ciclo)) {
       const { data: loja } = await admin
         .from("lojas")
-        .select("asaas_plano_pendente, plano")
+        .select("asaas_plano_pendente, asaas_ciclo_pendente, plano, assinatura_ciclo")
         .eq("id", lojaId)
         .maybeSingle();
-      plano = loja?.asaas_plano_pendente || loja?.plano || "essencial";
+      plano = plano || loja?.asaas_plano_pendente || loja?.plano || "essencial";
+      ciclo = ciclo || loja?.asaas_ciclo_pendente || loja?.assinatura_ciclo || "mensal";
     }
 
-    // Vigência: ~1 ciclo mensal a partir do pagamento (com folga)
+    if (!ciclo) ciclo = "mensal";
+    if (ciclo !== "anual" && ciclo !== "mensal") ciclo = "mensal";
+
+    // Vigência: 1 ciclo a partir do pagamento (com folga)
     let expiraEm: string | null = null;
     if (event === "PAYMENT_CONFIRMED" || event === "PAYMENT_RECEIVED") {
       const base = payment.clientPaymentDate || payment.paymentDate || payment.confirmedDate;
       const baseDate = base ? new Date(base) : new Date();
-      expiraEm = addDaysIso(Number.isNaN(baseDate.getTime()) ? new Date() : baseDate, 31);
+      expiraEm = addDaysIso(
+        Number.isNaN(baseDate.getTime()) ? new Date() : baseDate,
+        diasVigencia(ciclo)
+      );
     }
 
     const { data, error } = await admin.rpc("aplicar_pagamento_asaas", {
@@ -116,6 +135,7 @@ Deno.serve(async (req) => {
       p_subscription_id: subscriptionId,
       p_expira_em: expiraEm,
       p_payload: payload,
+      p_ciclo: ciclo,
     });
 
     if (error) {
