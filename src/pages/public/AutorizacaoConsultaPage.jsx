@@ -97,7 +97,8 @@ export default function AutorizacaoConsultaPage() {
           <CheckCircle size={48} color="#4ade80" style={{ marginBottom: '16px' }} />
           <h1 style={styles.title}>Autorização registrada!</h1>
           <p style={styles.sub}>
-            Obrigado. A {dados?.nome_empresa} já pode dar continuidade ao seu atendimento.
+            Obrigado. A {dados?.nome_empresa} já pode dar continuidade
+            {dados?.tipo === 'avaliacao_usado' ? ' à avaliação/negociação' : ' ao seu atendimento'}.
             Você pode fechar esta página.
           </p>
         </div>
@@ -118,7 +119,10 @@ export default function AutorizacaoConsultaPage() {
     <div style={styles.page}>
       <div style={styles.card}>
         <h1 style={styles.title}>
-          <FileCheck size={22} color="#38bdf8" /> Autorização de atendimento
+          <FileCheck size={22} color="#38bdf8" />{' '}
+          {dados?.tipo === 'avaliacao_usado'
+            ? 'Avaliação / compra de aparelho'
+            : 'Autorização de atendimento'}
         </h1>
         <p style={styles.sub}>{dados?.nome_empresa}</p>
         {dados?.nome_cliente && (

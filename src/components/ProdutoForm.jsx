@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Save, Smartphone, Headphones, PenTool, 
-  Hash, Battery, CheckCircle, Calendar, FileText
+  Hash, Battery, CheckCircle, Calendar, FileText, Link2, MessageCircle
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -17,11 +17,17 @@ import {
   mensagemConsultaIndisponivel,
   mensagemUpgradeConsultas,
 } from '../domain/lojaPlanos';
-import { listPessoasResumo } from '../services/pessoaService';
+import { getPessoaById, listPessoasResumo } from '../services/pessoaService';
 import {
   consultarImei,
   custoConsultaImei,
 } from '../services/consultaService';
+import {
+  criarLinkAutorizacaoConsulta,
+  montarMensagemAutorizacaoConsulta,
+  TIPO_AUTORIZACAO,
+} from '../services/autorizacaoConsultaService';
+import { buildWhatsAppLink } from '../domain/osEvidencias';
 import {
   createProduto,
   getProdutoById,
@@ -30,6 +36,8 @@ import {
   updateProduto,
 } from '../services/produtoService';
 import CurrencyInput from './CurrencyInput';
+
+const ESTADO_USADO_CLIENTE = 'Usado (Comprado de Cliente)';
 
 const EMPTY_FORM = {
   categoria: '',
@@ -66,7 +74,7 @@ const EMPTY_FORM = {
 };
 
 const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
-  const { lojaAtivaId, podeConsultas, lojaAtiva } = useLoja();
+  const { lojaAtivaId, podeConsultas, lojaAtiva, perfil } = useLoja();
   const { alert, confirm } = useDialog();
   const isEdicao = Boolean(produtoId);
   const [carregando, setCarregando] = useState(isEdicao);
@@ -78,8 +86,13 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
   const [pessoas, setPessoas] = useState([]);
   const [consultandoImei, setConsultandoImei] = useState(false);
   const [resultadoImei, setResultadoImei] = useState(null);
+  const [gerandoLinkAuth, setGerandoLinkAuth] = useState(false);
+  const [titularAutoriza, setTitularAutoriza] = useState(false);
   /** Último campo que o usuário editou de propósito: 'margem' | 'venda' */
   const precoDriverRef = useRef('venda');
+
+  const compraDeCliente = formData.estadoAparelho === ESTADO_USADO_CLIENTE;
+  const pessoaOrigem = pessoas.find((p) => p.id === formData.fornecedorId) || null;
 
   useEffect(() => {
     if (!lojaAtivaId) return;
@@ -88,6 +101,37 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
       if (!error && data) setPessoas(data);
     });
   }, [lojaAtivaId]);
+
+  useEffect(() => {
+    if (!lojaAtivaId || !formData.fornecedorId) {
+      setTitularAutoriza(false);
+      return undefined;
+    }
+
+    let ativo = true;
+    const sync = async () => {
+      const { data } = await getPessoaById(lojaAtivaId, formData.fornecedorId);
+      if (!ativo) return;
+      setTitularAutoriza(Boolean(data?.autoriza_consulta_dados));
+      if (data) {
+        setPessoas((prev) => prev.map((p) => (
+          p.id === data.id
+            ? { ...p, autoriza_consulta_dados: data.autoriza_consulta_dados, telefone: data.telefone, cpf_cnpj: data.cpf_cnpj }
+            : p
+        )));
+      }
+    };
+
+    sync();
+    const timer = setInterval(sync, 5000);
+    const onFocus = () => { sync(); };
+    window.addEventListener('focus', onFocus);
+    return () => {
+      ativo = false;
+      clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [lojaAtivaId, formData.fornecedorId]);
 
   useEffect(() => {
     if (!produtoId || !lojaAtivaId) return;
@@ -165,6 +209,75 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
     formData.valorVenda
   );
 
+  const solicitarAuthAvaliacaoUsado = async ({ abrirWhatsApp = false } = {}) => {
+    if (!lojaAtivaId) {
+      await alert('Nenhuma loja ativa selecionada.', { type: 'error', title: 'Erro' });
+      return;
+    }
+    if (!formData.fornecedorId) {
+      await alert('Selecione o cliente que vendeu o aparelho (aba Fornecedor).', {
+        type: 'warning',
+        title: 'Titular',
+      });
+      setAbaAtiva('fornecedor');
+      return;
+    }
+
+    const pessoa = pessoaOrigem || (await getPessoaById(lojaAtivaId, formData.fornecedorId)).data;
+    if (!pessoa) {
+      await alert('Não foi possível carregar o cadastro do titular.', { type: 'error', title: 'Erro' });
+      return;
+    }
+    if (abrirWhatsApp && onlyDigits(pessoa.telefone || '').length < 10) {
+      await alert('Cadastre o telefone/WhatsApp do titular em Pessoas, ou use Copiar link.', {
+        type: 'warning',
+        title: 'Telefone',
+      });
+      return;
+    }
+
+    setGerandoLinkAuth(true);
+    const modelo = [formData.marca, formData.nome].filter(Boolean).join(' ') || '—';
+    const { url, error } = await criarLinkAutorizacaoConsulta({
+      lojaId: lojaAtivaId,
+      pessoaId: formData.fornecedorId,
+      nomeEmpresa: lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'loja',
+      nomeCliente: pessoa.nome,
+      cpfCliente: pessoa.cpf_cnpj,
+      operadorId: perfil?.id || null,
+      tipo: TIPO_AUTORIZACAO.AVALIACAO_USADO,
+      imei: onlyDigits(formData.imei1) || '—',
+      modelo,
+    });
+    setGerandoLinkAuth(false);
+
+    if (error || !url) {
+      await alert(error?.message || 'Não foi possível gerar o link.', { type: 'error', title: 'Erro' });
+      return;
+    }
+
+    if (abrirWhatsApp) {
+      const msg = montarMensagemAutorizacaoConsulta({
+        nomeCliente: pessoa.nome,
+        nomeEmpresa: lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social,
+        url,
+        tipo: TIPO_AUTORIZACAO.AVALIACAO_USADO,
+      });
+      window.open(buildWhatsAppLink(pessoa.telefone, msg), '_blank', 'noopener,noreferrer');
+      await alert('WhatsApp aberto. Quando o titular assinar, a consulta IMEI será liberada.', {
+        type: 'success',
+        title: 'Link enviado',
+      });
+      return;
+    }
+
+    await navigator.clipboard.writeText(url);
+    await alert('Link copiado. Envie ao titular; esta tela atualiza quando ele assinar.', {
+      type: 'success',
+      title: 'Link copiado',
+    });
+  };
+
   const consultarImeiAnatel = async () => {
     const imei = onlyDigits(formData.imei1);
     if (imei.length !== 15) {
@@ -183,10 +296,31 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
       return;
     }
 
+    if (compraDeCliente) {
+      if (!formData.fornecedorId) {
+        await alert(
+          'Para aparelho comprado de cliente, selecione o titular na aba Fornecedor e peça a autorização assinada antes da consulta Anatel.',
+          { type: 'warning', title: 'Autorização necessária' }
+        );
+        setAbaAtiva('fornecedor');
+        return;
+      }
+      if (!titularAutoriza) {
+        await alert(
+          'O titular ainda não autorizou. Envie o link de avaliação/compra (WhatsApp ou copiar) e aguarde a assinatura.',
+          { type: 'warning', title: 'Aguardando autorização' }
+        );
+        setAbaAtiva('fornecedor');
+        return;
+      }
+    }
+
     const custo = custoConsultaImei();
     const ok = await confirm(
       `Consulta Anatel (Celular Legal) usa ${custo} crédito${custo === 1 ? '' : 's'}.\n\n` +
-        'Ao continuar, declaro que a loja possui base legal e autorização do titular (quando aplicável) para esta verificação (LGPD / due diligence).',
+        (compraDeCliente
+          ? 'Confirmo que o titular já autorizou (termo de avaliação/compra) e que a consulta é necessária à segurança da operação.'
+          : 'Ao continuar, declaro que a loja possui base legal e autorização do titular (quando aplicável) para esta verificação (LGPD / due diligence).'),
       { title: 'Confirmar consulta IMEI', confirmLabel: 'Consultar' }
     );
     if (!ok) return;
@@ -769,6 +903,40 @@ const ProdutoForm = ({ aoVoltar, produtoId = null }) => {
                   ))}
                 </select>
               </div>
+              {compraDeCliente && (
+                <div style={styles.authUsadoBox}>
+                  <strong style={{ color: '#e2e8f0', fontSize: '13px' }}>
+                    {titularAutoriza ? 'Autorização do titular registrada' : 'Avaliação / compra de usado'}
+                  </strong>
+                  <p style={styles.authUsadoHint}>
+                    {titularAutoriza
+                      ? 'Titular autorizou consultas (CPF/IMEI). Consulta Anatel liberada.'
+                      : 'Para consultar IMEI na Anatel, o titular precisa assinar o termo de avaliação/compra (link).'}
+                  </p>
+                  {!titularAutoriza && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        style={styles.btnAuthWa}
+                        disabled={gerandoLinkAuth || !formData.fornecedorId}
+                        onClick={() => solicitarAuthAvaliacaoUsado({ abrirWhatsApp: true })}
+                      >
+                        <MessageCircle size={14} />
+                        {gerandoLinkAuth ? '...' : 'WhatsApp'}
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.btnAuthCopy}
+                        disabled={gerandoLinkAuth || !formData.fornecedorId}
+                        onClick={() => solicitarAuthAvaliacaoUsado({ abrirWhatsApp: false })}
+                      >
+                        <Link2 size={14} />
+                        {gerandoLinkAuth ? '...' : 'Copiar link'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Nº da Nota Fiscal ou Recibo de Entrada:</label>
                 <input
@@ -818,6 +986,25 @@ const styles = {
   input: { backgroundColor: '#0b0c10', border: '1px solid #2a2e3f', borderRadius: '4px', padding: '10px 12px', color: '#fff', fontSize: '13px', width: '100%', outline: 'none' },
   inputWithIcon: { position: 'relative', display: 'flex', alignItems: 'center', width: '100%' },
   innerIcon: { position: 'absolute', right: '12px', color: '#64748b' },
+  authUsadoBox: {
+    backgroundColor: '#0f111a',
+    border: '1px solid #2a2e3f',
+    borderRadius: '8px',
+    padding: '12px 14px',
+  },
+  authUsadoHint: { color: '#94a3b8', fontSize: '12px', lineHeight: 1.45, margin: '6px 0 0' },
+  btnAuthWa: {
+    display: 'inline-flex', alignItems: 'center', gap: '6px',
+    backgroundColor: '#16a34a', color: '#fff', border: 'none',
+    borderRadius: '6px', padding: '8px 12px', fontSize: '12px',
+    fontWeight: 600, cursor: 'pointer',
+  },
+  btnAuthCopy: {
+    display: 'inline-flex', alignItems: 'center', gap: '6px',
+    backgroundColor: '#1e293b', color: '#e2e8f0', border: '1px solid #334155',
+    borderRadius: '6px', padding: '8px 12px', fontSize: '12px',
+    fontWeight: 600, cursor: 'pointer',
+  },
 };
 
 export default ProdutoForm;

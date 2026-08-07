@@ -1,9 +1,13 @@
 import { supabase } from '../lib/supabaseClient';
 import {
-  montarTermoAutorizacaoConsulta,
+  montarMensagemAutorizacaoConsulta,
+  montarTermoPorTipo,
+  TIPO_AUTORIZACAO,
 } from '../domain/autorizacaoConsulta';
 import { fetchIpCliente, hashTermoTexto } from '../domain/osTermo';
 import { formatCpfCnpj } from '../utils/formatters';
+
+export { TIPO_AUTORIZACAO, montarMensagemAutorizacaoConsulta };
 
 export async function criarLinkAutorizacaoConsulta({
   lojaId,
@@ -12,15 +16,24 @@ export async function criarLinkAutorizacaoConsulta({
   nomeCliente,
   cpfCliente,
   operadorId,
+  tipo = TIPO_AUTORIZACAO.ATENDIMENTO,
+  imei,
+  modelo,
 }) {
   if (!lojaId || !pessoaId) {
     return { url: null, token: null, expiresAt: null, error: new Error('Cadastro incompleto.') };
   }
 
-  const termoTexto = montarTermoAutorizacaoConsulta({
+  const tipoFinal = tipo === TIPO_AUTORIZACAO.AVALIACAO_USADO
+    ? TIPO_AUTORIZACAO.AVALIACAO_USADO
+    : TIPO_AUTORIZACAO.ATENDIMENTO;
+
+  const termoTexto = montarTermoPorTipo(tipoFinal, {
     nomeEmpresa,
     nomeCliente,
     cpfCliente: cpfCliente ? formatCpfCnpj(cpfCliente) : '—',
+    imei,
+    modelo,
   });
   const termoHash = await hashTermoTexto(termoTexto);
   const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
@@ -48,12 +61,13 @@ export async function criarLinkAutorizacaoConsulta({
       loja_id: lojaId,
       pessoa_id: pessoaId,
       token: novoToken,
+      tipo: tipoFinal,
       termo_texto: termoTexto,
       termo_hash: termoHash,
       expires_at: expiresAt,
       created_by: operadorId || null,
     })
-    .select('token, expires_at')
+    .select('token, expires_at, tipo')
     .single();
 
   if (error) {
@@ -66,13 +80,13 @@ export async function criarLinkAutorizacaoConsulta({
   }
 
   const url = `${window.location.origin}/autorizacao-consulta/${data.token}`;
-  return { url, token: data.token, expiresAt: data.expires_at, error: null };
+  return { url, token: data.token, expiresAt: data.expires_at, tipo: data.tipo, error: null };
 }
 
 export async function getLinkAutorizacaoPendente(lojaId, pessoaId) {
   const { data, error } = await supabase
     .from('autorizacao_consulta_tokens')
-    .select('token, expires_at')
+    .select('token, expires_at, tipo')
     .eq('loja_id', lojaId)
     .eq('pessoa_id', pessoaId)
     .is('usado_em', null)
@@ -81,13 +95,14 @@ export async function getLinkAutorizacaoPendente(lojaId, pessoaId) {
     .maybeSingle();
 
   if (error || !data?.token) {
-    return { url: null, token: null, expiresAt: null, error };
+    return { url: null, token: null, expiresAt: null, tipo: null, error };
   }
 
   return {
     url: `${window.location.origin}/autorizacao-consulta/${data.token}`,
     token: data.token,
     expiresAt: data.expires_at,
+    tipo: data.tipo,
     error: null,
   };
 }

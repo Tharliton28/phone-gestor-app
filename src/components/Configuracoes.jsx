@@ -33,6 +33,10 @@ import {
 } from '../services/lojaConfigService';
 import { TERMO_OS_PADRAO, TERMO_OS_SAIDA_PADRAO } from '../services/osEvidenciaService';
 import {
+  TERMO_GARANTIA_PADRAO,
+  diagnosticoTermosConsulta,
+} from '../domain/documentoTermos';
+import {
   cloneDefaultTaxas,
   listTaxasCreditoParcela,
   saveTaxasCreditoParcela,
@@ -121,7 +125,7 @@ const Configuracoes = () => {
   );
 
   // === ESTADOS DOS DOCUMENTOS ===
-  const [termoGarantia, setTermoGarantia] = useState(`TERMO DE GARANTIA E CONDIÇÕES DE COMPRA\n\nCláusula 1ª: O comprador [NOME_CLIENTE], inscrito sob o CPF [CPF_CLIENTE], está adquirindo o produto descrito acima em plenas condições de uso, mediante valor e forma de pagamento ajustados com a empresa [NOME_EMPRESA].\n\nCláusula 2ª: Por tratar-se de um aparelho seminovo, todas as informações foram repassadas pelo vendedor [NOME_VENDEDOR] na data [DATA_VENDA].\n\nCláusula 3ª (DO PRAZO): A garantia será de 90 dias para defeitos de fabricação (placa), contados a partir da data de recebimento do produto. A [NOME_EMPRESA] não garante a vedação contra água do aparelho.\n\nCláusula 4ª (PERDA DE GARANTIA): A garantia cessará imediatamente em caso de danos físicos, contato com líquidos, ou rompimento do selo de garantia.\n\nCláusula 5ª (DADOS E CONSULTAS): O comprador autoriza a loja a tratar dados cadastrais e, quando necessário à segurança da operação, consultar CPF/CNPJ e/ou IMEI em bases públicas (Receita Federal, Anatel/Celular Legal), nos termos da LGPD.`);
+  const [termoGarantia, setTermoGarantia] = useState(TERMO_GARANTIA_PADRAO);
   const [termoOS, setTermoOS] = useState(TERMO_OS_PADRAO);
   const [termoOSSaida, setTermoOSSaida] = useState(TERMO_OS_SAIDA_PADRAO);
   const [exigirTermoEntrada, setExigirTermoEntrada] = useState(true);
@@ -246,6 +250,21 @@ const Configuracoes = () => {
         title: 'Permissão',
       });
       return;
+    }
+
+    const diag = diagnosticoTermosConsulta({ termoOS, termoOSSaida, termoGarantia });
+    if (!diag.osEntradaOk || !diag.osSaidaOk || !diag.garantiaOk) {
+      const faltando = [
+        !diag.osEntradaOk ? 'termo de entrada da OS' : null,
+        !diag.osSaidaOk ? 'termo de saída da OS' : null,
+        !diag.garantiaOk ? 'termo de garantia' : null,
+      ].filter(Boolean);
+      const seguir = await confirm(
+        `Atenção LGPD: ${faltando.join(', ')} sem cláusula clara de consultas (CPF/IMEI/Anatel).\n\n` +
+          'Recomendamos restaurar o padrão ou incluir a cláusula antes de salvar. Deseja salvar mesmo assim?',
+        { title: 'Cláusula de consultas', confirmLabel: 'Salvar assim', cancelLabel: 'Revisar' }
+      );
+      if (!seguir) return;
     }
 
     setSalvando(true);
@@ -950,6 +969,25 @@ const Configuracoes = () => {
                 Nesta seção você pode editar os termos legais que saem impressos nos documentos do sistema. 
                 Utilize as <strong>Variáveis Disponíveis</strong> para que o sistema preencha os dados automaticamente.
               </p>
+              {(() => {
+                const diag = diagnosticoTermosConsulta({ termoOS, termoOSSaida, termoGarantia });
+                if (diag.osEntradaOk && diag.osSaidaOk && diag.garantiaOk) return null;
+                return (
+                  <div style={{
+                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    marginBottom: '16px',
+                    color: '#fbbf24',
+                    fontSize: '13px',
+                    lineHeight: 1.5,
+                  }}>
+                    Um ou mais termos estão sem cláusula clara de consultas (CPF/IMEI/Anatel).
+                    Use <strong>Padrão</strong> em cada termo ou inclua a cláusula antes de operar consultas.
+                  </div>
+                );
+              })()}
 
               <div style={{backgroundColor: '#11131c', border: '1px solid #1f2233', borderRadius: '8px', padding: '20px', marginBottom: '20px'}}>
                 <span style={{fontSize: '12px', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>VARIÁVEIS DISPONÍVEIS (Clique para copiar):</span>
@@ -963,15 +1001,30 @@ const Configuracoes = () => {
               </div>
 
               <div style={styles.inputGroup}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px', gap: '8px', flexWrap: 'wrap'}}>
                   <label style={{...styles.label, color: '#e2e8f0', fontSize: '14px'}}>Termo de Garantia (Recibo de Venda):</label>
-                  <button 
-                    style={{...styles.btnActionSecondary, backgroundColor: previewGarantia ? 'rgba(56, 189, 248, 0.1)' : 'transparent'}} 
-                    onClick={() => setPreviewGarantia(!previewGarantia)}
-                  >
-                    {previewGarantia ? <EyeOff size={14}/> : <Eye size={14}/>}
-                    {previewGarantia ? 'Voltar para Edição' : 'Pré-visualizar (MOCK)'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      style={styles.btnActionSecondary}
+                      onClick={async () => {
+                        const ok = await confirm('Restaurar o termo de garantia padrão (com cláusula de consultas)?', {
+                          title: 'Restaurar padrão',
+                          confirmLabel: 'Restaurar',
+                        });
+                        if (ok) setTermoGarantia(TERMO_GARANTIA_PADRAO);
+                      }}
+                    >
+                      <RotateCcw size={14} /> Padrão
+                    </button>
+                    <button 
+                      style={{...styles.btnActionSecondary, backgroundColor: previewGarantia ? 'rgba(56, 189, 248, 0.1)' : 'transparent'}} 
+                      onClick={() => setPreviewGarantia(!previewGarantia)}
+                    >
+                      {previewGarantia ? <EyeOff size={14}/> : <Eye size={14}/>}
+                      {previewGarantia ? 'Voltar para Edição' : 'Pré-visualizar (MOCK)'}
+                    </button>
+                  </div>
                 </div>
                 
                 {previewGarantia ? (
@@ -988,15 +1041,30 @@ const Configuracoes = () => {
               </div>
               
               <div style={{...styles.inputGroup, marginTop: '20px'}}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px', gap: '8px', flexWrap: 'wrap'}}>
                   <label style={{...styles.label, color: '#e2e8f0', fontSize: '14px'}}>Termo de Entrada (Ordem de Serviço):</label>
-                  <button 
-                    style={{...styles.btnActionSecondary, backgroundColor: previewOS ? 'rgba(56, 189, 248, 0.1)' : 'transparent'}} 
-                    onClick={() => setPreviewOS(!previewOS)}
-                  >
-                    {previewOS ? <EyeOff size={14}/> : <Eye size={14}/>}
-                    {previewOS ? 'Voltar para Edição' : 'Pré-visualizar (MOCK)'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      style={styles.btnActionSecondary}
+                      onClick={async () => {
+                        const ok = await confirm('Restaurar o termo de entrada padrão (com cláusula de consultas)?', {
+                          title: 'Restaurar padrão',
+                          confirmLabel: 'Restaurar',
+                        });
+                        if (ok) setTermoOS(TERMO_OS_PADRAO);
+                      }}
+                    >
+                      <RotateCcw size={14} /> Padrão
+                    </button>
+                    <button 
+                      style={{...styles.btnActionSecondary, backgroundColor: previewOS ? 'rgba(56, 189, 248, 0.1)' : 'transparent'}} 
+                      onClick={() => setPreviewOS(!previewOS)}
+                    >
+                      {previewOS ? <EyeOff size={14}/> : <Eye size={14}/>}
+                      {previewOS ? 'Voltar para Edição' : 'Pré-visualizar (MOCK)'}
+                    </button>
+                  </div>
                 </div>
 
                 {previewOS ? (
@@ -1029,15 +1097,30 @@ const Configuracoes = () => {
               </div>
 
               <div style={{...styles.inputGroup, marginTop: '20px'}}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px', gap: '8px', flexWrap: 'wrap'}}>
                   <label style={{...styles.label, color: '#e2e8f0', fontSize: '14px'}}>Termo de Saída (Ordem de Serviço):</label>
-                  <button
-                    style={{...styles.btnActionSecondary, backgroundColor: previewOSSaida ? 'rgba(56, 189, 248, 0.1)' : 'transparent'}}
-                    onClick={() => setPreviewOSSaida(!previewOSSaida)}
-                  >
-                    {previewOSSaida ? <EyeOff size={14}/> : <Eye size={14}/>}
-                    {previewOSSaida ? 'Voltar para Edição' : 'Pré-visualizar (MOCK)'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      style={styles.btnActionSecondary}
+                      onClick={async () => {
+                        const ok = await confirm('Restaurar o termo de saída padrão (com cláusula de consultas)?', {
+                          title: 'Restaurar padrão',
+                          confirmLabel: 'Restaurar',
+                        });
+                        if (ok) setTermoOSSaida(TERMO_OS_SAIDA_PADRAO);
+                      }}
+                    >
+                      <RotateCcw size={14} /> Padrão
+                    </button>
+                    <button
+                      style={{...styles.btnActionSecondary, backgroundColor: previewOSSaida ? 'rgba(56, 189, 248, 0.1)' : 'transparent'}}
+                      onClick={() => setPreviewOSSaida(!previewOSSaida)}
+                    >
+                      {previewOSSaida ? <EyeOff size={14}/> : <Eye size={14}/>}
+                      {previewOSSaida ? 'Voltar para Edição' : 'Pré-visualizar (MOCK)'}
+                    </button>
+                  </div>
                 </div>
 
                 {previewOSSaida ? (
