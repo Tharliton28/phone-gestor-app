@@ -89,7 +89,11 @@ export const ASSINATURA_STATUS_ATIVOS = ['trial', 'ativa'];
 /** Dias de trial no onboarding self-serve (espelho da migration 028). */
 export const TRIAL_DIAS = 14;
 
-/** Cotas gratuitas de consulta no trial (por loja / CNPJ). */
+/**
+ * Créditos iniciais do trial (= 3 CPF×1 + 2 IMEI×2).
+ * Consultas no trial debitam a carteira normalmente (auditável no admin).
+ */
+export const TRIAL_CREDITOS_INICIAIS = 7;
 export const TRIAL_LIMITE_CONSULTA_CPF_CNPJ = 3;
 export const TRIAL_LIMITE_CONSULTA_IMEI = 2;
 
@@ -187,26 +191,24 @@ export function mensagemUpgradeConsultas(plano) {
   return `Consultas CPF/CNPJ e IMEI estão no plano Profissional. Sua loja está no ${atual}. Faça upgrade para usar (cobrança por crédito).`;
 }
 
-export function mensagemTrialConsultaLimite(tipo = 'cpf_cnpj') {
-  if (tipo === 'imei') {
-    return `No trial você pode fazer até ${TRIAL_LIMITE_CONSULTA_IMEI} consultas IMEI por loja. Assine um plano para continuar com créditos.`;
-  }
-  return `No trial você pode fazer até ${TRIAL_LIMITE_CONSULTA_CPF_CNPJ} consultas CPF/CNPJ por loja. Assine um plano para continuar com créditos.`;
+export function mensagemTrialCreditosEsgotados() {
+  return (
+    `Créditos do trial esgotados. No trial você recebe ${TRIAL_CREDITOS_INICIAIS} créditos ` +
+    `(até ${TRIAL_LIMITE_CONSULTA_CPF_CNPJ} CPF/CNPJ e ${TRIAL_LIMITE_CONSULTA_IMEI} IMEI). ` +
+    `Assine um plano e compre créditos para continuar.`
+  );
 }
 
-export function rotuloTrialConsultas(trialConsultas) {
+/** @deprecated use mensagemTrialCreditosEsgotados */
+export function mensagemTrialConsultaLimite() {
+  return mensagemTrialCreditosEsgotados();
+}
+
+export function rotuloTrialConsultas(trialConsultas, saldoOverride = null) {
   if (!trialConsultas?.ativo) return null;
-  const cpfRest =
-    Math.max(
-      0,
-      (trialConsultas.cpf_cnpj_limite ?? TRIAL_LIMITE_CONSULTA_CPF_CNPJ) -
-        (trialConsultas.cpf_cnpj_usados ?? 0)
-    );
-  const imeiRest =
-    Math.max(
-      0,
-      (trialConsultas.imei_limite ?? TRIAL_LIMITE_CONSULTA_IMEI) -
-        (trialConsultas.imei_usados ?? 0)
-    );
-  return `Trial: restam ${cpfRest} consulta(s) CPF/CNPJ e ${imeiRest} IMEI.`;
+  const saldo =
+    saldoOverride != null
+      ? Number(saldoOverride)
+      : Number(trialConsultas.saldo ?? trialConsultas.creditos_saldo ?? 0);
+  return `Trial: ${saldo} crédito${saldo === 1 ? '' : 's'} (início com ${TRIAL_CREDITOS_INICIAIS} ≈ ${TRIAL_LIMITE_CONSULTA_CPF_CNPJ} CPF + ${TRIAL_LIMITE_CONSULTA_IMEI} IMEI).`;
 }

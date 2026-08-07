@@ -4,7 +4,7 @@ import {
   entitlementsDoPlano,
   getPlanoDef,
   mensagemConsultaIndisponivel,
-  mensagemTrialConsultaLimite,
+  mensagemTrialCreditosEsgotados,
   mensagemUpgradeNfce,
   normalizarCiclo,
   normalizarPlano,
@@ -12,6 +12,7 @@ import {
   precoCheckout,
   precoHintCiclo,
   rotuloTrialConsultas,
+  TRIAL_CREDITOS_INICIAIS,
   TRIAL_LIMITE_CONSULTA_CPF_CNPJ,
   TRIAL_LIMITE_CONSULTA_IMEI,
 } from './lojaPlanos';
@@ -72,19 +73,10 @@ describe('lojaPlanos', () => {
     expect(mensagemConsultaIndisponivel({ podeConsultas: true })).toMatch(/Secrets|configurada/i);
   });
 
-  it('cotas e mensagens do trial de consultas', () => {
-    expect(TRIAL_LIMITE_CONSULTA_CPF_CNPJ).toBe(3);
-    expect(TRIAL_LIMITE_CONSULTA_IMEI).toBe(2);
-    expect(mensagemTrialConsultaLimite('cpf_cnpj')).toMatch(/3/);
-    expect(mensagemTrialConsultaLimite('imei')).toMatch(/2/);
-    expect(
-      rotuloTrialConsultas({
-        ativo: true,
-        cpf_cnpj_usados: 1,
-        cpf_cnpj_limite: 3,
-        imei_usados: 0,
-        imei_limite: 2,
-      })
-    ).toMatch(/restam 2.*CPF/);
+  it('trial usa créditos iniciais auditáveis', () => {
+    expect(TRIAL_CREDITOS_INICIAIS).toBe(7);
+    expect(TRIAL_LIMITE_CONSULTA_CPF_CNPJ * 1 + TRIAL_LIMITE_CONSULTA_IMEI * 2).toBe(7);
+    expect(mensagemTrialCreditosEsgotados()).toMatch(/7|esgotados/i);
+    expect(rotuloTrialConsultas({ ativo: true, saldo: 5 })).toMatch(/5 crédito/);
   });
 });

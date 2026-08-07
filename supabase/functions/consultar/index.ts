@@ -284,17 +284,15 @@ Deno.serve(async (req) => {
     if (permitErr) return json(400, { error: permitErr.message });
     if (!permit?.ok) {
       const code = String(permit?.code || "plan_locked");
-      const status = code === "trial_limit" ? 403 : code === "subscription_inactive" ? 403 : 403;
-      return json(status, {
+      const emTrial = String(ent.assinatura_status || "") === "trial";
+      return json(403, {
         error: permit?.error || "Consulta não permitida.",
         code,
-        usados: permit?.usados ?? null,
-        limite: permit?.limite ?? null,
-        restantes: permit?.restantes ?? null,
+        trial: emTrial,
       });
     }
 
-    const modoTrial = permit.mode === "trial";
+    const emTrial = String(permit.assinatura_status || ent.assinatura_status || "") === "trial";
 
     if (!getInfosimplesToken()) {
       return json(503, {
@@ -319,30 +317,28 @@ Deno.serve(async (req) => {
       return json(400, { error: "IMEI deve ter 15 dígitos." });
     }
 
-    let custo = tipo === "imei" ? 2 : 1;
-    if (!modoTrial) {
-      const { data: carteira, error: cartError } = await userClient.rpc("obter_loja_creditos", {
-        p_loja_id: lojaId,
-      });
-      if (cartError) return json(400, { error: cartError.message });
+    const { data: carteira, error: cartError } = await userClient.rpc("obter_loja_creditos", {
+      p_loja_id: lojaId,
+    });
+    if (cartError) return json(400, { error: cartError.message });
 
-      const { data: custoRow } = await userClient
-        .from("loja_credito_custos")
-        .select("creditos")
-        .eq("acao", acao)
-        .eq("ativo", true)
-        .maybeSingle();
-      custo = Number(custoRow?.creditos ?? custo);
-      if (Number(carteira?.saldo ?? 0) < custo) {
-        return json(402, {
-          error: `Saldo insuficiente. Esta consulta custa ${custo} crédito(s). Saldo atual: ${carteira?.saldo ?? 0}.`,
-          code: "insufficient_credits",
-          custo,
-          saldo: carteira?.saldo ?? 0,
-        });
-      }
-    } else {
-      custo = 0;
+    const { data: custoRow } = await userClient
+      .from("loja_credito_custos")
+      .select("creditos")
+      .eq("acao", acao)
+      .eq("ativo", true)
+      .maybeSingle();
+    const custo = Number(custoRow?.creditos ?? (tipo === "imei" ? 2 : 1));
+    if (Number(carteira?.saldo ?? 0) < custo) {
+      return json(402, {
+        error: emTrial
+          ? `Créditos do trial esgotados (saldo ${carteira?.saldo ?? 0}). Assine um plano e compre créditos para continuar consultando.`
+          : `Saldo insuficiente. Esta consulta custa ${custo} crédito(s). Saldo atual: ${carteira?.saldo ?? 0}.`,
+        code: "insufficient_credits",
+        custo,
+        saldo: carteira?.saldo ?? 0,
+        trial: emTrial,
+      });
     }
 
     let resultado: Record<string, unknown>;
@@ -412,25 +408,26 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Debita créditos só no plano pago; trial usa cota gratuita
-    let consumido = 0;
-    let saldoAtual: number | null = null;
-    if (!modoTrial) {
-      const { data: credito, error: creditoError } = await userClient.rpc("consumir_loja_creditos", {
-        p_loja_id: lojaId,
-        p_acao: acao,
-        p_quantidade: null,
-        p_descricao: tipo === "imei" ? `Consulta IMEI ${chave}` : `Consulta CPF/CNPJ ${chave}`,
-        p_referencia_tipo: "consulta",
-        p_referencia_id: null,
-      });
+    // Debita sempre (trial e pago) — custo auditável no ledger
+    const { data: credito, error: creditoError } = await userClient.rpc("consumir_loja_creditos", {
+      p_loja_id: lojaId,
+      p_acao: acao,
+      p_quantidade: null,
+      p_descricao: tipo === "imei" ? `Consulta IMEI ${chave}` : `Consulta CPF/CNPJ ${chave}`,
+      p_referencia_tipo: "consulta",
+      p_referencia_id: null,
+    });
 
-      if (creditoError) {
-        return json(402, { error: creditoError.message, code: "credit_debit_failed" });
-      }
-      consumido = Number(credito?.consumido ?? custo);
-      saldoAtual = typeof credito?.saldo === "number" ? credito.saldo : null;
+    if (creditoError) {
+      return json(402, {
+        error: creditoError.message,
+        code: "credit_debit_failed",
+        trial: emTrial,
+      });
     }
+
+    const consumido = Number(credito?.consumido ?? custo);
+    const saldoAtual = typeof credito?.saldo === "number" ? credito.saldo : null;
 
     await admin.from("consulta_logs").insert({
       loja_id: lojaId,
@@ -440,22 +437,16 @@ Deno.serve(async (req) => {
       provider: "infosimples",
       sucesso: true,
       creditos_consumidos: consumido,
-      mensagem: modoTrial ? "ok_trial" : "ok",
+      mensagem: emTrial ? "ok_trial_creditos" : "ok",
     });
 
     return json(200, {
       ok: true,
       tipo,
-      mode: modoTrial ? "trial" : "credits",
+      mode: "credits",
       custo: consumido,
       saldo: saldoAtual,
-      trial: modoTrial
-        ? {
-          usados: Number(permit.usados ?? 0) + 1,
-          limite: permit.limite ?? null,
-          restantes: Math.max(0, Number(permit.restantes ?? 1) - 1),
-        }
-        : null,
+      trial: emTrial,
       dados: resultado,
       situacaoLoja,
     });

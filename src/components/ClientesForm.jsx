@@ -30,7 +30,7 @@ import { montarMensagemAutorizacaoConsulta } from '../domain/autorizacaoConsulta
 import { buildWhatsAppLink } from '../domain/osEvidencias';
 import {
   mensagemConsultaIndisponivel,
-  mensagemTrialConsultaLimite,
+  mensagemTrialCreditosEsgotados,
   mensagemUpgradeConsultas,
   rotuloTrialConsultas,
 } from '../domain/lojaPlanos';
@@ -492,12 +492,11 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
 
     const custo = custoConsultaCpfCnpj();
     const confirmar = await confirm(
-      emTrial
-        ? `Consulta no trial (cota gratuita: até 3 CPF/CNPJ por loja).\n\n` +
-          `${rotuloTrialConsultas(trialConsultas) || ''}\n\n` +
-          'Confirmo que o titular já autorizou e que a consulta é necessária ao atendimento.'
-        : `Esta consulta consome ${custo} crédito${custo === 1 ? '' : 's'} e consulta bases públicas (Receita Federal).\n\n` +
-          'Confirmo que o titular já autorizou (assinatura/termo) e que a consulta é necessária ao atendimento.',
+      `Esta consulta consome ${custo} crédito${custo === 1 ? '' : 's'}` +
+        (emTrial
+          ? ` do trial.\n\n${rotuloTrialConsultas(trialConsultas) || ''}\n\n`
+          : ' e consulta bases públicas (Receita Federal).\n\n') +
+        'Confirmo que o titular já autorizou e que a consulta é necessária ao atendimento.',
       { title: 'Confirmar consulta', confirmLabel: 'Consultar' }
     );
     if (!confirmar) return;
@@ -523,13 +522,6 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
           'warning'
         );
       }
-      if (result.code === 'trial_limit') {
-        return mostrarAviso(
-          'Limite do trial',
-          result.error?.message || mensagemTrialConsultaLimite('cpf_cnpj'),
-          'warning'
-        );
-      }
       if (result.code === 'birthdate_required') {
         return mostrarAviso(
           'Data de nascimento',
@@ -539,9 +531,10 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
       }
       if (result.code === 'insufficient_credits') {
         return mostrarAviso(
-          'Créditos insuficientes',
-          result.error?.message || 'Saldo insuficiente para esta consulta.',
-          'erro'
+          emTrial || result.trial ? 'Créditos do trial' : 'Créditos insuficientes',
+          result.error?.message ||
+            (emTrial ? mensagemTrialCreditosEsgotados() : 'Saldo insuficiente para esta consulta.'),
+          emTrial || result.trial ? 'warning' : 'erro'
         );
       }
       return mostrarAviso(
@@ -554,12 +547,10 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
     const dados = result.dados || null;
     setDadosConsulta(dados);
     setSituacaoLoja(result.situacaoLoja ?? null);
-    if (result.mode === 'trial') {
-      try {
-        await recarregar?.();
-      } catch {
-        /* ignore */
-      }
+    try {
+      await recarregar?.();
+    } catch {
+      /* ignore */
     }
 
     if (dados) {
@@ -675,7 +666,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
                 </div>
                 <span style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
                   {emTrial
-                    ? `${rotuloTrialConsultas(trialConsultas) || 'Trial'} · CPF exige data de nascimento`
+                    ? `${rotuloTrialConsultas(trialConsultas) || 'Trial'} · consome 1 crédito · CPF exige nascimento`
                     : 'CPF exige data de nascimento · consome 1 crédito · plano Profissional'}
                 </span>
                 {!pessoaId && cpfExistente && (

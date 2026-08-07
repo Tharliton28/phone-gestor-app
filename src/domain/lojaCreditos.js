@@ -56,7 +56,7 @@ export function rotuloLancamento(lancamento) {
   if (lancamento?.descricao) return lancamento.descricao;
   const custo = CUSTO_CREDITOS[lancamento?.acao];
   if (custo) return custo.label;
-  if (lancamento?.acao === 'bonus_inicial') return 'Bônus inicial';
+  if (lancamento?.acao === 'bonus_inicial') return 'Créditos de trial';
   if (lancamento?.acao === 'compra_pacote') return 'Compra de pacote';
   return lancamento?.acao ?? 'Lançamento';
 }
