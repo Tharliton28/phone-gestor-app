@@ -12,6 +12,16 @@ const CATEGORIA_DB_TO_UI = Object.fromEntries(
   Object.entries(CATEGORIA_UI_TO_DB).map(([ui, db]) => [db, ui])
 );
 
+/** Normaliza data do banco/API para input type="date" (YYYY-MM-DD). */
+export function normalizeDataNascimento(value) {
+  if (!value || value === '—') return '';
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const br = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return '';
+}
+
 export function mapFormToPessoa(formData, { tipoPessoa, categoria }) {
   const cpfValidation = validateCpfCnpj(formData.cpf);
   if (!cpfValidation.valid) {
@@ -26,6 +36,8 @@ export function mapFormToPessoa(formData, { tipoPessoa, categoria }) {
     throw new Error(telefoneValidation.message);
   }
 
+  const dataNascimento = normalizeDataNascimento(formData.dataNascimento);
+
   return {
     tipo: tipoPessoa === 'Pessoa Jurídica' ? 'juridica' : 'fisica',
     categoria: CATEGORIA_UI_TO_DB[categoria] ?? 'cliente',
@@ -35,7 +47,7 @@ export function mapFormToPessoa(formData, { tipoPessoa, categoria }) {
     inscricao_estadual: formData.inscEstadual || null,
     indicador_contribuinte: formData.indContribuinte || null,
     inscricao_municipal: formData.inscMunicipal || null,
-    data_nascimento: formData.dataNascimento || null,
+    data_nascimento: dataNascimento || null,
     genero: formData.genero || null,
     telefone: formData.telefone || null,
     telefone_alternativo: formData.telefoneAlt || null,
@@ -53,6 +65,26 @@ export function mapFormToPessoa(formData, { tipoPessoa, categoria }) {
   };
 }
 
+/**
+ * No save “leve” (ex.: gerar link), não apaga campos opcionais que já existem no banco
+ * só porque o formulário veio vazio/mal formatado.
+ */
+export function mergePessoaPayloadPreservando(atual, payload) {
+  if (!atual) return payload;
+  const out = { ...payload };
+  for (const key of Object.keys(out)) {
+    const novo = out[key];
+    const antigo = atual[key];
+    if ((novo == null || novo === '') && antigo != null && antigo !== '') {
+      out[key] = antigo;
+    }
+  }
+  if (out.data_nascimento) {
+    out.data_nascimento = normalizeDataNascimento(out.data_nascimento) || out.data_nascimento;
+  }
+  return out;
+}
+
 export function mapPessoaToForm(pessoa) {
   return {
     cpf: formatCpfCnpj(pessoa.cpf_cnpj),
@@ -61,7 +93,7 @@ export function mapPessoaToForm(pessoa) {
     inscEstadual: pessoa.inscricao_estadual ?? '',
     indContribuinte: pessoa.indicador_contribuinte ?? '',
     inscMunicipal: pessoa.inscricao_municipal ?? '',
-    dataNascimento: pessoa.data_nascimento ?? '',
+    dataNascimento: normalizeDataNascimento(pessoa.data_nascimento),
     genero: pessoa.genero ?? '',
     telefone: pessoa.telefone ?? '',
     telefoneAlt: pessoa.telefone_alternativo ?? '',

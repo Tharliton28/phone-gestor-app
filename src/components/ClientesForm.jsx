@@ -12,6 +12,7 @@ import {
   mapFormToPessoa,
   mapPessoaMeta,
   mapPessoaToForm,
+  mergePessoaPayloadPreservando,
   mensagemErroPessoa,
   updatePessoa,
 } from '../services/pessoaService';
@@ -266,7 +267,9 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
     }
 
     if (pessoaId) {
-      const { error } = await updatePessoa(lojaAtivaId, pessoaId, payload);
+      const { data: atual } = await getPessoaById(lojaAtivaId, pessoaId);
+      const merged = mergePessoaPayloadPreservando(atual, payload);
+      const { error } = await updatePessoa(lojaAtivaId, pessoaId, merged);
       if (error) throw new Error(mensagemErroPessoa(error));
       return pessoaId;
     }
@@ -279,7 +282,8 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
       );
       if (buscaError) throw new Error(mensagemErroPessoa(buscaError));
       if (existente?.id) {
-        const { error } = await updatePessoa(lojaAtivaId, existente.id, payload);
+        const merged = mergePessoaPayloadPreservando(existente, payload);
+        const { error } = await updatePessoa(lojaAtivaId, existente.id, merged);
         if (error) throw new Error(mensagemErroPessoa(error));
         return existente.id;
       }
@@ -311,7 +315,8 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
     if (!cpfCheck.valid) {
       return mostrarAviso('Atenção', cpfCheck.message, 'erro');
     }
-    if (abrirWhatsApp && onlyDigits(formData.telefone).length < 10) {
+    const telefoneEnvio = formData.telefoneAlt?.trim() || formData.telefone;
+    if (abrirWhatsApp && onlyDigits(telefoneEnvio).length < 10) {
       return mostrarAviso(
         'Telefone',
         'Cadastre o telefone/WhatsApp do cliente para enviar o link, ou use Copiar link.',
@@ -344,17 +349,18 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
           nomeEmpresa: lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social,
           url,
         });
-        window.open(buildWhatsAppLink(formData.telefone, msg), '_blank', 'noopener,noreferrer');
+        window.open(buildWhatsAppLink(telefoneEnvio, msg), '_blank', 'noopener,noreferrer');
         await mostrarAviso(
-          'Link enviado',
-          'WhatsApp aberto. Quando o cliente assinar, a consulta será liberada automaticamente nesta tela.',
-          'sucesso'
+          'Link gerado',
+          'O link de assinatura ficou pronto. Conclua o envio no WhatsApp se a janela abrir.\n\n' +
+            'A consulta só libera depois que o cliente assinar — não depende de você ter enviado agora.',
+          'info'
         );
       } else {
         await navigator.clipboard.writeText(url);
         await mostrarAviso(
           'Link copiado',
-          'Envie o link ao cliente. Quando ele assinar, a consulta será liberada nesta tela.',
+          'Cole e envie ao cliente. A consulta só libera depois da assinatura.',
           'sucesso'
         );
       }
@@ -662,7 +668,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
                     </p>
                     {linkAuthPendente && !autorizacaoOk && (
                       <p style={{ ...styles.authHint, color: '#fbbf24', marginTop: 6 }}>
-                        Link pendente de assinatura. Esta tela atualiza sozinha quando o cliente assinar.
+                        Link de assinatura gerado — aguardando o cliente assinar. Esta tela atualiza sozinha.
                       </p>
                     )}
                   </div>
