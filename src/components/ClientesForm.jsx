@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Save, Trash2,
-  CheckCircle, User, Calendar
+  CheckCircle, User, Calendar, Link2, MessageCircle
 } from 'lucide-react';
 import { useLoja } from '../contexts/LojaContext';
 import { useDialog } from '../contexts/DialogContext';
@@ -13,11 +13,17 @@ import {
   mapPessoaToForm,
   updatePessoa,
 } from '../services/pessoaService';
-import { validateCpfCnpj } from '../utils/formatters';
+import { onlyDigits, validateCpfCnpj } from '../utils/formatters';
 import {
   consultarCpfCnpj as solicitarConsultaCpfCnpj,
   custoConsultaCpfCnpj,
 } from '../services/consultaService';
+import {
+  criarLinkAutorizacaoConsulta,
+  getLinkAutorizacaoPendente,
+} from '../services/autorizacaoConsultaService';
+import { montarMensagemAutorizacaoConsulta } from '../domain/autorizacaoConsulta';
+import { buildWhatsAppLink } from '../domain/osEvidencias';
 import {
   mensagemConsultaIndisponivel,
   mensagemUpgradeConsultas,
@@ -51,8 +57,8 @@ function situacaoEhRegular(situacao) {
   return String(situacao || '').toUpperCase().includes('REGULAR');
 }
 
-const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
-  const { lojaAtivaId, podeConsultas, lojaAtiva } = useLoja();
+const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
+  const { lojaAtivaId, podeConsultas, lojaAtiva, perfil } = useLoja();
   const { alert, confirm } = useDialog();
   const isEdicao = Boolean(pessoaId);
   const [carregando, setCarregando] = useState(isEdicao);
@@ -74,9 +80,12 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
 
   const [buscandoCpf, setBuscandoCpf] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
+  const [gerandoLinkAuth, setGerandoLinkAuth] = useState(false);
+  const [linkAuthPendente, setLinkAuthPendente] = useState(null);
   const [dadosConsulta, setDadosConsulta] = useState(null);
   const [situacaoLoja, setSituacaoLoja] = useState(null);
   const isPessoaFisica = tipoPessoa === 'Pessoa Física';
+  const autorizacaoOk = Boolean(formData.autorizaConsultaDados);
 
   const mostrarAviso = async (titulo, mensagem, tipo = 'info', acaoOk = null) => {
     await alert(mensagem, { title: titulo, type: DIALOG_TYPE[tipo] ?? tipo });
@@ -110,6 +119,45 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
 
     carregarPessoa();
   }, [pessoaId, lojaAtivaId, aoVoltar]);
+
+  useEffect(() => {
+    if (!pessoaId || !lojaAtivaId || autorizacaoOk) {
+      setLinkAuthPendente(null);
+      return undefined;
+    }
+
+    let ativo = true;
+    const sincronizar = async () => {
+      const [{ data }, link] = await Promise.all([
+        getPessoaById(lojaAtivaId, pessoaId),
+        getLinkAutorizacaoPendente(lojaAtivaId, pessoaId),
+      ]);
+      if (!ativo) return;
+
+      if (data?.autoriza_consulta_dados) {
+        setFormData((prev) => ({
+          ...prev,
+          autorizaConsultaDados: true,
+          autorizaConsultaEm: data.autoriza_consulta_em ?? '',
+          autorizaConsultaOrigem: data.autoriza_consulta_origem ?? '',
+        }));
+        setLinkAuthPendente(null);
+        return;
+      }
+
+      setLinkAuthPendente(link.url || null);
+    };
+
+    sincronizar();
+    const timer = setInterval(sincronizar, 5000);
+    const onFocus = () => { sincronizar(); };
+    window.addEventListener('focus', onFocus);
+    return () => {
+      ativo = false;
+      clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [pessoaId, lojaAtivaId, autorizacaoOk]);
 
   const preencherEnderecoPorCep = async (cepValue) => {
     const cepLimpo = String(cepValue || '').replace(/\D/g, '');
@@ -173,13 +221,91 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
     setSituacaoLoja(null);
   };
 
-  const handleAutorizacaoConsulta = (checked) => {
-    setFormData((prev) => ({
-      ...prev,
-      autorizaConsultaDados: checked,
-      autorizaConsultaEm: checked ? new Date().toISOString() : '',
-      autorizaConsultaOrigem: checked ? 'cadastro' : '',
-    }));
+  const garantirPessoaSalva = async () => {
+    let payload;
+    try {
+      payload = mapFormToPessoa(formData, { tipoPessoa, categoria });
+    } catch (err) {
+      throw new Error(err.message);
+    }
+
+    if (pessoaId) {
+      const { error } = await updatePessoa(lojaAtivaId, pessoaId, payload);
+      if (error) throw new Error(error.message ?? 'Não foi possível salvar o cadastro.');
+      return pessoaId;
+    }
+
+    const { data, error } = await createPessoa(lojaAtivaId, payload);
+    if (error) throw new Error(error.message ?? 'Não foi possível salvar o cadastro.');
+    return data.id;
+  };
+
+  const solicitarAutorizacaoCliente = async ({ abrirWhatsApp = false } = {}) => {
+    if (!lojaAtivaId) {
+      return mostrarAviso('Erro', 'Nenhuma loja ativa selecionada.', 'erro');
+    }
+    if (!formData.nome.trim()) {
+      return mostrarAviso('Atenção', 'Preencha o nome antes de solicitar autorização.', 'erro');
+    }
+    const cpfCheck = validateCpfCnpj(formData.cpf);
+    if (!cpfCheck.valid) {
+      return mostrarAviso('Atenção', cpfCheck.message, 'erro');
+    }
+    if (abrirWhatsApp && onlyDigits(formData.telefone).length < 10) {
+      return mostrarAviso(
+        'Telefone',
+        'Cadastre o telefone/WhatsApp do cliente para enviar o link, ou use Copiar link.',
+        'warning'
+      );
+    }
+
+    setGerandoLinkAuth(true);
+    try {
+      const idSalvo = await garantirPessoaSalva();
+      const { url, error } = await criarLinkAutorizacaoConsulta({
+        lojaId: lojaAtivaId,
+        pessoaId: idSalvo,
+        nomeEmpresa: lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social || 'loja',
+        nomeCliente: formData.nome.trim(),
+        cpfCliente: formData.cpf,
+        operadorId: perfil?.id || null,
+      });
+
+      if (error || !url) {
+        await mostrarAviso('Erro', error?.message || 'Não foi possível gerar o link.', 'erro');
+        return;
+      }
+
+      setLinkAuthPendente(url);
+
+      if (abrirWhatsApp) {
+        const msg = montarMensagemAutorizacaoConsulta({
+          nomeCliente: formData.nome.trim(),
+          nomeEmpresa: lojaAtiva?.nome_fantasia || lojaAtiva?.razao_social,
+          url,
+        });
+        window.open(buildWhatsAppLink(formData.telefone, msg), '_blank', 'noopener,noreferrer');
+        await mostrarAviso(
+          'Link enviado',
+          'WhatsApp aberto. Quando o cliente assinar, a consulta será liberada automaticamente nesta tela.',
+          'sucesso'
+        );
+      } else {
+        await navigator.clipboard.writeText(url);
+        await mostrarAviso(
+          'Link copiado',
+          'Envie o link ao cliente. Quando ele assinar, a consulta será liberada nesta tela.',
+          'sucesso'
+        );
+      }
+
+      // Só após gerar o link: navega para edição se o cadastro acabou de ser criado.
+      if (!pessoaId && onPessoaSalva) onPessoaSalva(idSalvo);
+    } catch (err) {
+      await mostrarAviso('Atenção', err.message || 'Não foi possível continuar.', 'erro');
+    } finally {
+      setGerandoLinkAuth(false);
+    }
   };
 
   const salvarCadastro = async () => {
@@ -255,10 +381,18 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
       );
     }
 
-    if (!formData.autorizaConsultaDados) {
+    if (!pessoaId) {
       return mostrarAviso(
         'Autorização necessária',
-        'Marque a autorização do titular (LGPD) antes de consultar CPF/CNPJ.',
+        'Salve o cadastro e peça a autorização do cliente (link de assinatura) antes de consultar.',
+        'warning'
+      );
+    }
+
+    if (!autorizacaoOk) {
+      return mostrarAviso(
+        'Aguardando autorização',
+        'O cliente ainda não assinou a autorização. Envie o link pelo WhatsApp ou aguarde a assinatura (termo de OS também libera).',
         'warning'
       );
     }
@@ -266,7 +400,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
     const custo = custoConsultaCpfCnpj();
     const confirmar = await confirm(
       `Esta consulta consome ${custo} crédito${custo === 1 ? '' : 's'} e consulta bases públicas (Receita Federal).\n\n` +
-        'Confirmo que o titular autorizou esta consulta (checkbox marcado) e que a loja registrará essa autorização no cadastro.',
+        'Confirmo que o titular já autorizou (assinatura/termo) e que a consulta é necessária ao atendimento.',
       { title: 'Confirmar consulta', confirmLabel: 'Consultar' }
     );
     if (!confirmar) return;
@@ -434,35 +568,45 @@ const ClientesForm = ({ aoVoltar, pessoaId = null }) => {
               </div>
 
               <div style={{...styles.inputGroup, gridColumn: 'span 6'}}>
-                <label
-                  style={{
-                    display: 'flex',
-                    gap: '10px',
-                    alignItems: 'flex-start',
-                    backgroundColor: '#0f111a',
-                    border: '1px solid #2a2e3f',
-                    borderRadius: '8px',
-                    padding: '12px 14px',
-                    cursor: 'pointer',
-                    color: '#cbd5e1',
-                    fontSize: '13px',
-                    lineHeight: 1.45,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={Boolean(formData.autorizaConsultaDados)}
-                    onChange={(e) => handleAutorizacaoConsulta(e.target.checked)}
-                    style={{ marginTop: '3px', width: 16, height: 16, accentColor: '#3b82f6' }}
-                  />
-                  <span>
-                    <strong style={{ color: '#e2e8f0' }}>Autorização do titular (LGPD)</strong>
-                    <br />
-                    O titular autoriza a loja a consultar CPF/CNPJ e, quando aplicável, IMEI em bases públicas
-                    (Receita Federal, Anatel/Celular Legal) para cadastro, prevenção a fraude e atendimento.
-                    Sem esta autorização, a consulta não pode ser realizada.
-                  </span>
-                </label>
+                <div style={styles.authBox}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong style={{ color: '#e2e8f0', fontSize: '13px' }}>
+                      {autorizacaoOk ? 'Autorização registrada' : 'Consulta sob autorização'}
+                    </strong>
+                    <p style={styles.authHint}>
+                      {autorizacaoOk
+                        ? `Titular autorizou${formData.autorizaConsultaOrigem ? ` (${formData.autorizaConsultaOrigem.replace(/_/g, ' ')})` : ''}. Você já pode consultar.`
+                        : 'Para consultar CPF/CNPJ, o cliente assina um termo de atendimento (link) — ou o termo de OS. Sem interrogatório no cadastro.'}
+                    </p>
+                    {linkAuthPendente && !autorizacaoOk && (
+                      <p style={{ ...styles.authHint, color: '#fbbf24', marginTop: 6 }}>
+                        Link pendente de assinatura. Esta tela atualiza sozinha quando o cliente assinar.
+                      </p>
+                    )}
+                  </div>
+                  {!autorizacaoOk && (
+                    <div style={styles.authActions}>
+                      <button
+                        type="button"
+                        style={styles.btnAuthWhatsApp}
+                        disabled={gerandoLinkAuth}
+                        onClick={() => solicitarAutorizacaoCliente({ abrirWhatsApp: true })}
+                      >
+                        <MessageCircle size={14} />
+                        {gerandoLinkAuth ? '...' : 'WhatsApp'}
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.btnAuthLink}
+                        disabled={gerandoLinkAuth}
+                        onClick={() => solicitarAutorizacaoCliente({ abrirWhatsApp: false })}
+                      >
+                        <Link2 size={14} />
+                        {gerandoLinkAuth ? '...' : 'Copiar link'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {isPessoaFisica && (
@@ -768,6 +912,31 @@ const styles = {
   required: { color: '#ef4444' },
   input: { backgroundColor: '#11131c', border: '1px solid #1f2233', borderRadius: '4px', padding: '10px 12px', color: '#fff', fontSize: '13px', width: '100%', outline: 'none', boxSizing: 'border-box' },
   btnActionInsideInput: { backgroundColor: '#e2e8f0', color: '#0f111a', border: 'none', padding: '0 15px', borderRadius: '0 4px 4px 0', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px', transition: 'background 0.2s', whiteSpace: 'nowrap' },
+  authBox: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    backgroundColor: '#0f111a',
+    border: '1px solid #2a2e3f',
+    borderRadius: '8px',
+    padding: '12px 14px',
+  },
+  authHint: { color: '#94a3b8', fontSize: '12px', lineHeight: 1.45, margin: '6px 0 0' },
+  authActions: { display: 'flex', gap: '8px', flexShrink: 0 },
+  btnAuthWhatsApp: {
+    display: 'inline-flex', alignItems: 'center', gap: '6px',
+    backgroundColor: '#16a34a', color: '#fff', border: 'none',
+    borderRadius: '6px', padding: '8px 12px', fontSize: '12px',
+    fontWeight: 600, cursor: 'pointer',
+  },
+  btnAuthLink: {
+    display: 'inline-flex', alignItems: 'center', gap: '6px',
+    backgroundColor: '#1e293b', color: '#e2e8f0', border: '1px solid #334155',
+    borderRadius: '6px', padding: '8px 12px', fontSize: '12px',
+    fontWeight: 600, cursor: 'pointer',
+  },
   sectionDivider: { color: '#fff', fontSize: '14px', margin: '30px 0 15px 0', paddingBottom: '10px', borderBottom: '1px solid #1f2233' },
 
   reportBox: { backgroundColor: '#0f111a', border: '1px solid #1f2233', borderRadius: '8px' },

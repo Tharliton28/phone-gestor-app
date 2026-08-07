@@ -142,6 +142,7 @@ export default function ErpContent() {
           <ClientesForm
             pessoaId={dadosNavegacao?.pessoaId ?? null}
             aoVoltar={() => mudarTela('clientes')}
+            onPessoaSalva={(id) => mudarTela('novo-cliente', 'clientes', { pessoaId: id })}
           />
         </>
       );

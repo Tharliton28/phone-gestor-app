@@ -49,13 +49,7 @@ export function mapFormToPessoa(formData, { tipoPessoa, categoria }) {
     cidade: formData.cidade || null,
     estado: formData.estado ? formData.estado.toUpperCase().slice(0, 2) : null,
     observacoes: formData.observacoes || null,
-    autoriza_consulta_dados: Boolean(formData.autorizaConsultaDados),
-    autoriza_consulta_em: formData.autorizaConsultaDados
-      ? (formData.autorizaConsultaEm || new Date().toISOString())
-      : null,
-    autoriza_consulta_origem: formData.autorizaConsultaDados
-      ? (formData.autorizaConsultaOrigem || 'cadastro')
-      : null,
+    // autoriza_consulta_* só via termo OS / link de autorização (não pelo formulário)
   };
 }
 

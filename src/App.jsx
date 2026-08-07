@@ -5,6 +5,7 @@ import SignupPage from './pages/auth/SignupPage';
 import AcceptInvitePage from './pages/auth/AcceptInvitePage';
 import OnboardingEmpresaPage from './pages/onboarding/OnboardingEmpresaPage';
 import OSAceiteClientePage from './pages/public/OSAceiteClientePage';
+import AutorizacaoConsultaPage from './pages/public/AutorizacaoConsultaPage';
 import ErpContent from './pages/erp/ErpContent';
 import GuestRoute from './routes/GuestRoute';
 import ProtectedRoute from './routes/ProtectedRoute';
@@ -35,6 +36,7 @@ export default function App() {
       />
 
       <Route path="/aceite-os/:token" element={<OSAceiteClientePage />} />
+      <Route path="/autorizacao-consulta/:token" element={<AutorizacaoConsultaPage />} />
 
       <Route
         path="/convite/:token"
