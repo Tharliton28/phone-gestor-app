@@ -26,6 +26,7 @@ export async function getLojaEntitlements(lojaId) {
     }),
     assinaturaOrigem: data.assinatura_origem,
     assinaturaExpiraEm: data.assinatura_expira_em ?? null,
+    assinaturaCiclo: normalizarCiclo(data.assinatura_ciclo),
     planoAtualizadoEm: data.plano_atualizado_em,
     // Prefer values from SQL (source of truth)
     maxUsuarios: data.max_usuarios,

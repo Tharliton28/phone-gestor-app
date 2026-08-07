@@ -40,6 +40,7 @@ export default function LojaPlanoPanel() {
       setEntitlements(null);
     } else {
       setEntitlements(data);
+      if (data?.assinaturaCiclo) setCiclo(data.assinaturaCiclo);
     }
     setCarregando(false);
     return data;
@@ -105,10 +106,17 @@ export default function LojaPlanoPanel() {
 
     const precoLabel = precoHintCiclo(planoId, ciclo);
     const cicloLabel = CICLOS_ASSINATURA[ciclo]?.label || 'Mensal';
+    const cicloAtual = entitlements?.assinaturaCiclo || 'mensal';
+    const mudandoCiclo =
+      entitlements?.plano === planoId &&
+      entitlements?.assinaturaAtiva &&
+      cicloAtual !== ciclo;
     const ok = await confirm(
-      `Assinar ${def.label} — ${cicloLabel} (${precoLabel})?\n\nVocê será levado ao checkout seguro (PIX, boleto ou cartão). Assim que o pagamento for confirmado, liberamos automaticamente os recursos deste plano.`,
+      mudandoCiclo
+        ? `Mudar ${def.label} de ${CICLOS_ASSINATURA[cicloAtual]?.label || 'Mensal'} para ${cicloLabel} (${precoLabel})?\n\nUma nova cobrança será gerada no Asaas. A vigência passa a seguir o ciclo escolhido após a confirmação do pagamento.`
+        : `Assinar ${def.label} — ${cicloLabel} (${precoLabel})?\n\nVocê será levado ao checkout seguro (PIX, boleto ou cartão). Assim que o pagamento for confirmado, liberamos automaticamente os recursos deste plano.`,
       {
-        title: 'Assinar plano',
+        title: mudandoCiclo ? 'Mudar ciclo' : 'Assinar plano',
         confirmLabel: 'Ir para pagamento',
         confirmVariant: 'primary',
       }
@@ -177,6 +185,9 @@ export default function LojaPlanoPanel() {
             <span style={styles.badge}>{entitlements.assinaturaStatus}</span>
           </p>
           <p style={styles.meta}>
+            Cobrança{' '}
+            {CICLOS_ASSINATURA[entitlements.assinaturaCiclo || 'mensal']?.label || 'Mensal'}
+            {' · '}
             {entitlements.usuariosAtivos}/{entitlements.maxUsuarios} usuários · NFC-e{' '}
             {entitlements.podeNfce
               ? 'liberada (consome créditos + Focus)'
@@ -235,10 +246,13 @@ export default function LojaPlanoPanel() {
       <div style={styles.grid}>
         {PLANOS_IDS.map((id) => {
           const def = PLANOS[id];
-          const ativo =
+          const cicloAtual = entitlements.assinaturaCiclo || 'mensal';
+          const mesmoPlano =
             entitlements.plano === id &&
             entitlements.assinaturaAtiva &&
             entitlements.assinaturaStatus === 'ativa';
+          const ativo = mesmoPlano && cicloAtual === ciclo;
+          const mesmoPlanoOutroCiclo = mesmoPlano && cicloAtual !== ciclo;
           const nesteCheckout = planoCheckoutId === id && Boolean(faseCheckout);
           const preco = def.checkoutDisponivel ? precoHintCiclo(id, ciclo) : def.precoHint;
           const cheio = ciclo === 'anual' && def.checkoutDisponivel ? precoAnualCheioHint(id) : null;
@@ -279,7 +293,12 @@ export default function LojaPlanoPanel() {
                       : def.checkoutDisponivel
                         ? (
                           <>
-                            Assinar <ExternalLink size={12} style={{ marginLeft: 4 }} />
+                            {mesmoPlanoOutroCiclo
+                              ? ciclo === 'anual'
+                                ? 'Mudar para anual'
+                                : 'Mudar para mensal'
+                              : 'Assinar'}{' '}
+                            <ExternalLink size={12} style={{ marginLeft: 4 }} />
                           </>
                           )
                         : 'Falar no WhatsApp'}
