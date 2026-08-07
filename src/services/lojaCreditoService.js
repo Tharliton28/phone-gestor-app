@@ -145,3 +145,29 @@ export async function criarCheckoutCreditosAsaas(lojaId, pacoteId) {
 
   return { data, error: null };
 }
+
+/** Smoke: Pix R$ 1,00 → webhook credita 1 crédito (somente owner). */
+export async function criarPixTesteAsaas(lojaId) {
+  if (!lojaId) {
+    return { data: null, error: new Error('Loja não informada.') };
+  }
+
+  const { data, error } = await supabase.functions.invoke('criar-pix-teste-asaas', {
+    body: { loja_id: lojaId },
+  });
+
+  if (error) {
+    return { data: null, error: new Error(await mensagemErroFunction(error, data)) };
+  }
+  if (data?.error) {
+    return { data: null, error: new Error(data.error) };
+  }
+  if (!data?.invoice_url && !data?.pix_payload) {
+    return {
+      data: null,
+      error: new Error('Cobrança de teste criada, mas sem link/QR Pix do Asaas.'),
+    };
+  }
+
+  return { data, error: null };
+}
