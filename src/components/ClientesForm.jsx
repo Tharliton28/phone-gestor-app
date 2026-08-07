@@ -84,6 +84,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [gerandoLinkAuth, setGerandoLinkAuth] = useState(false);
   const [linkAuthPendente, setLinkAuthPendente] = useState(null);
+  const [cpfExistente, setCpfExistente] = useState(null);
   const [dadosConsulta, setDadosConsulta] = useState(null);
   const [situacaoLoja, setSituacaoLoja] = useState(null);
   const isPessoaFisica = tipoPessoa === 'Pessoa Física';
@@ -161,6 +162,37 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
     };
   }, [pessoaId, lojaAtivaId, autorizacaoOk]);
 
+  // Em "Novo cadastro", avisa se o CPF/CNPJ já existe nesta loja.
+  useEffect(() => {
+    if (pessoaId || !lojaAtivaId) {
+      setCpfExistente(null);
+      return undefined;
+    }
+
+    const digits = onlyDigits(formData.cpf);
+    if (digits.length !== 11 && digits.length !== 14) {
+      setCpfExistente(null);
+      return undefined;
+    }
+
+    let ativo = true;
+    const timer = setTimeout(async () => {
+      const { data } = await getPessoaByCpfCnpj(lojaAtivaId, digits);
+      if (!ativo) return;
+      setCpfExistente(data ? { id: data.id, nome: data.nome || 'Cadastro existente' } : null);
+    }, 350);
+
+    return () => {
+      ativo = false;
+      clearTimeout(timer);
+    };
+  }, [pessoaId, lojaAtivaId, formData.cpf]);
+
+  const abrirCadastroExistente = () => {
+    if (!cpfExistente?.id || !onPessoaSalva) return;
+    onPessoaSalva(cpfExistente.id);
+  };
+
   const preencherEnderecoPorCep = async (cepValue) => {
     const cepLimpo = String(cepValue || '').replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
@@ -194,6 +226,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
     if (name === 'cpf') {
       setDadosConsulta(null);
       setSituacaoLoja(null);
+      setCpfExistente(null);
     }
     if (name === 'cep') {
       const digits = value.replace(/\D/g, '');
@@ -221,6 +254,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
     });
     setDadosConsulta(null);
     setSituacaoLoja(null);
+    setCpfExistente(null);
   };
 
   const garantirPessoaSalva = async () => {
@@ -341,6 +375,15 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
 
     if (!lojaAtivaId) {
       return mostrarAviso('Erro', 'Nenhuma loja ativa selecionada.', 'erro');
+    }
+
+    if (!isEdicao && cpfExistente?.id) {
+      const ir = await confirm(
+        `Já existe um cadastro com este CPF/CNPJ: ${cpfExistente.nome}.\n\nNão é possível criar outro. Deseja abrir o cadastro existente?`,
+        { title: 'CPF/CNPJ já cadastrado', confirmLabel: 'Abrir cadastro', cancelLabel: 'Cancelar' }
+      );
+      if (ir) abrirCadastroExistente();
+      return;
     }
 
     setSalvando(true);
@@ -591,6 +634,19 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
                 <span style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
                   CPF exige data de nascimento · consome 1 crédito · plano Profissional
                 </span>
+                {!pessoaId && cpfExistente && (
+                  <div style={styles.cpfExistenteBox}>
+                    <span>
+                      Já existe cadastro com este CPF/CNPJ: <strong>{cpfExistente.nome}</strong>.
+                      Não é possível criar outro.
+                    </span>
+                    {onPessoaSalva && (
+                      <button type="button" style={styles.btnAbrirExistente} onClick={abrirCadastroExistente}>
+                        Abrir cadastro
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={{...styles.inputGroup, gridColumn: 'span 6'}}>
@@ -962,6 +1018,32 @@ const styles = {
     backgroundColor: '#1e293b', color: '#e2e8f0', border: '1px solid #334155',
     borderRadius: '6px', padding: '8px 12px', fontSize: '12px',
     fontWeight: 600, cursor: 'pointer',
+  },
+  cpfExistenteBox: {
+    marginTop: '8px',
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '10px',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    border: '1px solid rgba(245, 158, 11, 0.35)',
+    borderRadius: '8px',
+    padding: '10px 12px',
+    color: '#fbbf24',
+    fontSize: '12px',
+    lineHeight: 1.45,
+  },
+  btnAbrirExistente: {
+    backgroundColor: '#f59e0b',
+    color: '#0f111a',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '7px 12px',
+    fontSize: '12px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
   },
   sectionDivider: { color: '#fff', fontSize: '14px', margin: '30px 0 15px 0', paddingBottom: '10px', borderBottom: '1px solid #1f2233' },
 
