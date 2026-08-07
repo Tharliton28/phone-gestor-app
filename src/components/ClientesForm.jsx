@@ -576,7 +576,7 @@ const ClientesForm = ({ aoVoltar, pessoaId = null, onPessoaSalva = null }) => {
                     <p style={styles.authHint}>
                       {autorizacaoOk
                         ? `Titular autorizou${formData.autorizaConsultaOrigem ? ` (${formData.autorizaConsultaOrigem.replace(/_/g, ' ')})` : ''}. Você já pode consultar.`
-                        : 'Para consultar CPF/CNPJ, o cliente assina um termo de atendimento (link) — ou o termo de OS. Sem interrogatório no cadastro.'}
+                        : 'Para consultar CPF/CNPJ, o cliente assina um termo de atendimento (link) — ou o termo de OS.'}
                     </p>
                     {linkAuthPendente && !autorizacaoOk && (
                       <p style={{ ...styles.authHint, color: '#fbbf24', marginTop: 6 }}>
